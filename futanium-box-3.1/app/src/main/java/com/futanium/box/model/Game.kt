@@ -20,14 +20,15 @@ data class GameDto(
 // Modelo que o Adapter usa (sem header/background)
 data class Game(
     val championship: String?,
-    val time: String?,            // vamos usar start_time aqui
+    val championshipImageUrl: String?,
     val homeName: String?,
-    val awayName: String?,
     val homeLogo: String?,
+    val awayName: String?,
     val awayLogo: String?,
-    val isLive: Boolean = false,
-    val isFinished: Boolean = false,
-    val championshipImageUrl: String? = null
+    val time: String?,
+    val isLive: Boolean? = null,
+    val isFinished: Boolean? = null,
+    val buttons: List<Any>? = null
 )
 
 // conversão prática DTO -> UI model
