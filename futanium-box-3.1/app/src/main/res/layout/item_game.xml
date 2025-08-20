@@ -1,82 +1,120 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_margin="8dp"
+    android:layout_margin="12dp"
+    app:cardCornerRadius="16dp"
     app:cardUseCompatPadding="true"
-    app:cardCornerRadius="12dp"
     app:cardElevation="6dp">
 
-    <LinearLayout
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="12dp">
+        android:padding="16dp">
 
-        <!-- Campeonato -->
+        <!-- Linha do campeonato -->
+        <ImageView
+            android:id="@+id/imgChamp"
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            android:contentDescription="@null"/>
+
         <TextView
-            android:id="@+id/txtChampionship"
+            android:id="@+id/tvChamp"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Libertadores"
+            android:textColor="#222222"
+            android:textSize="16sp"
+            app:layout_constraintStart_toEndOf="@id/imgChamp"
+            app:layout_constraintTop_toTopOf="@id/imgChamp"
+            app:layout_constraintBottom_toBottomOf="@id/imgChamp"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginStart="8dp"/>
+
+        <!-- Nome do time da casa (à esquerda) -->
+        <TextView
+            android:id="@+id/tvHomeName"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textStyle="bold"
-            android:textColor="@android:color/black"
-            android:text="Campeonato" />
+            android:text="Bahia"
+            android:textSize="18sp"
+            android:textStyle="normal"
+            android:textColor="#333333"
+            android:maxLines="1"
+            android:ellipsize="end"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/tvChamp"
+            android:layout_marginTop="18dp"/>
 
-        <!-- Times -->
+        <!-- Escudo da casa logo após o nome -->
+        <ImageView
+            android:id="@+id/imgHome"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:contentDescription="@null"
+            app:layout_constraintStart_toEndOf="@id/tvHomeName"
+            app:layout_constraintTop_toTopOf="@id/tvHomeName"
+            app:layout_constraintBottom_toBottomOf="@id/tvHomeName"
+            android:layout_marginStart="8dp"/>
+
+        <!-- HORA central em negrito -->
+        <TextView
+            android:id="@+id/tvTime"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="19:30"
+            android:textStyle="bold"
+            android:textSize="20sp"
+            android:textColor="#000000"
+            app:layout_constraintTop_toTopOf="@id/tvHomeName"
+            app:layout_constraintBottom_toBottomOf="@id/tvHomeName"
+            app:layout_constraintStart_toEndOf="@id/imgHome"
+            app:layout_constraintEnd_toStartOf="@id/imgAway"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"/>
+
+        <!-- Escudo do visitante antes do nome da direita -->
+        <ImageView
+            android:id="@+id/imgAway"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:contentDescription="@null"
+            app:layout_constraintTop_toTopOf="@id/tvTime"
+            app:layout_constraintBottom_toBottomOf="@id/tvTime"
+            app:layout_constraintEnd_toStartOf="@id/tvAwayName"
+            android:layout_marginEnd="8dp"/>
+
+        <!-- Nome do visitante (direita), colado no escudo -->
+        <TextView
+            android:id="@+id/tvAwayName"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Fluminense"
+            android:textSize="18sp"
+            android:textStyle="normal"
+            android:textColor="#333333"
+            android:maxLines="1"
+            android:ellipsize="end"
+            app:layout_constraintTop_toTopOf="@id/tvHomeName"
+            app:layout_constraintBottom_toBottomOf="@id/tvHomeName"
+            app:layout_constraintEnd_toEndOf="parent"/>
+
+        <!-- Container de botões (expansível; começa escondido) -->
         <LinearLayout
-            android:layout_width="match_parent"
+            android:id="@+id/btnContainer"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:paddingTop="8dp"
-            android:paddingBottom="8dp">
-
-            <ImageView
-                android:id="@+id/imgHomeTeam"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:scaleType="fitCenter" />
-
-            <TextView
-                android:id="@+id/txtHomeTeam"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="8dp"
-                android:textStyle="bold"
-                android:text="Mandante" />
-
-            <TextView
-                android:id="@+id/txtVs"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="vs"
-                android:paddingHorizontal="6dp" />
-
-            <TextView
-                android:id="@+id/txtVisitingTeam"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginEnd="8dp"
-                android:textStyle="bold"
-                android:gravity="end"
-                android:text="Visitante" />
-
-            <ImageView
-                android:id="@+id/imgVisitingTeam"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:scaleType="fitCenter" />
-        </LinearLayout>
-
-        <!-- Horário -->
-        <TextView
-            android:id="@+id/txtTime"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="21:30"
-            android:textColor="@android:color/darker_gray" />
-    </LinearLayout>
-</androidx.cardview.widget.CardView>
+            android:gravity="center"
+            android:layout_marginTop="14dp"
+            android:visibility="gone"
+            app:layout_constraintTop_toBottomOf="@id/tvAwayName"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</com.google.android.material.card.MaterialCardView>
