@@ -24,7 +24,7 @@ class MainActivity : AppCompatActivity() {
     private val adapter = GameAdapter()
 
     // TODO: troque pela sua URL real
-    private val API_URL = "https://exemplo.com/api/jogos-hoje.json"
+    private val API_URL = "http://91.108.124.236:8080/games/api"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
