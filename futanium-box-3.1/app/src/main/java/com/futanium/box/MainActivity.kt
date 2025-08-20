@@ -22,6 +22,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var vb: ActivityMainBinding
     private val client = OkHttpClient()
     private val adapter = GameAdapter()
+    val games = ArrayList<Game>()
 
     // TODO: troque pela sua URL real
     private val API_URL = "http://91.108.124.236:8080/games/api"
