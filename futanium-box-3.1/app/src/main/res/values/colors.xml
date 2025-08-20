@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bluePrimary">#1A73E8</color> <!-- Azul forte (Google Blue) -->
+    <color name="blueDark">#1558B0</color>   <!-- Azul escuro para status bar -->
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+    <color name="grayText">#666666</color>
+</resources>
