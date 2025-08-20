@@ -14,21 +14,20 @@
         app:titleCentered="false"
         app:titleTextColor="@android:color/white" />
 
-    <LinearLayout
+    <!-- ... mantém o <MaterialToolbar .../> como já está ... -->
+
+<androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+    android:id="@+id/swipe"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:layout_marginTop="?attr/actionBarSize">
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvGames"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:padding="16dp"
-        android:gravity="center_horizontal"
-        android:layout_marginTop="?attr/actionBarSize">
-
-        <TextView
-            android:id="@+id/subtitle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Hello 👋 Projeto pronto para build!"
-            android:textColor="#666"
-            android:textSize="16sp"/>
-    </LinearLayout>
+        android:padding="8dp"
+        android:clipToPadding="false"/>
+</androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
