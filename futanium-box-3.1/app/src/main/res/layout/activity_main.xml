@@ -5,25 +5,15 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <!-- Barra superior com suporte a sombra -->
-    <com.google.android.material.appbar.AppBarLayout
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:theme="@style/ThemeOverlay.MaterialComponents.Dark.ActionBar"
-        android:elevation="4dp">
+        android:layout_height="?attr/actionBarSize"
+        android:background="@color/futaniumBlue"   <!-- azul forte -->
+        app:title="Futanium Box 3.1"
+        app:titleCentered="false"
+        app:titleTextColor="@android:color/white" />
 
-        <com.google.android.material.appbar.MaterialToolbar
-            android:id="@+id/toolbar"
-            android:layout_width="match_parent"
-            android:layout_height="?attr/actionBarSize"
-            app:title="Futanium Box 3.1"
-            app:titleCentered="false"
-            app:titleTextColor="@android:color/white"
-            app:backgroundTint="#1565C0" />
-
-    </com.google.android.material.appbar.AppBarLayout>
-
-    <!-- Conteúdo da tela -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -40,5 +30,4 @@
             android:textColor="#666"
             android:textSize="16sp"/>
     </LinearLayout>
-
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
