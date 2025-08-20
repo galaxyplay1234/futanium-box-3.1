@@ -44,4 +44,15 @@ dependencies {
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.activity:activity-ktx:1.9.2")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+    // UI
+implementation("androidx.recyclerview:recyclerview:1.3.2")
+implementation("androidx.cardview:cardview:1.0.0")
+implementation("com.google.android.material:material:1.12.0")
+
+// HTTP + JSON
+implementation("com.squareup.okhttp3:okhttp:4.12.0")
+implementation("org.json:json:20240303")
+
+// Imagens (para os escudos etc.)
+implementation("io.coil-kt:coil:2.6.0")
 }
