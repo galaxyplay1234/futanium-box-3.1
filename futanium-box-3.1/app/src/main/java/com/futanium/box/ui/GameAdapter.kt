@@ -1,45 +1,48 @@
 package com.futanium.box.ui
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.net.Uri
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.recyclerview.widget.RecyclerView
 import coil.load
 import com.futanium.box.R
 import com.futanium.box.model.Game
-import com.google.android.material.button.MaterialButton
-import com.google.android.material.card.MaterialCardView
 
 class GameAdapter(
     private val items: MutableList<Game> = mutableListOf()
 ) : RecyclerView.Adapter<GameAdapter.VH>() {
 
-    private var expandedPos = RecyclerView.NO_POSITION
+    /** guarda qual posição está expandida; -1 = nenhuma */
+    private var expandedPos: Int = -1
 
     fun submit(newItems: List<Game>) {
         items.clear()
         items.addAll(newItems)
-        expandedPos = RecyclerView.NO_POSITION
+        expandedPos = -1
         notifyDataSetChanged()
     }
 
     inner class VH(v: View) : RecyclerView.ViewHolder(v) {
-        val cardRoot: MaterialCardView = v.findViewById(R.id.cardRoot)
-        val tvChamp: TextView          = v.findViewById(R.id.tvChamp)
+        val txtChampionship: TextView  = v.findViewById(R.id.txtChampionship)
+        val imgHomeTeam: ImageView     = v.findViewById(R.id.imgHomeTeam)
+        val txtHomeTeam: TextView      = v.findViewById(R.id.txtHomeTeam)
+        val txtVs: TextView            = v.findViewById(R.id.txtVs)
+        val txtVisitingTeam: TextView  = v.findViewById(R.id.txtVisitingTeam)
+        val imgVisitingTeam: ImageView = v.findViewById(R.id.imgVisitingTeam)
+        val txtTime: TextView          = v.findViewById(R.id.txtTime)
 
-        val ivHome: ImageView          = v.findViewById(R.id.ivHome)
-        val tvHome: TextView           = v.findViewById(R.id.tvHome)
-
-        val tvTime: TextView           = v.findViewById(R.id.tvTime)
-
-        val ivAway: ImageView          = v.findViewById(R.id.ivAway)
-        val tvAway: TextView           = v.findViewById(R.id.tvAway)
-
+        // área de expansão
         val divider: View              = v.findViewById(R.id.divider)
         val groupButtons: LinearLayout = v.findViewById(R.id.groupButtons)
+        val root: View                 = v // clique no card inteiro
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
@@ -53,65 +56,136 @@ class GameAdapter(
     override fun onBindViewHolder(h: VH, position: Int) {
         val g = items[position]
 
-        // Topo: campeonato
-        h.tvChamp.text = g.championship.orEmpty()
+        // topo
+        h.txtChampionship.text = g.championship.orEmpty()
 
-        // Lado esquerdo (mandante)
-        h.tvHome.text = g.homeName.orEmpty()
-        h.ivHome.load(g.homeLogo) {
+        // times
+        h.txtHomeTeam.text = g.homeName.orEmpty()
+        h.txtVisitingTeam.text = g.awayName.orEmpty()
+
+        // hora: só o início (já vem pronto do parse)
+        h.txtTime.text = g.time.orEmpty()
+
+        // se você quiser esconder o "vs" e usar só a hora, comente a linha abaixo:
+        h.txtVs.text = "vs"
+
+        // logos
+        h.imgHomeTeam.load(g.homeLogo) {
+            crossfade(true)
+            placeholder(android.R.drawable.stat_sys_download)
+            error(android.R.drawable.ic_menu_report_image)
+        }
+        h.imgVisitingTeam.load(g.awayLogo) {
             crossfade(true)
             placeholder(android.R.drawable.stat_sys_download)
             error(android.R.drawable.ic_menu_report_image)
         }
 
-        // Centro: hora (em negrito no layout)
-        h.tvTime.text = g.time.orEmpty()
+        // ====== BOTÕES (expansão) ======
+        val btns = g.buttons ?: emptyList()
+        val hasButtons = btns.isNotEmpty()
 
-        // Lado direito (visitante)
-        h.tvAway.text = g.awayName.orEmpty()
-        h.ivAway.load(g.awayLogo) {
-            crossfade(true)
-            placeholder(android.R.drawable.stat_sys_download)
-            error(android.R.drawable.ic_menu_report_image)
-        }
-
-        // --- Expand/Collapse somente se houver botões ---
-        val hasButtons = !g.buttons.isNullOrEmpty()
+        // estado expandido/fechado
         val isExpanded = (position == expandedPos) && hasButtons
-
         h.divider.visibility = if (isExpanded) View.VISIBLE else View.GONE
         h.groupButtons.visibility = if (isExpanded) View.VISIBLE else View.GONE
-        h.groupButtons.removeAllViews()
 
+        // recria botões quando expandido
         if (isExpanded) {
-            val ctx = h.itemView.context
-            val pad = (8 * ctx.resources.displayMetrics.density).toInt()
-            g.buttons!!.forEachIndexed { i, label ->
-                val btn = MaterialButton(ctx, null,
-                    com.google.android.material.R.attr.materialButtonOutlinedStyle
-                ).apply {
-                    text = label
-                    isAllCaps = false
+            h.groupButtons.removeAllViews()
+            btns.forEachIndexed { idx, anyBtn ->
+                val (title, link) = extractTitleAndLink(anyBtn, idx)
+                val b = Button(h.itemView.context).apply {
+                    text = title
+                    // estilo simples; você pode trocar por MaterialButton se quiser
+                    setOnClickListener {
+                        openLink(h.itemView, link)
+                    }
                 }
-                val lp = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                )
-                if (i > 0) lp.marginStart = pad
-                h.groupButtons.addView(btn, lp)
-
-                // TODO: clique do botão -> abrir link/player quando você definir
-                // btn.setOnClickListener { ... }
+                h.groupButtons.addView(b)
             }
+        } else {
+            // fechado: não precisa manter botões prontos
+            h.groupButtons.removeAllViews()
         }
 
-        // Clique no card: abre/fecha só se tiver botões
-        h.cardRoot.setOnClickListener {
+        // clique no card: abre/fecha apenas se tiver botões
+        h.root.setOnClickListener {
             if (!hasButtons) return@setOnClickListener
-            val prev = expandedPos
-            expandedPos = if (position == expandedPos) RecyclerView.NO_POSITION else position
-            if (prev != RecyclerView.NO_POSITION) notifyItemChanged(prev)
+
+            val old = expandedPos
+            expandedPos = if (position == expandedPos) -1 else position
+
+            if (old != -1) notifyItemChanged(old)
             notifyItemChanged(position)
         }
     }
+
+    /** Tenta extrair (nome, url) de um item de botão vindo da API
+     *
+     * Aceita formatos:
+     *  - data class com props 'name' e 'url'
+     *  - Map<String, Any?> com chaves 'name' e 'url'
+     *  - org.json.JSONObject com 'name' e 'url'
+     *  - Se 'name' vier como "Canal 1 go:espn1", transforma:
+     *        título -> "Canal 1"
+     *        link   -> "go:espn1"
+     */
+    @Suppress("UNCHECKED_CAST")
+    private fun extractTitleAndLink(anyBtn: Any, index: Int): Pair<String, String> {
+        var rawName: String? = null
+        var rawUrl: String? = null
+
+        when (anyBtn) {
+            is ButtonInfo -> {
+                rawName = anyBtn.name
+                rawUrl = anyBtn.url
+            }
+            is Map<*, *> -> {
+                rawName = anyBtn["name"]?.toString()
+                rawUrl  = anyBtn["url"]?.toString()
+            }
+            is org.json.JSONObject -> {
+                rawName = anyBtn.optString("name", null)
+                rawUrl  = anyBtn.optString("url", null)
+            }
+            else -> {
+                // fallback desconhecido: usa toString no name
+                rawName = anyBtn.toString()
+            }
+        }
+
+        // regra "Canal 1 go:espn1" => ("Canal 1", "go:espn1")
+        var title = rawName?.trim().orEmpty()
+        var link = rawUrl?.trim().orEmpty()
+
+        // extrai "go:xyz" do final do nome, se existir
+        val goMatch = Regex("""\s+(go:\S+)\s*$""").find(title)
+        if (goMatch != null) {
+            link = goMatch.groupValues[1]
+            title = title.removeRange(goMatch.range).trim()
+        }
+
+        if (title.isBlank()) title = "Canal ${index + 1}"
+        if (link.isBlank())  link  = rawUrl?.takeIf { it.isNotBlank() } ?: "#"
+
+        return title to link
+    }
+
+    private fun openLink(view: View, link: String) {
+        try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(link))
+            view.context.startActivity(intent)
+        } catch (_: ActivityNotFoundException) {
+            Toast.makeText(view.context, "Não há app para abrir: $link", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(view.context, "Erro ao abrir link: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
 }
+
+/** Opcional: se você tiver um modelo forte para botão. */
+data class ButtonInfo(
+    val name: String?,
+    val url: String?
+)
