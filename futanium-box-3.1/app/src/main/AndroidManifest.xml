@@ -6,11 +6,11 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
 
     <application
+        android:label="Futanium Box"
+        android:icon="@android:drawable/sym_def_app_icon"
+        android:roundIcon="@android:drawable/sym_def_app_icon"
         android:allowBackup="true"
-        android:label="Futanium Box 3.1"
-        android:icon="@mipmap/ic_launcher"
-        android:roundIcon="@mipmap/ic_launcher_round"
-        android:supportsRtl="true"
+        android:supportsRtl="true">
         android:theme="@style/Theme.Material3.DayNight.NoActionBar">
         <activity
             android:name=".MainActivity"
