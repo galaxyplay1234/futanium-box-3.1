@@ -1,0 +1,13 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <style name="Theme.FutaniumBox" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Cor principal da AppBar -->
+        <item name="colorPrimary">@color/bluePrimary</item>
+        <item name="colorPrimaryDark">@color/blueDark</item>
+        <item name="colorOnPrimary">@color/white</item>
+
+        <!-- Fundo padrão -->
+        <item name="android:windowBackground">@color/white</item>
+    </style>
+
+</resources>
