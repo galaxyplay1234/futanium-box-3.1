@@ -5,29 +5,31 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
+    <!-- Toolbar fixa no topo -->
     <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
-        android:background="@color/futaniumBlue"
+        android:background="#151723"             <!-- cor pedida -->
+        android:elevation="6dp"                  <!-- sombra leve -->
+        app:elevation="6dp"
         app:title="Futanium Box 3.1"
         app:titleCentered="false"
         app:titleTextColor="@android:color/white" />
 
-    <!-- ... mantém o <MaterialToolbar .../> como já está ... -->
-
-<androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-    android:id="@+id/swipe"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:layout_marginTop="?attr/actionBarSize">
-
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rvGames"
+    <!-- Conteúdo com pull-to-refresh abaixo da barra -->
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/swipe"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:padding="8dp"
-        android:clipToPadding="false"/>
-</androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+        android:layout_marginTop="?attr/actionBarSize">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvGames"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:padding="8dp"
+            android:clipToPadding="false"/>
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
