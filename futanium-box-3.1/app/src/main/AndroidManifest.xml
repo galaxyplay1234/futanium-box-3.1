@@ -10,8 +10,9 @@
         android:icon="@android:drawable/sym_def_app_icon"
         android:roundIcon="@android:drawable/sym_def_app_icon"
         android:allowBackup="true"
-        android:supportsRtl="true">
+        android:supportsRtl="true"
         android:theme="@style/Theme.Material3.DayNight.NoActionBar">
+
         <activity
             android:name=".MainActivity"
             android:exported="true">
@@ -20,6 +21,7 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+
     </application>
 
 </manifest>
