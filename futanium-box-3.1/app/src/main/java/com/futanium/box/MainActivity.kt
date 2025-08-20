@@ -22,9 +22,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var vb: ActivityMainBinding
     private val client = OkHttpClient()
     private val adapter = GameAdapter()
-    val games = ArrayList<Game>()
+    private val games = ArrayList<Game>()
 
-    // TODO: troque pela sua URL real
     private val API_URL = "http://91.108.124.236:8080/games/api"
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -32,7 +31,6 @@ class MainActivity : AppCompatActivity() {
         vb = ActivityMainBinding.inflate(layoutInflater)
         setContentView(vb.root)
 
-        // toolbar já configurada no layout (título à esquerda)
         setSupportActionBar(vb.toolbar)
 
         vb.rvGames.layoutManager = LinearLayoutManager(this)
@@ -44,7 +42,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        menuInflater.inflate(R.menu.main_menu, menu) // já criamos antes
+        menuInflater.inflate(R.menu.main_menu, menu)
         return true
     }
 
@@ -87,30 +85,44 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
-    // Exemplo de JSON aceito:
-    // [
-    //   {"championship":"Brasileirão","time":"21:30",
-    //    "homeName":"Flamengo","homeLogo":"https://.../fla.png",
-    //    "awayName":"Palmeiras","awayLogo":"https://.../pal.png"}
-    // ]
+    /** Converte o JSON da sua API -> lista de Game.
+     *  Ignora entradas que sejam 'header'. NÃO usa 'background'. */
     private fun parseGames(json: String): List<Game> {
         val arr = JSONArray(json)
         val list = ArrayList<Game>(arr.length())
         for (i in 0 until arr.length()) {
             val o: JSONObject = arr.getJSONObject(i)
+
+            // pular itens de header
+            if (o.has("header")) continue
+
+            val championship        = o.optString("championship", "")
+            val startTime           = o.optString("start_time", "")
+            val endTime             = o.optString("end_time", "")
+            val homeTeam            = o.optString("home_team", "")
+            val visitingTeam        = o.optString("visiting_team", "")
+            val homeLogo            = o.optString("home_team_image_url", null)
+            val visitingLogo        = o.optString("visiting_team_image_url", null)
+            val isLive              = o.optBoolean("is_live", false)
+            val isFinished          = o.optBoolean("is_finished", false)
+
+            // Se quiser mostrar "16h00" ou "16h00–18h10"
+            val timeText = if (endTime.isNotBlank()) "$startTime – $endTime" else startTime
+
             list += Game(
-                championship = o.optString("championship"),
-                time = o.optString("time"),
-                homeName = o.optString("homeName"),
-                homeLogo = o.optString("homeLogo", null),
-                awayName = o.optString("awayName"),
-                awayLogo = o.optString("awayLogo", null),
+                championship = championship,
+                time = timeText,
+                homeName = homeTeam,
+                homeLogo = homeLogo,
+                awayName = visitingTeam,
+                awayLogo = visitingLogo,
+                isLive = isLive,
+                isFinished = isFinished
             )
         }
         return list
     }
 
-    // --- animação do ícone "atualizar" (rotaciona enquanto carrega) ---
     private fun spinMenuItem(item: MenuItem) {
         val iv = ImageView(this).apply { setImageDrawable(item.icon) }
         MenuItemCompat.setActionView(item, iv)
@@ -119,9 +131,10 @@ class MainActivity : AppCompatActivity() {
             repeatCount = ObjectAnimator.INFINITE
         }.start()
     }
+
     private fun stopSpin(item: MenuItem) {
         val v = MenuItemCompat.getActionView(item)
-        (v?.animation)?.cancel()
+        v?.animate()?.cancel()
         MenuItemCompat.setActionView(item, null)
     }
 }
