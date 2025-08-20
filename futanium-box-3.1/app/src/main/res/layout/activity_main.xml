@@ -9,7 +9,7 @@
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
-        android:background="@color/futaniumBlue"   <!-- azul forte -->
+        android:background="@color/futaniumBlue"
         app:title="Futanium Box 3.1"
         app:titleCentered="false"
         app:titleTextColor="@android:color/white" />
@@ -30,4 +30,5 @@
             android:textColor="#666"
             android:textSize="16sp"/>
     </LinearLayout>
+
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
