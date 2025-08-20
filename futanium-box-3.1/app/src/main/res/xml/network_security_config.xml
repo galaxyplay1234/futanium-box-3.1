@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
-    <!-- Troque pelo seu domínio (SEM http://) -->
     <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="true">http://91.108.124.236:8080/games/api</domain>
+        <!-- Apenas o IP, sem http://, porta ou path -->
+        <domain includeSubdomains="true">91.108.124.236</domain>
     </domain-config>
 </network-security-config>
