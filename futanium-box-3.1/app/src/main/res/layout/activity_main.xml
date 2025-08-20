@@ -5,19 +5,19 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <!-- Toolbar fixa no topo -->
+    
     <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
-        android:background="#151723"             <!-- cor pedida -->
-        android:elevation="6dp"                  <!-- sombra leve -->
+        android:background="#151723"             
+        android:elevation="6dp"                  
         app:elevation="6dp"
         app:title="Futanium Box 3.1"
         app:titleCentered="false"
         app:titleTextColor="@android:color/white" />
 
-    <!-- Conteúdo com pull-to-refresh abaixo da barra -->
+   
     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
         android:id="@+id/swipe"
         android:layout_width="match_parent"
