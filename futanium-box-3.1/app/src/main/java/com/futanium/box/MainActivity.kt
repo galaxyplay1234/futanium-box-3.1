@@ -13,7 +13,11 @@ class MainActivity : AppCompatActivity() {
         vb = ActivityMainBinding.inflate(layoutInflater)
         setContentView(vb.root)
 
-        vb.title.text = "Futanium Box 3.1"
+        // Usa a Toolbar como ActionBar e define o título à esquerda
+        setSupportActionBar(vb.toolbar)
+        supportActionBar?.title = "Futanium Box 3.1"
+
+        // Conteúdo da tela
         vb.subtitle.text = "Hello 👋 Projeto pronto para build!"
     }
 }
