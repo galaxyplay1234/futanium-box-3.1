@@ -16,6 +16,10 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONArray
 import org.json.JSONObject
+import android.graphics.Color
+import android.graphics.Typeface
+import android.util.TypedValue
+import android.widget.TextView
 
 class MainActivity : AppCompatActivity() {
 
@@ -32,6 +36,24 @@ class MainActivity : AppCompatActivity() {
         setContentView(vb.root)
 
         setSupportActionBar(vb.toolbar)
+
+        // Status bar #10131C
+window.statusBarColor = Color.parseColor("#10131C")
+
+// Sombra leve na toolbar
+vb.toolbar.elevation = 6f
+
+// Título menor e em negrito, alinhado à esquerda
+vb.toolbar.post {
+    for (i in 0 until vb.toolbar.childCount) {
+        val child = vb.toolbar.getChildAt(i)
+        if (child is TextView) {
+            child.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f) // um pouco menor
+            child.typeface = Typeface.DEFAULT_BOLD              // negrito
+            break
+        }
+    }
+}
 
         vb.rvGames.layoutManager = LinearLayoutManager(this)
         vb.rvGames.adapter = adapter
