@@ -28,11 +28,11 @@ jobs:
       - name: Build Debug APK
         uses: gradle/gradle-build-action@v3
         with:
-          gradle-version: 8.7
+          build-root-directory: futanium-box-3.1    # <<< AQUI aponta para a pasta do projeto
           arguments: :app:assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
-          path: app/build/outputs/apk/debug/*.apk
+          path: futanium-box-3.1/app/build/outputs/apk/debug/*.apk
