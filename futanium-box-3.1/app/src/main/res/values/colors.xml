@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Azul forte que estamos usando -->
     <color name="bluePrimary">#1565C0</color>
-    <!-- Azul mais escuro para containers/sombras -->
     <color name="blueDark">#0D47A1</color>
     <color name="white">#FFFFFF</color>
+    <color name="futaniumBlue">#1976D2</color>
 </resources>
