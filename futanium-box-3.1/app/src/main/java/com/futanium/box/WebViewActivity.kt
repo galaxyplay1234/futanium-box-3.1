@@ -34,6 +34,9 @@ class WebViewActivity : AppCompatActivity() {
 
     private var allowHost: String? = null            // host/eTLD+1 do player atual
     private val blockReady = AtomicBoolean(false)
+
+    // >>> PASSAGEM TEMPORÁRIA após um "per:" (libera alguns redirects de main-frame)
+    private var passThroughLeft: Int = 0
     // --------------------------------
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -117,10 +120,18 @@ class WebViewActivity : AppCompatActivity() {
                 if (u.startsWith("http")) {
                     val host = uri.host?.lowercase(Locale.ROOT) ?: return true
 
-                    // >>> 1) Se estiver na ALLOWLIST (per:), libera a navegação principal
-                    if (matchesAllowlist(host, uLower)) {
-                        // atualiza host principal para o novo destino (ex: encurtador -> player)
+                    // >>> 0) Se estamos em janela de passagem (após per:), deixa seguir e atualiza host
+                    if (passThroughLeft > 0) {
+                        passThroughLeft--
                         allowHost = host
+                        return false
+                    }
+
+                    // >>> 1) Se estiver na ALLOWLIST (per:), libera e abre janela de passagem
+                    if (matchesAllowlist(host, uLower)) {
+                        // permite redirecionar para outro domínio (player final)
+                        passThroughLeft = 4  // margem para cadeia curta de redirects
+                        allowHost = host     // atualiza para o host atual
                         return false
                     }
 
@@ -130,6 +141,7 @@ class WebViewActivity : AppCompatActivity() {
                     if (!same) return true
 
                     // 3) se for navegação principal SEM gesto do usuário (popup), bloqueia
+                    //    (exceto quando em janela de passagem, que já tratamos acima)
                     if (request.isForMainFrame && !request.hasGesture()) return true
 
                     // 4) se a blocklist marcar como ad, bloqueia
