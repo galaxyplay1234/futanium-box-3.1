@@ -7,6 +7,9 @@ on:
     branches: [ "main" ]
   workflow_dispatch:
 
+permissions:
+  contents: write   # necessário para criar release e enviar o APK
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -28,11 +31,24 @@ jobs:
       - name: Build Debug APK
         uses: gradle/gradle-build-action@v3
         with:
-          build-root-directory: futanium-box-3.1    # <<< AQUI aponta para a pasta do projeto
+          build-root-directory: futanium-box-3.1
           arguments: :app:assembleDebug
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      # Opcional: se quiser ainda manter o artifact zipado, deixe este passo.
+      # Caso contrário, remova-o.
+      # - name: Upload APK as artifact (zipado)
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: app-debug
+      #     path: futanium-box-3.1/app/build/outputs/apk/debug/*.apk
+
+      - name: Create GitHub Release with raw APK
+        uses: softprops/action-gh-release@v1
         with:
-          name: app-debug
-          path: futanium-box-3.1/app/build/outputs/apk/debug/*.apk
+          tag_name: build-${{ github.run_number }}
+          name: "Build ${{ github.run_number }}"
+          draft: false
+          prerelease: false
+          files: futanium-box-3.1/app/build/outputs/apk/debug/app-debug.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
