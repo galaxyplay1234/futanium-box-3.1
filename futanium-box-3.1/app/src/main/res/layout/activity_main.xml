@@ -32,4 +32,6 @@
             android:clipToPadding="false"/>
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
-</androidx.coordinatorlayout.widget.CoordinatorLayout>
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    ... 
+    android:background="#F3F3F3">
