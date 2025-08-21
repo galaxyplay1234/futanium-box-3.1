@@ -15,12 +15,13 @@ import androidx.recyclerview.widget.RecyclerView
 import coil.load
 import com.futanium.box.R
 import com.futanium.box.model.Game
+import org.json.JSONObject
 
 class GameAdapter(
     private val items: MutableList<Game> = mutableListOf()
 ) : RecyclerView.Adapter<GameAdapter.VH>() {
 
-    /** qual posição está expandida; -1 = nenhuma */
+    /** posição atualmente expandida; -1 = nenhuma */
     private var expandedPos: Int = -1
 
     fun submit(newItems: List<Game>) {
@@ -31,23 +32,16 @@ class GameAdapter(
     }
 
     inner class VH(v: View) : RecyclerView.ViewHolder(v) {
-        // topo (campeonato)
         val imgChamp: ImageView = v.findViewById(R.id.imgChamp)
         val tvChamp: TextView   = v.findViewById(R.id.tvChamp)
 
-        // linha principal
-        val tvHome: TextView    = v.findViewById(R.id.tvHomeName)
-        val ivHome: ImageView   = v.findViewById(R.id.imgHome)
-        val tvTime: TextView    = v.findViewById(R.id.tvTime)
-        val ivAway: ImageView   = v.findViewById(R.id.imgAway)
-        val tvAway: TextView    = v.findViewById(R.id.tvAwayName)
+        val tvHome: TextView  = v.findViewById(R.id.tvHomeName)
+        val ivHome: ImageView = v.findViewById(R.id.imgHome)
+        val tvTime: TextView  = v.findViewById(R.id.tvTime)
+        val ivAway: ImageView = v.findViewById(R.id.imgAway)
+        val tvAway: TextView  = v.findViewById(R.id.tvAwayName)
 
-        // expansão
-        val divider: View             = v.findViewById(R.id.divider)
-        val btnContainer: LinearLayout= v.findViewById(R.id.btnContainer)
-
-        // clique no card inteiro
-        val cardRoot: View            = v.findViewById(R.id.cardRoot)
+        val btnContainer: LinearLayout = v.findViewById(R.id.btnContainer)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
@@ -61,13 +55,13 @@ class GameAdapter(
     override fun onBindViewHolder(h: VH, position: Int) {
         val g = items[position]
 
-        // --- topo (campeonato) ---
+        // Topo: campeonato (texto + ícone se vier)
         h.tvChamp.text = g.championship.orEmpty()
         h.imgChamp.load(g.championshipImageUrl) {
             crossfade(true)
         }
 
-        // --- nomes + hora + escudos ---
+        // Times e hora
         h.tvHome.text = g.homeName.orEmpty()
         h.tvAway.text = g.awayName.orEmpty()
         h.tvTime.text = g.time.orEmpty()
@@ -83,16 +77,22 @@ class GameAdapter(
             error(android.R.drawable.ic_menu_report_image)
         }
 
-        // ------ botões (expand/collapse) ------
-        val btns = g.buttons ?: emptyList()
-        val hasButtons = btns.isNotEmpty()
+        // ----- BOTÕES -----
+        // Converte g.buttons para uma lista segura de "Any"
+        val btns: List<Any> = when (val raw = g.buttons) {
+            is List<*> -> raw.filterNotNull()
+            else -> emptyList()
+        }
 
+        val hasButtons = btns.isNotEmpty()
         val isExpanded = (position == expandedPos) && hasButtons
-        h.divider.visibility = if (isExpanded) View.VISIBLE else View.GONE
+
+        // Mostra/oculta container
         h.btnContainer.visibility = if (isExpanded) View.VISIBLE else View.GONE
 
+        // (Re)cria os botões quando expandido
+        h.btnContainer.removeAllViews()
         if (isExpanded) {
-            h.btnContainer.removeAllViews()
             btns.forEachIndexed { idx, anyBtn ->
                 val (title, link) = extractTitleAndLink(anyBtn, idx)
                 val b = Button(h.itemView.context).apply {
@@ -101,13 +101,12 @@ class GameAdapter(
                 }
                 h.btnContainer.addView(b)
             }
-        } else {
-            h.btnContainer.removeAllViews()
         }
 
-        // clique no card abre/fecha só se houver botões
-        h.cardRoot.setOnClickListener {
+        // Clique no card (itemView): alterna expansão se tiver botões
+        h.itemView.setOnClickListener {
             if (!hasButtons) return@setOnClickListener
+
             val old = expandedPos
             expandedPos = if (position == expandedPos) -1 else position
 
@@ -116,7 +115,13 @@ class GameAdapter(
         }
     }
 
-    /** Extrai (título, link) de várias formas e suporta "Canal 1 go:espn1" -> ("Canal 1","go:espn1") */
+    /** Extrai (título, link) de um item de botão vindo da API.
+     *  Formatos aceitos:
+     *   - data class ButtonInfo(name,url)
+     *   - Map<String, Any?>
+     *   - JSONObject
+     *  Se o nome vier "Canal 1 go:espn1", vira: ("Canal 1", "go:espn1")
+     */
     @Suppress("UNCHECKED_CAST")
     private fun extractTitleAndLink(anyBtn: Any, index: Int): Pair<String, String> {
         var rawName: String? = null
@@ -125,23 +130,25 @@ class GameAdapter(
         when (anyBtn) {
             is ButtonInfo -> {
                 rawName = anyBtn.name
-                rawUrl  = anyBtn.url
+                rawUrl = anyBtn.url
             }
             is Map<*, *> -> {
                 rawName = anyBtn["name"]?.toString()
                 rawUrl  = anyBtn["url"]?.toString()
             }
-            is org.json.JSONObject -> {
+            is JSONObject -> {
                 rawName = anyBtn.optString("name", null)
                 rawUrl  = anyBtn.optString("url", null)
             }
-            else -> rawName = anyBtn.toString()
+            else -> {
+                rawName = anyBtn.toString()
+            }
         }
 
         var title = rawName?.trim().orEmpty()
-        var link  = rawUrl?.trim().orEmpty()
+        var link = rawUrl?.trim().orEmpty()
 
-        // pega go:xxx no final do nome
+        // Se vier "Canal 1 go:abc", extrai "go:abc" pro link
         val goMatch = Regex("""\s+(go:\S+)\s*$""").find(title)
         if (goMatch != null) {
             link = goMatch.groupValues[1]
@@ -166,7 +173,7 @@ class GameAdapter(
     }
 }
 
-/** opcional (se quiser tipar os botões da API) */
+/** Opcional: caso você queira usar um tipo forte para botões. */
 data class ButtonInfo(
     val name: String?,
     val url: String?
