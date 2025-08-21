@@ -59,6 +59,8 @@ class WebViewActivity : AppCompatActivity() {
             javaScriptEnabled = true
             domStorageEnabled = true
             mediaPlaybackRequiresUserGesture = false
+            supportMultipleWindows = false
+            javaScriptCanOpenWindowsAutomatically = false
 
             builtInZoomControls = false
             displayZoomControls = false
@@ -132,45 +134,42 @@ class WebViewActivity : AppCompatActivity() {
             }
 
             // Bloqueio de recursos secundários (imagens, scripts, iframes)
-            override fun shouldInterceptRequest(
-                view: WebView,
-                request: WebResourceRequest
-            ): WebResourceResponse? {
-                if (request.isForMainFrame) return null
-                if (!blockReady.get()) return null
+            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+    val u = request.url.toString()
+    val host = request.url.host?.lowercase() ?: return true
 
-                val url = request.url.toString()
-                val host = request.url.host?.lowercase(Locale.ROOT) ?: return null
+    // 2.1) bloquear esquemas que abrem apps externos
+    if (u.startsWith("intent://") || u.startsWith("market://") ||
+        u.startsWith("mailto:") || u.startsWith("tel:") || u.startsWith("sms:")
+    ) return true
 
-                // nunca bloquear mídia do player
-                if (isMediaUrl(url) || url.startsWith("blob:") || url.startsWith("data:")) return null
+    // 2.2) não deixar sair do host principal do player (evita redirecionamento pra anúncios)
+    val allow = allowHost
+    if (request.isForMainFrame && allow != null && host != allow && !host.endsWith(".$allow")) {
+        return true
+    }
 
-                val allow = allowHost
-                if (allow != null && (host == allow || host.endsWith(".$allow"))) return null
+    // 2.3) cliques/aberturas sem gesto do usuário (pop-ups) também são bloqueados
+    if (request.isForMainFrame && !request.hasGesture) {
+        return true
+    }
 
-                if (isBlocked(host, url.lowercase(Locale.ROOT))) {
-                    return WebResourceResponse(
-                        "text/plain", "utf-8",
-                        204, "No Content",
-                        emptyMap(),
-                        ByteArrayInputStream(ByteArray(0))
-                    )
-                }
-                return null
-            }
+    // 2.4) se sua blocklist disser que é ad, barra navegação principal também
+    if (request.isForMainFrame && blockReady.get() && isBlocked(host, u)) {
+        return true
+    }
+
+    // http(s) dentro do mesmo host: deixa seguir no WebView
+    return !u.startsWith("http")
+}
         }
 
-        web.webChromeClient = object : WebChromeClient() {
-            override fun onCreateWindow(
-                view: WebView?,
-                isDialog: Boolean,
-                isUserGesture: Boolean,
-                resultMsg: android.os.Message?
-            ): Boolean {
-                // bloqueia window.open / target=_blank
-                return false
-            }
-        }
+       web.webChromeClient = object : WebChromeClient() {
+    // cancela qualquer window.open / target=_blank
+    override fun onCreateWindow(view: WebView?, isDialog: Boolean, isUserGesture: Boolean, resultMsg: android.os.Message?): Boolean {
+        return false
+    }
+}
 
         if (initialUrl.isNotBlank()) web.loadUrl(initialUrl)
     }
