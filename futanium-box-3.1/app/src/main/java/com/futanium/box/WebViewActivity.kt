@@ -59,9 +59,12 @@ class WebViewActivity : AppCompatActivity() {
             javaScriptEnabled = true
             domStorageEnabled = true
             mediaPlaybackRequiresUserGesture = false
-            supportMultipleWindows = false
+
+            // pop-ups/abas novas
+            setSupportMultipleWindows(false)
             javaScriptCanOpenWindowsAutomatically = false
 
+            // zoom OFF
             builtInZoomControls = false
             displayZoomControls = false
             setSupportZoom(false)
@@ -70,106 +73,117 @@ class WebViewActivity : AppCompatActivity() {
             useWideViewPort = false
             loadWithOverviewMode = false
 
+            // User-Agent de celular (Chrome Android)
             userAgentString =
                 "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
 
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-
-            // bloqueia pop-ups
-            setSupportMultipleWindows(false)
-            javaScriptCanOpenWindowsAutomatically = false
         }
 
         web.webViewClient = object : WebViewClient() {
 
+            // BLOQUEIO de navegação principal (redirecionamentos/clicks que trocam a página)
             override fun shouldOverrideUrlLoading(
                 view: WebView,
                 request: WebResourceRequest
             ): Boolean {
                 val uri = request.url
                 val u = uri.toString()
-                // Sempre permite mídia/blobs na própria guia
+
+                // Sempre permite blobs/dados/mídia na própria guia
                 if (isMediaUrl(u) || u.startsWith("blob:") || u.startsWith("data:")) return false
 
-                // navegação http/https: só permite dentro do mesmo eTLD+1 do player
+                // Esquemas externos -> deixam o Android decidir (fora da WebView)
+                if (u.startsWith("intent://") || u.startsWith("market://")
+                    || u.startsWith("mailto:") || u.startsWith("tel:")
+                    || u.startsWith("sms:")) {
+                    return try {
+                        startActivity(
+                            android.content.Intent(
+                                android.content.Intent.ACTION_VIEW,
+                                Uri.parse(u)
+                            )
+                        )
+                        true
+                    } catch (_: Exception) { true }
+                }
+
+                // http/https
                 if (u.startsWith("http")) {
                     val host = uri.host?.lowercase(Locale.ROOT) ?: return true
                     val allow = allowHost
-                    // se for o mesmo host (ou subdomínio) do player, deixa; senão, bloqueia (ad)
+
+                    // bloqueia navegação para fora do host principal do player
                     val same = allow != null && (host == allow || host.endsWith(".$allow"))
-                    return !same // true => a gente consome e BLOQUEIA a navegação
+                    if (!same) return true
+
+                    // se for navegação principal SEM gesto do usuário (popup), bloqueia
+                    if (request.isForMainFrame && !request.hasGesture()) return true
+
+                    // se a blocklist marcar como ad, bloqueia
+                    if (request.isForMainFrame && blockReady.get() && isBlocked(host, u.lowercase(Locale.ROOT))) {
+                        return true
+                    }
+                    return false // permitir
                 }
 
-                // esquemas externos (intent:, whatsapp:, etc.) — permitir abrir fora
-                return try {
-                    startActivity(
-                        android.content.Intent(
-                            android.content.Intent.ACTION_VIEW,
-                            Uri.parse(u)
-                        )
-                    )
-                    true
-                } catch (_: Exception) {
-                    true
-                }
+                // qualquer outro esquema desconhecido -> consumir (bloquear)
+                return true
             }
 
             override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
                 url?.let {
-                    // atualiza o host principal se o player trocar de URL
+                    // atualiza host principal ao trocar de URL
                     allowHost = runCatching { Uri.parse(it).host?.lowercase(Locale.ROOT) }.getOrNull()
                 }
             }
 
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
-                // injeta JS para neutralizar redirecionamentos/overlays e bloquear cliques para domínios da lista
                 if (blockReady.get()) {
                     injectAdShieldJS()
                 } else {
-                    // mesmo sem lista, ainda anulamos window.open/overlays
                     injectCoreShieldJS(emptyList())
                 }
             }
 
-            // Bloqueio de recursos secundários (imagens, scripts, iframes)
-            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-    val u = request.url.toString()
-    val host = request.url.host?.lowercase() ?: return true
+            // BLOQUEIO de recursos secundários (scripts, iframes, imgs) usando a blocklist
+            override fun shouldInterceptRequest(
+                view: WebView,
+                request: WebResourceRequest
+            ): WebResourceResponse? {
+                // nunca bloquear o frame principal por aqui (deixa a navegação decidir)
+                if (request.isForMainFrame) return null
+                if (!blockReady.get()) return null
 
-    // 2.1) bloquear esquemas que abrem apps externos
-    if (u.startsWith("intent://") || u.startsWith("market://") ||
-        u.startsWith("mailto:") || u.startsWith("tel:") || u.startsWith("sms:")
-    ) return true
+                val url = request.url.toString()
+                val host = request.url.host?.lowercase(Locale.ROOT) ?: return null
 
-    // 2.2) não deixar sair do host principal do player (evita redirecionamento pra anúncios)
-    val allow = allowHost
-    if (request.isForMainFrame && allow != null && host != allow && !host.endsWith(".$allow")) {
-        return true
-    }
+                // nunca bloquear o host do player (e subdomínios)
+                val allow = allowHost
+                if (allow != null && (host == allow || host.endsWith(".$allow"))) {
+                    return null
+                }
 
-    // 2.3) cliques/aberturas sem gesto do usuário (pop-ups) também são bloqueados
-    if (request.isForMainFrame && !request.hasGesture) {
-        return true
-    }
-
-    // 2.4) se sua blocklist disser que é ad, barra navegação principal também
-    if (request.isForMainFrame && blockReady.get() && isBlocked(host, u)) {
-        return true
-    }
-
-    // http(s) dentro do mesmo host: deixa seguir no WebView
-    return !u.startsWith("http")
-}
+                if (isBlocked(host, url.lowercase(Locale.ROOT))) {
+                    return empty204()
+                }
+                return null
+            }
         }
 
-       web.webChromeClient = object : WebChromeClient() {
-    // cancela qualquer window.open / target=_blank
-    override fun onCreateWindow(view: WebView?, isDialog: Boolean, isUserGesture: Boolean, resultMsg: android.os.Message?): Boolean {
-        return false
-    }
-}
+        web.webChromeClient = object : WebChromeClient() {
+            // cancela qualquer window.open / target=_blank
+            override fun onCreateWindow(
+                view: WebView?,
+                isDialog: Boolean,
+                isUserGesture: Boolean,
+                resultMsg: android.os.Message?
+            ): Boolean {
+                return false
+            }
+        }
 
         if (initialUrl.isNotBlank()) web.loadUrl(initialUrl)
     }
@@ -237,19 +251,26 @@ class WebViewActivity : AppCompatActivity() {
                x.endsWith(".vtt")  || x.endsWith(".srt")
     }
 
+    private fun empty204(): WebResourceResponse =
+        WebResourceResponse(
+            "text/plain",
+            "utf-8",
+            204,
+            "No Content",
+            emptyMap(),
+            ByteArrayInputStream(ByteArray(0))
+        )
+
     // ---------- Injeção de JS anti-pop/overlay/redirecionamento ----------
 
     private fun injectAdShieldJS() {
-        // junta tudo num array JS simples (apenas substrings; domínios entram como "*.dominio")
         val tokens = (substringRules + domainRules.map { ".$it" })
             .filter { it.isNotBlank() }
-            .take(2000) // segurança
+            .take(2000)
             .joinToString(separator = "\",\"", prefix = "[\"", postfix = "\"]") { it.replace("\"", "") }
         val js = """
             (function(){
               const LIST = $tokens;
-
-              // helper: verifica se a URL contém algum token da lista
               function isBad(u){
                 if(!u) return false;
                 u = (""+u).toLowerCase();
@@ -257,7 +278,6 @@ class WebViewActivity : AppCompatActivity() {
                   const t = LIST[i];
                   if(!t) continue;
                   if(t.startsWith(".")) {
-                    // domínio: confere host
                     try { 
                       const h = new URL(u, location.href).host.toLowerCase(); 
                       if (h===t.slice(1) || h.endsWith(t)) return true;
@@ -268,27 +288,19 @@ class WebViewActivity : AppCompatActivity() {
                 }
                 return false;
               }
-
-              // neutraliza APIs de navegação maliciosa
-              const NOP = function(){};
               window.open = function(u){ if (isBad(u)) return null; return null; };
               ['assign','replace'].forEach(k=>{
                 const orig = location[k].bind(location);
                 location[k] = function(u){ if (isBad(u)) return; try{orig(u);}catch(e){} };
               });
               Object.defineProperty(window, 'onbeforeunload', {get:()=>null,set:()=>true});
-
-              // captura cliques: bloqueia anchors e handlers que tentem levar a domínio ruim
               window.addEventListener('click', function(e){
                 let el = e.target;
-                // sobe na árvore até achar <a>
                 while (el && el !== document && !('href' in el)) el = el.parentElement;
                 if (el && el.href && isBad(el.href)) {
                   e.preventDefault(); e.stopImmediatePropagation(); return false;
                 }
               }, true);
-
-              // remove overlays comuns de anúncio
               const css = `
                 [id*="ad"], [class*="ad"], .ads, .adsbox, .advert, .adunit,
                 .ad-container, .ad-banner, .ad-overlay, [class*="overlay"] {
@@ -299,8 +311,6 @@ class WebViewActivity : AppCompatActivity() {
               const style = document.createElement('style');
               style.type = 'text/css'; style.appendChild(document.createTextNode(css));
               document.documentElement.appendChild(style);
-
-              // desarma timers que trocam top.location
               const _setInterval = window.setInterval;
               window.setInterval = function(fn, t){
                 if (typeof fn === 'string' && isBad(fn)) return 0;
@@ -312,7 +322,6 @@ class WebViewActivity : AppCompatActivity() {
     }
 
     private fun injectCoreShieldJS(extraTokens: List<String>) {
-        // fallback mínimo (sem lista remota)
         val js = """
             (function(){
               window.open = function(){ return null; };
