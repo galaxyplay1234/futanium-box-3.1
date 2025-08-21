@@ -55,13 +55,20 @@ class GameAdapter(
     override fun onBindViewHolder(h: VH, position: Int) {
         val g = items[position]
 
-        // Topo: campeonato (texto + ícone se vier)
-        h.tvChamp.text = g.championship.orEmpty()
-        h.imgChamp.load(g.championshipImageUrl) {
-            crossfade(true)
+        // Campeonato (esconde se vier vazio)
+        val champName = g.championship.orEmpty()
+        h.tvChamp.text = champName
+        h.tvChamp.visibility = if (champName.isBlank()) View.GONE else View.VISIBLE
+
+        val champLogo = g.championshipImageUrl
+        if (champLogo.isNullOrBlank()) {
+            h.imgChamp.visibility = View.GONE
+        } else {
+            h.imgChamp.visibility = View.VISIBLE
+            h.imgChamp.load(champLogo) { crossfade(true) }
         }
 
-        // Times e hora
+        // Times / hora (hora já vem só o início pelo parse)
         h.tvHome.text = g.homeName.orEmpty()
         h.tvAway.text = g.awayName.orEmpty()
         h.tvTime.text = g.time.orEmpty()
@@ -78,19 +85,11 @@ class GameAdapter(
         }
 
         // ----- BOTÕES -----
-        // Converte g.buttons para uma lista segura de "Any"
-        val btns: List<Any> = when (val raw = g.buttons) {
-            is List<*> -> raw.filterNotNull()
-            else -> emptyList()
-        }
-
+        val btns: List<Any> = (g.buttons as? List<*>)?.filterNotNull() ?: emptyList()
         val hasButtons = btns.isNotEmpty()
         val isExpanded = (position == expandedPos) && hasButtons
 
-        // Mostra/oculta container
         h.btnContainer.visibility = if (isExpanded) View.VISIBLE else View.GONE
-
-        // (Re)cria os botões quando expandido
         h.btnContainer.removeAllViews()
         if (isExpanded) {
             btns.forEachIndexed { idx, anyBtn ->
@@ -103,61 +102,39 @@ class GameAdapter(
             }
         }
 
-        // Clique no card (itemView): alterna expansão se tiver botões
+        // Expansão por clique (só se houver botões)
         h.itemView.setOnClickListener {
             if (!hasButtons) return@setOnClickListener
-
             val old = expandedPos
             expandedPos = if (position == expandedPos) -1 else position
-
             if (old != -1) notifyItemChanged(old)
             notifyItemChanged(position)
         }
     }
 
-    /** Extrai (título, link) de um item de botão vindo da API.
-     *  Formatos aceitos:
-     *   - data class ButtonInfo(name,url)
-     *   - Map<String, Any?>
-     *   - JSONObject
-     *  Se o nome vier "Canal 1 go:espn1", vira: ("Canal 1", "go:espn1")
-     */
-    @Suppress("UNCHECKED_CAST")
+    /** Extrai (título, link) de um item de botão vindo da API */
     private fun extractTitleAndLink(anyBtn: Any, index: Int): Pair<String, String> {
         var rawName: String? = null
         var rawUrl: String? = null
 
         when (anyBtn) {
-            is ButtonInfo -> {
-                rawName = anyBtn.name
-                rawUrl = anyBtn.url
-            }
-            is Map<*, *> -> {
-                rawName = anyBtn["name"]?.toString()
-                rawUrl  = anyBtn["url"]?.toString()
-            }
-            is JSONObject -> {
-                rawName = anyBtn.optString("name", null)
-                rawUrl  = anyBtn.optString("url", null)
-            }
-            else -> {
-                rawName = anyBtn.toString()
-            }
+            is ButtonInfo -> { rawName = anyBtn.name; rawUrl = anyBtn.url }
+            is Map<*, *> -> { rawName = anyBtn["name"]?.toString(); rawUrl = anyBtn["url"]?.toString() }
+            is JSONObject -> { rawName = anyBtn.optString("name", null); rawUrl = anyBtn.optString("url", null) }
+            else -> rawName = anyBtn.toString()
         }
 
         var title = rawName?.trim().orEmpty()
         var link = rawUrl?.trim().orEmpty()
 
-        // Se vier "Canal 1 go:abc", extrai "go:abc" pro link
-        val goMatch = Regex("""\s+(go:\S+)\s*$""").find(title)
-        if (goMatch != null) {
-            link = goMatch.groupValues[1]
-            title = title.removeRange(goMatch.range).trim()
+        // Se vier "Canal 1 go:xxx" -> separa
+        Regex("""\s+(go:\S+)\s*$""").find(title)?.let { m ->
+            link = m.groupValues[1]
+            title = title.removeRange(m.range).trim()
         }
 
         if (title.isBlank()) title = "Canal ${index + 1}"
         if (link.isBlank())  link  = rawUrl?.takeIf { it.isNotBlank() } ?: "#"
-
         return title to link
     }
 
@@ -173,7 +150,7 @@ class GameAdapter(
     }
 }
 
-/** Opcional: caso você queira usar um tipo forte para botões. */
+/** Opcional: tipo forte para botões */
 data class ButtonInfo(
     val name: String?,
     val url: String?
