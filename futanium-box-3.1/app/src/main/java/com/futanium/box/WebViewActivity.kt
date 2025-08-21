@@ -17,119 +17,121 @@ class WebViewActivity : AppCompatActivity() {
     private lateinit var web: WebView
     private lateinit var insets: WindowInsetsControllerCompat
 
-    // Lista simples de hosts e palavras-chave de anúncios (você pode ampliar)
+    // ==== listas simples (pode ampliar depois) ====
     private val adHosts = setOf(
-        "doubleclick.net",
-        "googlesyndication.com",
-        "googletagservices.com",
-        "adservice.google.com",
-        "adservice.google.com.br",
-        "adnxs.com",
-        "taboola.com",
-        "outbrain.com",
-        "criteo.com",
-        "bet365.com",
-        "betway.com"
+        "doubleclick.net","googlesyndication.com","googletagservices.com",
+        "adservice.google.com","adservice.google.com.br",
+        "adnxs.com","taboola.com","outbrain.com","criteo.com",
+        "bet365.com","betway.com","popads.net","propellerads.com",
+        "exoclick.com","revcontent.com","zedo.com","moatads.com"
     )
-
     private val adUrlKeywords = listOf(
-        "/ads?", "/ads/", "adserver", "advert", "banner", "popunder",
-        "interstitial", "propeller", "push-notification", ".m3u8?ads",
-        "preroll", "prebid", "vast", "vmap"
+        "/ads?","/ads/","adserver","advert","banner","popunder","popup",
+        "interstitial","push-notification",".m3u8?ads","/vast","/vmap",
+        "clickid=","gclid=","utm_campaign=ad"
     )
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // conteúdo respeita as barras do sistema; nav bar visível
-        WindowCompat.setDecorFitsSystemWindows(window, true)
-
-        // NAV BAR preta visível, ícones claros
+        WindowCompat.setDecorFitsSystemWindows(window, true) // nav bar visível
         window.navigationBarColor = Color.BLACK
         insets = WindowInsetsControllerCompat(window, window.decorView).apply {
             isAppearanceLightNavigationBars = false
         }
-        hideStatusBar() // esconde apenas a status bar
+        hideStatusBar()
 
         setContentView(R.layout.activity_webview)
 
-        val url = intent.getStringExtra(EXTRA_URL).orEmpty()
+        val initialUrl = intent.getStringExtra(EXTRA_URL).orEmpty()
 
         web = findViewById(R.id.web)
         web.setBackgroundColor(Color.BLACK)
         web.keepScreenOn = true
+        web.isHapticFeedbackEnabled = false
+        web.setOnLongClickListener { true } // sem menu ao segurar
+        web.isLongClickable = false
 
         with(web.settings) {
             javaScriptEnabled = true
             domStorageEnabled = true
             mediaPlaybackRequiresUserGesture = false
 
-            // Bloquear zoom
+            // bloquear zoom
+            setSupportZoom(false)
             builtInZoomControls = false
             displayZoomControls = false
-            setSupportZoom(false)
 
             useWideViewPort = true
             loadWithOverviewMode = true
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
 
-            // Evitar popups/janelas novas
-            setSupportMultipleWindows(false)
-            javaScriptCanOpenWindowsAutomatically = false
+            setSupportMultipleWindows(false)              // 1) não abre nova janela
+            javaScriptCanOpenWindowsAutomatically = false // bloqueia window.open
         }
+
+        // 2) cookies de terceiros off
+        try { CookieManager.getInstance().setAcceptThirdPartyCookies(web, false) } catch (_: Throwable) {}
+
+        // 3) SafeBrowsing ajuda em alguns casos
+        try { WebView.enableSafeBrowsing(this) } catch (_: Throwable) {}
 
         web.webViewClient = object : WebViewClient() {
 
-            // 1) Mantém http/https na WebView; joga esquemas externos para fora
-            override fun shouldOverrideUrlLoading(
-                view: WebView, request: WebResourceRequest
-            ): Boolean {
+            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val u = request.url.toString()
-                return if (u.startsWith("http")) {
-                    false
-                } else {
-                    try {
-                        startActivity(
-                            android.content.Intent(
-                                android.content.Intent.ACTION_VIEW,
-                                Uri.parse(u)
-                            )
-                        )
-                    } catch (_: Exception) {}
-                    true
+                // mantém http/https internamente, mas bloqueia se for anúncio
+                return when {
+                    !u.startsWith("http") -> {
+                        // esquemas externos: tenta abrir fora
+                        try { startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(u))) } catch (_: Exception) {}
+                        true
+                    }
+                    isAdUrl(u) -> true // bloqueia navegação para anúncio
+                    else -> false
                 }
             }
 
-            // 2) Ad-block: intercepta e retorna resposta vazia para anúncios
-            override fun shouldInterceptRequest(
-                view: WebView,
-                request: WebResourceRequest
-            ): WebResourceResponse? {
+            // intercepta sub-recursos de ad (scripts, iframes, etc.)
+            override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
                 val u = request.url.toString()
                 if (isAdUrl(u)) {
-                    // resposta vazia (text/plain) -> recurso “bloqueado”
-                    return WebResourceResponse(
-                        "text/plain", "utf-8",
-                        ByteArrayInputStream(ByteArray(0))
-                    )
+                    return WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
                 }
                 return super.shouldInterceptRequest(view, request)
             }
 
-            // 3) Injeta CSS simples para ocultar banners/overlays comuns
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
+                injectAntiPopupJs()
                 injectAdHiderCss()
             }
         }
 
-        web.webChromeClient = WebChromeClient() // sem barra de progresso
+        web.webChromeClient = object : WebChromeClient() {
+            // 4) bloqueia target=_blank / janelas novas vindas do ChromeClient
+            override fun onCreateWindow(view: WebView, isDialog: Boolean, isUserGesture: Boolean, resultMsg: android.os.Message?): Boolean {
+                // recusa criar nova janela => pop-up não abre
+                return false
+            }
 
-        if (url.isNotBlank()) web.loadUrl(url)
+            // evita JS alerts atrapalhando
+            override fun onJsAlert(view: WebView?, url: String?, message: String?, result: JsResult?): Boolean {
+                result?.cancel(); return true
+            }
+            override fun onJsConfirm(view: WebView?, url: String?, message: String?, result: JsResult?): Boolean {
+                result?.cancel(); return true
+            }
+            override fun onJsPrompt(view: WebView?, url: String?, message: String?, defaultValue: String?, result: JsPromptResult?): Boolean {
+                result?.cancel(); return true
+            }
+        }
+
+        if (initialUrl.isNotBlank()) web.loadUrl(initialUrl)
     }
 
-    // Heurística simples: host na lista OU URL contendo palavras de anúncio
+    // Heurística simples
     private fun isAdUrl(url: String): Boolean {
         val u = try { Uri.parse(url) } catch (_: Exception) { null } ?: return false
         val host = (u.host ?: "").lowercase(Locale.ROOT)
@@ -139,18 +141,68 @@ class WebViewActivity : AppCompatActivity() {
         return false
     }
 
-    // CSS genérico para esconder elementos com id/class de anúncio e popups
+    // Força links a abrirem na mesma aba e cancela clique em domínios de anúncio
+    private fun injectAntiPopupJs() {
+        val blockedHostsJsArray = adHosts.joinToString(",") { "'$it'" }
+        val blockedKwJsArray = adUrlKeywords.joinToString(",") { "'$it'" }
+
+        val js = """
+            (function(){
+              try{
+                // 1) Anula window.open
+                window.open = function(){ return null; };
+
+                // 2) Força todos os <a> a abrirem na mesma aba, sem target=_blank
+                Array.prototype.forEach.call(document.querySelectorAll('a[target="_blank"]'), function(a){
+                  a.setAttribute('target','_self');
+                });
+
+                // 3) Bloqueia cliques para domínios/URLs de anúncio
+                var AD_HOSTS = [$blockedHostsJsArray];
+                var AD_KW = [$blockedKwJsArray];
+                function isAd(href){
+                  if(!href) return false;
+                  var u; try{ u=new URL(href, location.href);}catch(e){return false;}
+                  var host = (u.host||'').toLowerCase();
+                  for (var i=0;i<AD_HOSTS.length;i++){
+                    var h = AD_HOSTS[i];
+                    if (host===h || host.endsWith('.'+h)) return true;
+                  }
+                  var full = u.href.toLowerCase();
+                  for (var j=0;j<AD_KW.length;j++){
+                    if (full.indexOf(AD_KW[j])>=0) return true;
+                  }
+                  return false;
+                }
+
+                document.addEventListener('click', function(e){
+                  var a = e.target && e.target.closest ? e.target.closest('a') : null;
+                  if(!a) return;
+                  var href = a.getAttribute('href');
+                  if(isAd(href)){
+                    e.preventDefault(); e.stopImmediatePropagation(); e.stopPropagation();
+                  } else {
+                    a.setAttribute('target','_self'); // garante mesma aba
+                  }
+                }, true);
+              }catch(e){}
+            })();
+        """.trimIndent()
+
+        try { web.post { web.evaluateJavascript(js, null) } } catch (_: Exception) {}
+    }
+
+    // CSS simples pra esconder overlays/banners conhecidos
     private fun injectAdHiderCss() {
         val css = """
             *[id*="ad"], *[class*="ad"],
             *[id*="banner"], *[class*="banner"],
             *[id*="advert"], *[class*="advert"],
-            *[id*="popup"], *[class*="popup"],
+            *[id*="pop"], *[class*="pop"],
             [class*="sticky"], [id*="sticky"]
-            { display: none !important; }
-            html, body { background: #000 !important; }
-        """.trimIndent().replace("\n", " ")
-            .replace("'", "\\'")
+            { display:none !important; }
+            html, body { background:#000 !important; }
+        """.trimIndent().replace("\n", " ").replace("'", "\\'")
         val js = "javascript:(function(){var s=document.createElement('style');s.innerHTML='$css';document.head.appendChild(s);}())"
         try { web.post { web.loadUrl(js) } } catch (_: Exception) {}
     }
@@ -159,18 +211,13 @@ class WebViewActivity : AppCompatActivity() {
         insets.hide(WindowInsetsCompat.Type.statusBars())
         insets.isAppearanceLightNavigationBars = false
     }
-
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) hideStatusBar()
     }
 
     override fun onBackPressed() {
-        if (this::web.isInitialized && web.canGoBack()) {
-            web.goBack()
-        } else {
-            super.onBackPressed()
-        }
+        if (this::web.isInitialized && web.canGoBack()) web.goBack() else super.onBackPressed()
     }
 
     companion object { const val EXTRA_URL = "url" }
