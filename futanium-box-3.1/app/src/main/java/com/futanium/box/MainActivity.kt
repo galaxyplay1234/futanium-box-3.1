@@ -110,10 +110,10 @@ class MainActivity : AppCompatActivity() {
     /** Converte o JSON da sua API -> lista de Game.
      *  Ignora entradas que sejam 'header'. NÃO usa 'background'. */
     private fun parseGames(json: String): List<Game> {
-        val arr = JSONArray(json)
-        val list = ArrayList<Game>(arr.length())
-        for (i in 0 until arr.length()) {
-            val o: JSONObject = arr.getJSONObject(i)
+    val arr = JSONArray(json)
+    val list = ArrayList<Game>(arr.length())
+    for (i in 0 until arr.length()) {
+        val o: JSONObject = arr.getJSONObject(i
 
             // pular itens de header
             if (o.has("header")) continue
