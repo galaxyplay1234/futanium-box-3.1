@@ -26,9 +26,9 @@ data class Game(
     val awayName: String?,
     val awayLogo: String?,
     val time: String?,
-    val isLive: Boolean? = null,
-    val isFinished: Boolean? = null,
-    val buttons: List<Any>? = null
+    val isLive: Boolean?,
+    val isFinished: Boolean?,
+    val buttons: Any?
 )
 
 // conversão prática DTO -> UI model
