@@ -110,40 +110,43 @@ vb.toolbar.post {
     /** Converte o JSON da sua API -> lista de Game.
      *  Ignora entradas que sejam 'header'. NÃO usa 'background'. */
     private fun parseGames(json: String): List<Game> {
-        val arr = JSONArray(json)
-        val list = ArrayList<Game>(arr.length())
-        for (i in 0 until arr.length()) {
-            val o: JSONObject = arr.getJSONObject(i)
+    val arr = JSONArray(json)
+    val list = ArrayList<Game>(arr.length())
+    for (i in 0 until arr.length()) {
+        val o = arr.getJSONObject(i)
 
-            // pular itens de header
-            if (o.has("header")) continue
+        if (o.has("header")) continue
 
-            val championship        = o.optString("championship", "")
-            val startTime           = o.optString("start_time", "")
-            val endTime             = o.optString("end_time", "")
-            val homeTeam            = o.optString("home_team", "")
-            val visitingTeam        = o.optString("visiting_team", "")
-            val homeLogo            = o.optString("home_team_image_url", null)
-            val visitingLogo        = o.optString("visiting_team_image_url", null)
-            val isLive              = o.optBoolean("is_live", false)
-            val isFinished          = o.optBoolean("is_finished", false)
+        val championship        = o.optString("championship", "")
+        val championshipImg     = o.optString("championship_image_url", null)
+        val startTime           = o.optString("start_time", "")
+        val endTime             = o.optString("end_time", "")
+        val homeTeam            = o.optString("home_team", "")
+        val visitingTeam        = o.optString("visiting_team", "")
+        val homeLogo            = o.optString("home_team_image_url", null)
+        val visitingLogo        = o.optString("visiting_team_image_url", null)
+        val isLive              = o.optBoolean("is_live", false)
+        val isFinished          = o.optBoolean("is_finished", false)
+        val timeText = if (endTime.isNotBlank()) "$startTime – $endTime" else startTime
 
-            // Se quiser mostrar "16h00" ou "16h00–18h10"
-            val timeText = if (endTime.isNotBlank()) "$startTime – $endTime" else startTime
+        // BOTÕES (podem vir como array JSON)
+        val btns: Any? = if (o.has("buttons")) o.get("buttons") else null
 
-            list += Game(
-                championship = championship,
-                time = timeText,
-                homeName = homeTeam,
-                homeLogo = homeLogo,
-                awayName = visitingTeam,
-                awayLogo = visitingLogo,
-                isLive = isLive,
-                isFinished = isFinished
-            )
-        }
-        return list
+        list += Game(
+            championship = championship,
+            championshipImageUrl = championshipImg,   // ← AGORA PASSANDO
+            homeName = homeTeam,
+            homeLogo = homeLogo,
+            awayName = visitingTeam,
+            awayLogo = visitingLogo,
+            time = timeText,
+            isLive = isLive,
+            isFinished = isFinished,
+            buttons = btns
+        )
     }
+    return list
+}
 
     private fun spinMenuItem(item: MenuItem) {
         val iv = ImageView(this).apply { setImageDrawable(item.icon) }
