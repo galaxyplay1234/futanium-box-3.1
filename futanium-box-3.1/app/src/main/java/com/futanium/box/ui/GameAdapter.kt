@@ -139,15 +139,23 @@ class GameAdapter(
     }
 
     private fun openLink(view: View, link: String) {
-        try {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(link))
-            view.context.startActivity(intent)
-        } catch (_: ActivityNotFoundException) {
-            Toast.makeText(view.context, "Não há app para abrir: $link", Toast.LENGTH_SHORT).show()
-        } catch (e: Exception) {
-            Toast.makeText(view.context, "Erro ao abrir link: ${e.message}", Toast.LENGTH_SHORT).show()
+    val ctx = view.context
+    val u = link.trim()
+    try {
+        if (u.startsWith("http", ignoreCase = true)) {
+            // Abre na nossa WebView em tela preta, landscape, fullscreen
+            val it = android.content.Intent(ctx, com.futanium.box.WebViewActivity::class.java)
+            it.putExtra(com.futanium.box.WebViewActivity.EXTRA_URL, u)
+            ctx.startActivity(it)
+        } else {
+            // Qualquer esquema não-http (go:, intent:, whatsapp:, etc.) tenta externo
+            val it = android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(u))
+            ctx.startActivity(it)
         }
+    } catch (e: Exception) {
+        Toast.makeText(ctx, "Não foi possível abrir o link.", Toast.LENGTH_SHORT).show()
     }
+}
 }
 
 /** Opcional: tipo forte para botões */
