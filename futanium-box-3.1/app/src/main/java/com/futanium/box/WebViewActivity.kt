@@ -3,6 +3,7 @@ package com.futanium.box
 import android.annotation.SuppressLint
 import android.graphics.Color
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.webkit.*
 import androidx.appcompat.app.AppCompatActivity
@@ -67,24 +68,24 @@ class WebViewActivity : AppCompatActivity() {
             loadWithOverviewMode = true
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
 
-            setSupportMultipleWindows(false)              // 1) não abre nova janela
+            setSupportMultipleWindows(false)              // não abre nova janela
             javaScriptCanOpenWindowsAutomatically = false // bloqueia window.open
         }
 
-        // 2) cookies de terceiros off
+        // cookies de terceiros off
         try { CookieManager.getInstance().setAcceptThirdPartyCookies(web, false) } catch (_: Throwable) {}
 
-        // 3) SafeBrowsing ajuda em alguns casos
-        try { WebView.enableSafeBrowsing(this) } catch (_: Throwable) {}
+        // SafeBrowsing (somente API 26+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try { WebView.startSafeBrowsing(this, null) } catch (_: Throwable) {}
+        }
 
         web.webViewClient = object : WebViewClient() {
 
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val u = request.url.toString()
-                // mantém http/https internamente, mas bloqueia se for anúncio
                 return when {
                     !u.startsWith("http") -> {
-                        // esquemas externos: tenta abrir fora
                         try { startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(u))) } catch (_: Exception) {}
                         true
                     }
@@ -93,7 +94,6 @@ class WebViewActivity : AppCompatActivity() {
                 }
             }
 
-            // intercepta sub-recursos de ad (scripts, iframes, etc.)
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
                 val u = request.url.toString()
                 if (isAdUrl(u)) {
@@ -110,13 +110,9 @@ class WebViewActivity : AppCompatActivity() {
         }
 
         web.webChromeClient = object : WebChromeClient() {
-            // 4) bloqueia target=_blank / janelas novas vindas do ChromeClient
             override fun onCreateWindow(view: WebView, isDialog: Boolean, isUserGesture: Boolean, resultMsg: android.os.Message?): Boolean {
-                // recusa criar nova janela => pop-up não abre
-                return false
+                return false // recusa criar nova janela
             }
-
-            // evita JS alerts atrapalhando
             override fun onJsAlert(view: WebView?, url: String?, message: String?, result: JsResult?): Boolean {
                 result?.cancel(); return true
             }
@@ -131,7 +127,6 @@ class WebViewActivity : AppCompatActivity() {
         if (initialUrl.isNotBlank()) web.loadUrl(initialUrl)
     }
 
-    // Heurística simples
     private fun isAdUrl(url: String): Boolean {
         val u = try { Uri.parse(url) } catch (_: Exception) { null } ?: return false
         val host = (u.host ?: "").lowercase(Locale.ROOT)
@@ -141,7 +136,6 @@ class WebViewActivity : AppCompatActivity() {
         return false
     }
 
-    // Força links a abrirem na mesma aba e cancela clique em domínios de anúncio
     private fun injectAntiPopupJs() {
         val blockedHostsJsArray = adHosts.joinToString(",") { "'$it'" }
         val blockedKwJsArray = adUrlKeywords.joinToString(",") { "'$it'" }
@@ -149,15 +143,10 @@ class WebViewActivity : AppCompatActivity() {
         val js = """
             (function(){
               try{
-                // 1) Anula window.open
                 window.open = function(){ return null; };
-
-                // 2) Força todos os <a> a abrirem na mesma aba, sem target=_blank
                 Array.prototype.forEach.call(document.querySelectorAll('a[target="_blank"]'), function(a){
                   a.setAttribute('target','_self');
                 });
-
-                // 3) Bloqueia cliques para domínios/URLs de anúncio
                 var AD_HOSTS = [$blockedHostsJsArray];
                 var AD_KW = [$blockedKwJsArray];
                 function isAd(href){
@@ -174,7 +163,6 @@ class WebViewActivity : AppCompatActivity() {
                   }
                   return false;
                 }
-
                 document.addEventListener('click', function(e){
                   var a = e.target && e.target.closest ? e.target.closest('a') : null;
                   if(!a) return;
@@ -182,7 +170,7 @@ class WebViewActivity : AppCompatActivity() {
                   if(isAd(href)){
                     e.preventDefault(); e.stopImmediatePropagation(); e.stopPropagation();
                   } else {
-                    a.setAttribute('target','_self'); // garante mesma aba
+                    a.setAttribute('target','_self');
                   }
                 }, true);
               }catch(e){}
@@ -192,7 +180,6 @@ class WebViewActivity : AppCompatActivity() {
         try { web.post { web.evaluateJavascript(js, null) } } catch (_: Exception) {}
     }
 
-    // CSS simples pra esconder overlays/banners conhecidos
     private fun injectAdHiderCss() {
         val css = """
             *[id*="ad"], *[class*="ad"],
