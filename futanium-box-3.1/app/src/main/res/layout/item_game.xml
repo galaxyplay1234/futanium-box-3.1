@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
 
-    <!-- ~10dp entre os cards -->
+    
     android:layout_marginStart="16dp"
     android:layout_marginEnd="16dp"
     android:layout_marginTop="10dp"
@@ -16,7 +16,7 @@
     app:cardUseCompatPadding="true"
     app:cardElevation="6dp"
 
-    <!-- borda fininha e suave -->
+    
     app:strokeColor="#14000000"
     app:strokeWidth="1dp">
 
@@ -25,7 +25,7 @@
         android:layout_height="wrap_content"
         android:padding="16dp">
 
-        <!-- Linha do campeonato -->
+        
         <ImageView
             android:id="@+id/imgChamp"
             android:layout_width="16dp"
@@ -48,7 +48,7 @@
             app:layout_constraintEnd_toEndOf="parent"
             android:layout_marginStart="8dp"/>
 
-        <!-- NOME DO MANDANTE (direita do texto, colado no escudo da ESQ) -->
+        
         <TextView
             android:id="@+id/tvHomeName"
             android:layout_width="0dp"
@@ -68,7 +68,7 @@
             app:layout_constraintTop_toBottomOf="@id/tvChamp"
             android:layout_marginTop="14dp"/>
 
-        <!-- Escudo da casa (à ESQUERDA do miolo) -->
+        
         <ImageView
             android:id="@+id/imgHome"
             android:layout_width="28dp"
@@ -79,7 +79,7 @@
             app:layout_constraintBottom_toBottomOf="@id/tvHomeName"
             android:layout_marginStart="8dp"/>
 
-        <!-- HORA central, fixa -->
+        
         <TextView
             android:id="@+id/tvTime"
             android:layout_width="wrap_content"
@@ -95,7 +95,7 @@
             android:layout_marginStart="16dp"
             android:layout_marginEnd="16dp"/>
 
-        <!-- Escudo do visitante (à DIREITA do miolo) -->
+         
         <ImageView
             android:id="@+id/imgAway"
             android:layout_width="28dp"
@@ -106,7 +106,7 @@
             app:layout_constraintEnd_toStartOf="@id/tvAwayName"
             android:layout_marginEnd="8dp"/>
 
-        <!-- NOME DO VISITANTE (colado no escudo da DIR) -->
+        
         <TextView
             android:id="@+id/tvAwayName"
             android:layout_width="0dp"
@@ -126,7 +126,7 @@
             app:layout_constraintStart_toEndOf="@id/imgAway"
             app:layout_constraintEnd_toEndOf="parent"/>
 
-        <!-- Botões (aparecem só quando expandir) -->
+        
         <LinearLayout
             android:id="@+id/btnContainer"
             android:layout_width="0dp"
