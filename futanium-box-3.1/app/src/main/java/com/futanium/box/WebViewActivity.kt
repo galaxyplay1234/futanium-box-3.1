@@ -119,7 +119,7 @@ class WebViewActivity : AppCompatActivity() {
 
                     // >>> 1) Se estiver na ALLOWLIST (per:), libera a navegação principal
                     if (matchesAllowlist(host, uLower)) {
-                        // atualiza host principal para o novo player
+                        // atualiza host principal para o novo destino (ex: encurtador -> player)
                         allowHost = host
                         return false
                     }
@@ -250,7 +250,6 @@ class WebViewActivity : AppCompatActivity() {
             // linhas "per:" vão para allowlist
             val isAllow = line.startsWith("per:", ignoreCase = true)
             val ruleText = if (isAllow) line.substringAfter("per:", "").trim() else line
-
             if (ruleText.isEmpty()) return@forEach
 
             val rule = ruleText.lowercase(Locale.ROOT)
