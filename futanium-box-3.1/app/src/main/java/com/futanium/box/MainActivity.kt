@@ -109,59 +109,52 @@ class MainActivity : AppCompatActivity() {
 
     /** Converte o JSON da sua API -> lista de Game.
      *  Ignora entradas que sejam 'header'. NÃO usa 'background'. */
-    private fun parseGames(json: String): List<Game> {
+    /** Converte o JSON da API -> lista de Game.
+ *  Ignora itens com "header". */
+private fun parseGames(json: String): List<Game> {
     val arr = JSONArray(json)
     val list = ArrayList<Game>(arr.length())
+
     for (i in 0 until arr.length()) {
-        val o: JSONObject = arr.getJSONObject(i
+        val o = arr.optJSONObject(i) ?: continue
 
-            // pular itens de header
-            if (o.has("header")) continue
+        // pular itens de header
+        if (o.has("header")) continue
 
-            val championship         = o.optString("championship", "")
-            val championshipImageUrl = o.optString("championship_image_url", null)
-            val startTime            = o.optString("start_time", "")
-            val endTime              = o.optString("end_time", "")
-            val homeTeam             = o.optString("home_team", "")
-            val visitingTeam         = o.optString("visiting_team", "")
-            val homeLogo             = o.optString("home_team_image_url", null)
-            val visitingLogo         = o.optString("visiting_team_image_url", null)
-            val isLive               = o.optBoolean("is_live", false)
-            val isFinished           = o.optBoolean("is_finished", false)
+        val championship          = o.optString("championship", "")
+        val championshipImageUrl  = o.optString("championship_image_url", null)
+        val startTime             = o.optString("start_time", "")
+        val homeTeam              = o.optString("home_team", "")
+        val visitingTeam          = o.optString("visiting_team", "")
+        val homeLogo              = o.optString("home_team_image_url", null)
+        val visitingLogo          = o.optString("visiting_team_image_url", null)
+        val isLive                = o.optBoolean("is_live", false)
+        val isFinished            = o.optBoolean("is_finished", false)
 
-            // buttons -> List<Any>?
-            val buttonsList: List<Any>? = when {
-                !o.has("buttons") || o.isNull("buttons") -> null
-                o.get("buttons") is JSONArray -> {
-                    val ja = o.getJSONArray("buttons")
-                    val tmp = ArrayList<Any>(ja.length())
-                    for (j in 0 until ja.length()) tmp += ja.get(j)
-                    tmp
-                }
-                o.get("buttons") is List<*> -> {
-                    @Suppress("UNCHECKED_CAST")
-                    (o.get("buttons") as List<Any>?)
-                }
-                else -> null
+        // buttons -> List<Any>?
+        val buttonsList: List<Any>? = o.optJSONArray("buttons")?.let { ja ->
+            val tmp = ArrayList<Any>(ja.length())
+            for (j in 0 until ja.length()) {
+                tmp += ja.get(j)  // pode ser JSONObject/Map etc.
             }
-
-            val timeText = if (endTime.isNotBlank()) "$startTime – $endTime" else startTime
-
-            list += Game(
-                championship = championship,
-                championshipImageUrl = championshipImageUrl,
-                homeName = homeTeam,
-                homeLogo = homeLogo,
-                awayName = visitingTeam,
-                awayLogo = visitingLogo,
-                time = timeText,
-                isLive = isLive,
-                isFinished = isFinished,
-                buttons = buttonsList
-            )
+            tmp
         }
-        return list
+
+        list += Game(
+            championship = championship,
+            championshipImageUrl = championshipImageUrl,
+            homeName = homeTeam,
+            homeLogo = homeLogo,
+            awayName = visitingTeam,
+            awayLogo = visitingLogo,
+            time = startTime,           // <-- apenas a hora inicial
+            isLive = isLive,
+            isFinished = isFinished,
+            buttons = buttonsList
+        )
     }
+    return list
+}
 
     // --- animação do ícone "atualizar" (rotaciona enquanto carrega) ---
     private fun spinMenuItem(item: MenuItem) {
