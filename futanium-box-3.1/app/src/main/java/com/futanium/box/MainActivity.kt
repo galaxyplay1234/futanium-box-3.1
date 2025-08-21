@@ -1,10 +1,14 @@
 package com.futanium.box
 
 import android.animation.ObjectAnimator
+import android.graphics.Color
+import android.graphics.Typeface
 import android.os.Bundle
+import android.util.TypedValue
 import android.view.Menu
 import android.view.MenuItem
 import android.widget.ImageView
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.MenuItemCompat
@@ -16,10 +20,6 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONArray
 import org.json.JSONObject
-import android.graphics.Color
-import android.graphics.Typeface
-import android.util.TypedValue
-import android.widget.TextView
 
 class MainActivity : AppCompatActivity() {
 
@@ -38,22 +38,22 @@ class MainActivity : AppCompatActivity() {
         setSupportActionBar(vb.toolbar)
 
         // Status bar #10131C
-window.statusBarColor = Color.parseColor("#10131C")
+        window.statusBarColor = Color.parseColor("#10131C")
 
-// Sombra leve na toolbar
-vb.toolbar.elevation = 6f
+        // Sombra leve na toolbar
+        vb.toolbar.elevation = 6f
 
-// Título menor e em negrito, alinhado à esquerda
-vb.toolbar.post {
-    for (i in 0 until vb.toolbar.childCount) {
-        val child = vb.toolbar.getChildAt(i)
-        if (child is TextView) {
-            child.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f) // um pouco menor
-            child.typeface = Typeface.DEFAULT_BOLD              // negrito
-            break
+        // Título menor e em negrito, alinhado à esquerda
+        vb.toolbar.post {
+            for (i in 0 until vb.toolbar.childCount) {
+                val child = vb.toolbar.getChildAt(i)
+                if (child is TextView) {
+                    child.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+                    child.typeface = Typeface.DEFAULT_BOLD
+                    break
+                }
+            }
         }
-    }
-}
 
         vb.rvGames.layoutManager = LinearLayoutManager(this)
         vb.rvGames.adapter = adapter
@@ -110,44 +110,60 @@ vb.toolbar.post {
     /** Converte o JSON da sua API -> lista de Game.
      *  Ignora entradas que sejam 'header'. NÃO usa 'background'. */
     private fun parseGames(json: String): List<Game> {
-    val arr = JSONArray(json)
-    val list = ArrayList<Game>(arr.length())
-    for (i in 0 until arr.length()) {
-        val o = arr.getJSONObject(i)
+        val arr = JSONArray(json)
+        val list = ArrayList<Game>(arr.length())
+        for (i in 0 until arr.length()) {
+            val o: JSONObject = arr.getJSONObject(i)
 
-        if (o.has("header")) continue
+            // pular itens de header
+            if (o.has("header")) continue
 
-        val championship        = o.optString("championship", "")
-        val championshipImg     = o.optString("championship_image_url", null)
-        val startTime           = o.optString("start_time", "")
-        val endTime             = o.optString("end_time", "")
-        val homeTeam            = o.optString("home_team", "")
-        val visitingTeam        = o.optString("visiting_team", "")
-        val homeLogo            = o.optString("home_team_image_url", null)
-        val visitingLogo        = o.optString("visiting_team_image_url", null)
-        val isLive              = o.optBoolean("is_live", false)
-        val isFinished          = o.optBoolean("is_finished", false)
-        val timeText = if (endTime.isNotBlank()) "$startTime – $endTime" else startTime
+            val championship         = o.optString("championship", "")
+            val championshipImageUrl = o.optString("championship_image_url", null)
+            val startTime            = o.optString("start_time", "")
+            val endTime              = o.optString("end_time", "")
+            val homeTeam             = o.optString("home_team", "")
+            val visitingTeam         = o.optString("visiting_team", "")
+            val homeLogo             = o.optString("home_team_image_url", null)
+            val visitingLogo         = o.optString("visiting_team_image_url", null)
+            val isLive               = o.optBoolean("is_live", false)
+            val isFinished           = o.optBoolean("is_finished", false)
 
-        // BOTÕES (podem vir como array JSON)
-        val btns: Any? = if (o.has("buttons")) o.get("buttons") else null
+            // buttons -> List<Any>?
+            val buttonsList: List<Any>? = when {
+                !o.has("buttons") || o.isNull("buttons") -> null
+                o.get("buttons") is JSONArray -> {
+                    val ja = o.getJSONArray("buttons")
+                    val tmp = ArrayList<Any>(ja.length())
+                    for (j in 0 until ja.length()) tmp += ja.get(j)
+                    tmp
+                }
+                o.get("buttons") is List<*> -> {
+                    @Suppress("UNCHECKED_CAST")
+                    (o.get("buttons") as List<Any>?)
+                }
+                else -> null
+            }
 
-        list += Game(
-            championship = championship,
-            championshipImageUrl = championshipImg,   // ← AGORA PASSANDO
-            homeName = homeTeam,
-            homeLogo = homeLogo,
-            awayName = visitingTeam,
-            awayLogo = visitingLogo,
-            time = timeText,
-            isLive = isLive,
-            isFinished = isFinished,
-            buttons = btns
-        )
+            val timeText = if (endTime.isNotBlank()) "$startTime – $endTime" else startTime
+
+            list += Game(
+                championship = championship,
+                championshipImageUrl = championshipImageUrl,
+                homeName = homeTeam,
+                homeLogo = homeLogo,
+                awayName = visitingTeam,
+                awayLogo = visitingLogo,
+                time = timeText,
+                isLive = isLive,
+                isFinished = isFinished,
+                buttons = buttonsList
+            )
+        }
+        return list
     }
-    return list
-}
 
+    // --- animação do ícone "atualizar" (rotaciona enquanto carrega) ---
     private fun spinMenuItem(item: MenuItem) {
         val iv = ImageView(this).apply { setImageDrawable(item.icon) }
         MenuItemCompat.setActionView(item, iv)
