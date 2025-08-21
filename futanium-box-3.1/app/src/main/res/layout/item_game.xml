@@ -45,21 +45,23 @@
             android:layout_marginStart="6dp"/>
 
         
-        <TextView
-            android:id="@+id/tvHomeName"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:minWidth="60dp"
-            android:text="Mandante"
-            android:textSize="15sp"
-            android:textColor="#222"
-            android:maxLines="2"
-            android:ellipsize="end"
-            android:gravity="end"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/imgHome"
-            app:layout_constraintTop_toBottomOf="@id/tvChamp"
-            android:layout_marginTop="12dp"/>
+        
+<TextView
+    android:id="@+id/tvHomeName"
+    android:layout_width="0dp"
+    android:layout_height="wrap_content"
+    android:minWidth="60dp"
+    android:text="Mandante"
+    android:textSize="15sp"
+    android:textColor="#222"
+    android:maxLines="3"
+    android:ellipsize="end"
+    android:gravity="end"
+    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintEnd_toStartOf="@id/imgHome"
+    app:layout_constraintTop_toBottomOf="@id/tvChamp"
+    app:layout_constraintHorizontal_weight="1"
+    android:layout_marginTop="12dp" />
 
         
         <ImageView
@@ -98,21 +100,23 @@
             android:layout_marginEnd="6dp"/>
 
      
-        <TextView
-            android:id="@+id/tvAwayName"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:minWidth="60dp"
-            android:text="Visitante"
-            android:textSize="15sp"
-            android:textColor="#222"
-            android:maxLines="2"
-            android:ellipsize="end"
-            android:gravity="start"
-            app:layout_constraintStart_toEndOf="@id/imgAway"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="@id/tvHomeName"
-            app:layout_constraintBottom_toBottomOf="@id/tvHomeName"/>
+        
+<TextView
+    android:id="@+id/tvAwayName"
+    android:layout_width="0dp"
+    android:layout_height="wrap_content"
+    android:minWidth="60dp"
+    android:text="Visitante"
+    android:textSize="15sp"
+    android:textColor="#222"
+    android:maxLines="3"
+    android:ellipsize="end"
+    android:gravity="start"
+    app:layout_constraintStart_toEndOf="@id/imgAway"
+    app:layout_constraintEnd_toEndOf="parent"
+    app:layout_constraintTop_toTopOf="@id/tvHomeName"
+    app:layout_constraintBottom_toBottomOf="@id/tvHomeName"
+    app:layout_constraintHorizontal_weight="1" />
 
         
         <LinearLayout
