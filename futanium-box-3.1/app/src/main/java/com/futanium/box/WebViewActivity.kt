@@ -25,10 +25,14 @@ class WebViewActivity : AppCompatActivity() {
     private val blocklistUrl =
         "https://raw.githubusercontent.com/galaxyplay1234/bloqueio-ads-futanium/refs/heads/main/blocklist.txt"
 
-    private val domainRules = HashSet<String>()      // domínios exatos
-    private val substringRules = ArrayList<String>() // trechos na URL
+    private val domainRules = HashSet<String>()      // domínios exatos (bloqueio)
+    private val substringRules = ArrayList<String>() // trechos na URL (bloqueio)
 
-    private var allowHost: String? = null            // host/eTLD+1 do player
+    // >>> ALLOWLIST (linhas iniciadas com "per:")
+    private val allowDomainRules = HashSet<String>()      // domínios permitidos (navegação principal)
+    private val allowSubstringRules = ArrayList<String>() // trechos permitidos (navegação principal)
+
+    private var allowHost: String? = null            // host/eTLD+1 do player atual
     private val blockReady = AtomicBoolean(false)
     // --------------------------------
 
@@ -89,6 +93,7 @@ class WebViewActivity : AppCompatActivity() {
             ): Boolean {
                 val uri = request.url
                 val u = uri.toString()
+                val uLower = u.lowercase(Locale.ROOT)
 
                 // Sempre permite blobs/dados/mídia na própria guia
                 if (isMediaUrl(u) || u.startsWith("blob:") || u.startsWith("data:")) return false
@@ -111,17 +116,24 @@ class WebViewActivity : AppCompatActivity() {
                 // http/https
                 if (u.startsWith("http")) {
                     val host = uri.host?.lowercase(Locale.ROOT) ?: return true
-                    val allow = allowHost
 
-                    // bloqueia navegação para fora do host principal do player
+                    // >>> 1) Se estiver na ALLOWLIST (per:), libera a navegação principal
+                    if (matchesAllowlist(host, uLower)) {
+                        // atualiza host principal para o novo player
+                        allowHost = host
+                        return false
+                    }
+
+                    // 2) Caso contrário, mantém a regra de "mesmo host do player"
+                    val allow = allowHost
                     val same = allow != null && (host == allow || host.endsWith(".$allow"))
                     if (!same) return true
 
-                    // se for navegação principal SEM gesto do usuário (popup), bloqueia
+                    // 3) se for navegação principal SEM gesto do usuário (popup), bloqueia
                     if (request.isForMainFrame && !request.hasGesture()) return true
 
-                    // se a blocklist marcar como ad, bloqueia
-                    if (request.isForMainFrame && blockReady.get() && isBlocked(host, u.lowercase(Locale.ROOT))) {
+                    // 4) se a blocklist marcar como ad, bloqueia
+                    if (request.isForMainFrame && blockReady.get() && isBlocked(host, uLower)) {
                         return true
                     }
                     return false // permitir
@@ -228,18 +240,40 @@ class WebViewActivity : AppCompatActivity() {
     private fun parseBlocklist(text: String) {
         domainRules.clear()
         substringRules.clear()
+        allowDomainRules.clear()
+        allowSubstringRules.clear()
+
         text.lineSequence().forEach { raw ->
             val line = raw.trim()
             if (line.isEmpty() || line.startsWith("#")) return@forEach
-            val rule = line.lowercase(Locale.ROOT)
+
+            // linhas "per:" vão para allowlist
+            val isAllow = line.startsWith("per:", ignoreCase = true)
+            val ruleText = if (isAllow) line.substringAfter("per:", "").trim() else line
+
+            if (ruleText.isEmpty()) return@forEach
+
+            val rule = ruleText.lowercase(Locale.ROOT)
             val isDomain = rule.contains('.') && !rule.contains(' ') && !rule.contains('/')
-            if (isDomain) domainRules += rule else substringRules += rule
+
+            if (isAllow) {
+                if (isDomain) allowDomainRules += rule else allowSubstringRules += rule
+            } else {
+                if (isDomain) domainRules += rule else substringRules += rule
+            }
         }
     }
 
     private fun isBlocked(host: String, fullUrlLower: String): Boolean {
         for (d in domainRules) if (host == d || host.endsWith(".$d")) return true
         for (p in substringRules) if (p.isNotEmpty() && fullUrlLower.contains(p)) return true
+        return false
+    }
+
+    // >>> checa se a URL/host está permitida pela allowlist (per:)
+    private fun matchesAllowlist(host: String, fullUrlLower: String): Boolean {
+        for (d in allowDomainRules) if (host == d || host.endsWith(".$d")) return true
+        for (p in allowSubstringRules) if (p.isNotEmpty() && fullUrlLower.contains(p)) return true
         return false
     }
 
