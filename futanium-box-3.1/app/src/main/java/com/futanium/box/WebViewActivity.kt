@@ -20,7 +20,7 @@ class WebViewActivity : AppCompatActivity() {
     private lateinit var web: WebView
     private lateinit var insets: WindowInsetsControllerCompat
 
-    // --- BLOQUEIO (somente o necessário) ---
+    // --- BLOQUEIO (lista remota) ---
     private val client = OkHttpClient()
     private val blocklistUrl =
         "https://raw.githubusercontent.com/galaxyplay1234/bloqueio-ads-futanium/refs/heads/main/blocklist.txt"
@@ -28,27 +28,19 @@ class WebViewActivity : AppCompatActivity() {
     private val domainRules = HashSet<String>()      // domínios exatos
     private val substringRules = ArrayList<String>() // trechos na URL
 
-    // host permitido (da página principal) para nunca bloquear
-    private var allowHost: String? = null
-
-    // evita bloquear antes da lista carregar
+    private var allowHost: String? = null            // host/eTLD+1 do player
     private val blockReady = AtomicBoolean(false)
-    // -------------------------------------------------------------
+    // --------------------------------
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Conteúdo respeita as barras do sistema (nav bar visível)
         WindowCompat.setDecorFitsSystemWindows(window, true)
-
-        // NAV BAR preta visível, com ícones claros
         window.navigationBarColor = Color.BLACK
         insets = WindowInsetsControllerCompat(window, window.decorView).apply {
-            isAppearanceLightNavigationBars = false // ícones brancos
+            isAppearanceLightNavigationBars = false
         }
-
-        // STATUS BAR: esconder
         hideStatusBar()
 
         setContentView(R.layout.activity_webview)
@@ -56,34 +48,32 @@ class WebViewActivity : AppCompatActivity() {
         val initialUrl = intent.getStringExtra(EXTRA_URL).orEmpty()
         allowHost = runCatching { Uri.parse(initialUrl).host?.lowercase(Locale.ROOT) }.getOrNull()
 
-        // carrega blocklist em background (se falhar, segue sem bloquear)
+        // carrega blocklist em background
         Thread { loadBlocklist() }.start()
 
         web = findViewById(R.id.web)
         web.setBackgroundColor(Color.BLACK)
-        web.keepScreenOn = true // mantém a tela ligada
+        web.keepScreenOn = true
 
         with(web.settings) {
             javaScriptEnabled = true
             domStorageEnabled = true
             mediaPlaybackRequiresUserGesture = false
 
-            // Bloquear zoom
             builtInZoomControls = false
             displayZoomControls = false
             setSupportZoom(false)
 
-            // Forçar layout MOBILE (controles maiores)
+            // Força layout MOBILE (controles grandes)
             useWideViewPort = false
             loadWithOverviewMode = false
 
-            // User-Agent de celular (Chrome Android)
             userAgentString =
                 "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
 
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
 
-            // 🔒 Bloqueio de pop-ups / _blank_
+            // bloqueia pop-ups
             setSupportMultipleWindows(false)
             javaScriptCanOpenWindowsAutomatically = false
         }
@@ -94,62 +84,74 @@ class WebViewActivity : AppCompatActivity() {
                 view: WebView,
                 request: WebResourceRequest
             ): Boolean {
-                val u = request.url.toString()
-                return if (u.startsWith("http")) {
-                    false // abre dentro da WebView
-                } else {
-                    // esquemas externos (intent:, whatsapp:, go:, etc.)
-                    try {
-                        startActivity(
-                            android.content.Intent(
-                                android.content.Intent.ACTION_VIEW,
-                                Uri.parse(u)
-                            )
+                val uri = request.url
+                val u = uri.toString()
+                // Sempre permite mídia/blobs na própria guia
+                if (isMediaUrl(u) || u.startsWith("blob:") || u.startsWith("data:")) return false
+
+                // navegação http/https: só permite dentro do mesmo eTLD+1 do player
+                if (u.startsWith("http")) {
+                    val host = uri.host?.lowercase(Locale.ROOT) ?: return true
+                    val allow = allowHost
+                    // se for o mesmo host (ou subdomínio) do player, deixa; senão, bloqueia (ad)
+                    val same = allow != null && (host == allow || host.endsWith(".$allow"))
+                    return !same // true => a gente consome e BLOQUEIA a navegação
+                }
+
+                // esquemas externos (intent:, whatsapp:, etc.) — permitir abrir fora
+                return try {
+                    startActivity(
+                        android.content.Intent(
+                            android.content.Intent.ACTION_VIEW,
+                            Uri.parse(u)
                         )
-                    } catch (_: Exception) { }
+                    )
+                    true
+                } catch (_: Exception) {
                     true
                 }
             }
 
-            // Atualiza o host "permitido" quando a página principal muda
             override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
                 url?.let {
+                    // atualiza o host principal se o player trocar de URL
                     allowHost = runCatching { Uri.parse(it).host?.lowercase(Locale.ROOT) }.getOrNull()
                 }
             }
 
-            // Bloqueio fino: só em recursos secundários (nunca no frame principal)
+            override fun onPageFinished(view: WebView, url: String) {
+                super.onPageFinished(view, url)
+                // injeta JS para neutralizar redirecionamentos/overlays e bloquear cliques para domínios da lista
+                if (blockReady.get()) {
+                    injectAdShieldJS()
+                } else {
+                    // mesmo sem lista, ainda anulamos window.open/overlays
+                    injectCoreShieldJS(emptyList())
+                }
+            }
+
+            // Bloqueio de recursos secundários (imagens, scripts, iframes)
             override fun shouldInterceptRequest(
                 view: WebView,
                 request: WebResourceRequest
             ): WebResourceResponse? {
-                // não bloquear navegação principal
                 if (request.isForMainFrame) return null
-
-                // se blocklist ainda não carregou, não bloqueia
                 if (!blockReady.get()) return null
 
                 val url = request.url.toString()
                 val host = request.url.host?.lowercase(Locale.ROOT) ?: return null
 
-                // ✅ NÃO bloquear mídia do player (whitelist por extensão)
-                val lower = url.lowercase(Locale.ROOT)
-                if (isMediaUrl(lower)) return null
+                // nunca bloquear mídia do player
+                if (isMediaUrl(url) || url.startsWith("blob:") || url.startsWith("data:")) return null
 
-                // nunca bloquear o host da página principal
                 val allow = allowHost
-                if (allow != null && (host == allow || host.endsWith(".$allow"))) {
-                    return null
-                }
+                if (allow != null && (host == allow || host.endsWith(".$allow"))) return null
 
-                if (isBlocked(host, lower)) {
-                    // retorna 204 "sem conteúdo" para cortar o recurso sem quebrar player
+                if (isBlocked(host, url.lowercase(Locale.ROOT))) {
                     return WebResourceResponse(
-                        "text/plain",
-                        "utf-8",
-                        204,
-                        "No Content",
+                        "text/plain", "utf-8",
+                        204, "No Content",
                         emptyMap(),
                         ByteArrayInputStream(ByteArray(0))
                     )
@@ -158,7 +160,6 @@ class WebViewActivity : AppCompatActivity() {
             }
         }
 
-        // 🔒 Cancela qualquer tentativa de abrir nova janela (pop-up)
         web.webChromeClient = object : WebChromeClient() {
             override fun onCreateWindow(
                 view: WebView?,
@@ -166,7 +167,8 @@ class WebViewActivity : AppCompatActivity() {
                 isUserGesture: Boolean,
                 resultMsg: android.os.Message?
             ): Boolean {
-                return false // bloqueia window.open / target=_blank
+                // bloqueia window.open / target=_blank
+                return false
             }
         }
 
@@ -174,7 +176,6 @@ class WebViewActivity : AppCompatActivity() {
     }
 
     private fun hideStatusBar() {
-        // esconde apenas a status bar (nav bar continua visível)
         insets.hide(WindowInsetsCompat.Type.statusBars())
         insets.isAppearanceLightNavigationBars = false
     }
@@ -207,55 +208,127 @@ class WebViewActivity : AppCompatActivity() {
                 blockReady.set(true)
             }
         } catch (_: Exception) {
-            // falhou -> sem bloqueio (não toca em blockReady)
+            // sem lista -> segue sem bloquear recursos por URL
         }
     }
 
     private fun parseBlocklist(text: String) {
         domainRules.clear()
         substringRules.clear()
-
-        text.lineSequence().forEach { rawLine ->
-            val line = rawLine.trim()
+        text.lineSequence().forEach { raw ->
+            val line = raw.trim()
             if (line.isEmpty() || line.startsWith("#")) return@forEach
-
             val rule = line.lowercase(Locale.ROOT)
-
-            // Se parece domínio (tem ponto, sem espaço e sem barra) -> domínio
             val isDomain = rule.contains('.') && !rule.contains(' ') && !rule.contains('/')
-
-            if (isDomain) {
-                domainRules += rule
-            } else {
-                substringRules += rule
-            }
+            if (isDomain) domainRules += rule else substringRules += rule
         }
     }
 
     private fun isBlocked(host: String, fullUrlLower: String): Boolean {
-        // domínio exato ou subdomínio
-        for (d in domainRules) {
-            if (host == d || host.endsWith(".$d")) return true
-        }
-        // trechos na URL completa (case-insensitive)
-        for (p in substringRules) {
-            if (p.isNotEmpty() && fullUrlLower.contains(p)) return true
-        }
+        for (d in domainRules) if (host == d || host.endsWith(".$d")) return true
+        for (p in substringRules) if (p.isNotEmpty() && fullUrlLower.contains(p)) return true
         return false
     }
 
-    // Permite URLs típicas de mídia para não quebrar o player
     private fun isMediaUrl(u: String): Boolean {
-        return u.endsWith(".m3u8") ||
-               u.endsWith(".mpd")  ||
-               u.endsWith(".ts")   ||
-               u.endsWith(".m4s")  ||
-               u.endsWith(".mp4")  ||
-               u.endsWith(".webm") ||
-               u.endsWith(".aac")  ||
-               u.endsWith(".mp3")  ||
-               u.endsWith(".oga")  ||
-               u.endsWith(".vtt")  ||
-               u.endsWith(".srt")
+        val x = u.lowercase(Locale.ROOT)
+        return x.endsWith(".m3u8") || x.endsWith(".mpd") || x.endsWith(".ts") ||
+               x.endsWith(".m4s")  || x.endsWith(".mp4") || x.endsWith(".webm") ||
+               x.endsWith(".aac")  || x.endsWith(".mp3") || x.endsWith(".oga") ||
+               x.endsWith(".vtt")  || x.endsWith(".srt")
+    }
+
+    // ---------- Injeção de JS anti-pop/overlay/redirecionamento ----------
+
+    private fun injectAdShieldJS() {
+        // junta tudo num array JS simples (apenas substrings; domínios entram como "*.dominio")
+        val tokens = (substringRules + domainRules.map { ".$it" })
+            .filter { it.isNotBlank() }
+            .take(2000) // segurança
+            .joinToString(separator = "\",\"", prefix = "[\"", postfix = "\"]") { it.replace("\"", "") }
+        val js = """
+            (function(){
+              const LIST = $tokens;
+
+              // helper: verifica se a URL contém algum token da lista
+              function isBad(u){
+                if(!u) return false;
+                u = (""+u).toLowerCase();
+                for (let i=0;i<LIST.length;i++){
+                  const t = LIST[i];
+                  if(!t) continue;
+                  if(t.startsWith(".")) {
+                    // domínio: confere host
+                    try { 
+                      const h = new URL(u, location.href).host.toLowerCase(); 
+                      if (h===t.slice(1) || h.endsWith(t)) return true;
+                    } catch(e){}
+                  } else {
+                    if(u.indexOf(t) !== -1) return true;
+                  }
+                }
+                return false;
+              }
+
+              // neutraliza APIs de navegação maliciosa
+              const NOP = function(){};
+              window.open = function(u){ if (isBad(u)) return null; return null; };
+              ['assign','replace'].forEach(k=>{
+                const orig = location[k].bind(location);
+                location[k] = function(u){ if (isBad(u)) return; try{orig(u);}catch(e){} };
+              });
+              Object.defineProperty(window, 'onbeforeunload', {get:()=>null,set:()=>true});
+
+              // captura cliques: bloqueia anchors e handlers que tentem levar a domínio ruim
+              window.addEventListener('click', function(e){
+                let el = e.target;
+                // sobe na árvore até achar <a>
+                while (el && el !== document && !('href' in el)) el = el.parentElement;
+                if (el && el.href && isBad(el.href)) {
+                  e.preventDefault(); e.stopImmediatePropagation(); return false;
+                }
+              }, true);
+
+              // remove overlays comuns de anúncio
+              const css = `
+                [id*="ad"], [class*="ad"], .ads, .adsbox, .advert, .adunit,
+                .ad-container, .ad-banner, .ad-overlay, [class*="overlay"] {
+                  display:none !important; pointer-events:none !important;
+                }
+                body { overscroll-behavior: contain; }
+              `;
+              const style = document.createElement('style');
+              style.type = 'text/css'; style.appendChild(document.createTextNode(css));
+              document.documentElement.appendChild(style);
+
+              // desarma timers que trocam top.location
+              const _setInterval = window.setInterval;
+              window.setInterval = function(fn, t){
+                if (typeof fn === 'string' && isBad(fn)) return 0;
+                return _setInterval(fn, t);
+              };
+            })();
+        """.trimIndent()
+        web.evaluateJavascript(js, null)
+    }
+
+    private fun injectCoreShieldJS(extraTokens: List<String>) {
+        // fallback mínimo (sem lista remota)
+        val js = """
+            (function(){
+              window.open = function(){ return null; };
+              ['assign','replace'].forEach(k=>{
+                const orig = location[k].bind(location);
+                location[k] = function(u){ if(!u) return; try{orig(u);}catch(e){} };
+              });
+              const css = `
+                [class*="overlay"], .ad, .ads, .ad-overlay { display:none !important; pointer-events:none !important; }
+              `;
+              const style = document.createElement('style');
+              style.type = 'text/css'; style.appendChild(document.createTextNode(css));
+              document.documentElement.appendChild(style);
+            })();
+        """.trimIndent()
+        web.evaluateJavascript(js, null)
     }
 }
