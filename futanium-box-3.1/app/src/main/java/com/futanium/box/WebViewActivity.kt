@@ -23,7 +23,7 @@ class WebViewActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Deixe o conteúdo respeitar as barras do sistema (nav bar visível)
+        // Conteúdo respeita as barras do sistema (nav bar visível)
         WindowCompat.setDecorFitsSystemWindows(window, true)
 
         // NAV BAR preta visível, com ícones claros
@@ -53,9 +53,14 @@ class WebViewActivity : AppCompatActivity() {
             displayZoomControls = false
             setSupportZoom(false)
 
-            // Responsivo
-            useWideViewPort = true
-            loadWithOverviewMode = true
+            // Forçar layout MOBILE (controles maiores)
+            // -> desliga "viewport largo" e "overview"
+            useWideViewPort = false
+            loadWithOverviewMode = false
+
+            // User-Agent de celular (Chrome Android)
+            userAgentString =
+                "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
 
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
         }
@@ -67,8 +72,9 @@ class WebViewActivity : AppCompatActivity() {
             ): Boolean {
                 val u = request.url.toString()
                 return if (u.startsWith("http")) {
-                    false // fica na WebView
+                    false // abre dentro da WebView
                 } else {
+                    // esquemas externos (intent:, whatsapp:, go:, etc.)
                     try {
                         startActivity(
                             android.content.Intent(
@@ -89,7 +95,6 @@ class WebViewActivity : AppCompatActivity() {
     private fun hideStatusBar() {
         // esconde apenas a status bar (nav bar continua visível)
         insets.hide(WindowInsetsCompat.Type.statusBars())
-        // Garante ícones da nav bar claros
         insets.isAppearanceLightNavigationBars = false
     }
 
