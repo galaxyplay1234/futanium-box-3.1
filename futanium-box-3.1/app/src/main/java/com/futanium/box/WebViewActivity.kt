@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
-import android.os.SystemClock
 import android.webkit.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
@@ -35,11 +34,17 @@ class WebViewActivity : AppCompatActivity() {
 
     private var allowHost: String? = null            // host/eTLD+1 do player atual
     private val blockReady = AtomicBoolean(false)
-
-    // ★ Janela de passagem (“modo encurtador”)
-    private var passThroughLeft: Int = 0
-    private var passThroughUntil: Long = 0L
     // --------------------------------
+
+    // === MODO ENC. (bit.ly) ===
+    private var shortenerActive: Boolean = false
+    private fun isShortener(url: String, host: String?): Boolean {
+        val u = url.lowercase(Locale.ROOT)
+        val h = (host ?: "").lowercase(Locale.ROOT)
+        // bit.ly direto OU bit.ly aparecendo no caminho (ex.: rf.gd/bit.ly/...)
+        return h == "bit.ly" || u.contains("/bit.ly/") || u.contains("://bit.ly/")
+    }
+    // ==========================
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -55,7 +60,11 @@ class WebViewActivity : AppCompatActivity() {
         setContentView(R.layout.activity_webview)
 
         val initialUrl = intent.getStringExtra(EXTRA_URL).orEmpty()
-        allowHost = runCatching { Uri.parse(initialUrl).host?.lowercase(Locale.ROOT) }.getOrNull()
+        val initHost = runCatching { Uri.parse(initialUrl).host?.lowercase(Locale.ROOT) }.getOrNull()
+        allowHost = initHost
+
+        // ativa modo encurtador se a URL inicial já for encurtada
+        if (isShortener(initialUrl, initHost)) shortenerActive = true
 
         // carrega blocklist em background
         Thread { loadBlocklist() }.start()
@@ -89,16 +98,9 @@ class WebViewActivity : AppCompatActivity() {
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
         }
 
-        // ★ Se a URL inicial já casar com per:, abre a janela de passagem
-        runCatching {
-            val initHost = Uri.parse(initialUrl).host?.lowercase(Locale.ROOT) ?: ""
-            if (matchesAllowlist(initHost, initialUrl.lowercase(Locale.ROOT))) {
-                openPassThrough(initHost)
-            }
-        }
-
         web.webViewClient = object : WebViewClient() {
 
+            // BLOQUEIO de navegação principal (redirecionamentos/clicks que trocam a página)
             override fun shouldOverrideUrlLoading(
                 view: WebView,
                 request: WebResourceRequest
@@ -107,10 +109,10 @@ class WebViewActivity : AppCompatActivity() {
                 val u = uri.toString()
                 val uLower = u.lowercase(Locale.ROOT)
 
-                // blobs/dados/mídia sempre no WebView
+                // Sempre permite blobs/dados/mídia na própria guia
                 if (isMediaUrl(u) || u.startsWith("blob:") || u.startsWith("data:")) return false
 
-                // externos -> fora
+                // Esquemas externos -> fora da WebView
                 if (u.startsWith("intent://") || u.startsWith("market://")
                     || u.startsWith("mailto:") || u.startsWith("tel:")
                     || u.startsWith("sms:")) {
@@ -125,67 +127,84 @@ class WebViewActivity : AppCompatActivity() {
                     } catch (_: Exception) { true }
                 }
 
+                // http/https
                 if (u.startsWith("http")) {
                     val host = uri.host?.lowercase(Locale.ROOT) ?: return true
 
-                    // ★ Em pass-through: libera, atualiza host e consome um passo
-                    if (isInPassThrough()) {
-                        allowHost = host
-                        passThroughLeft--
+                    // 0) Se é encurtador (bit.ly), permite e mantém shortenerActive ligado
+                    if (isShortener(u, host)) {
+                        shortenerActive = true
                         return false
                     }
 
-                    // ★ Se bateu allowlist (per:), abre pass-through e permite
+                    // 1) Se URL está na ALLOWLIST (per:), permite e atualiza host do player
                     if (matchesAllowlist(host, uLower)) {
-                        openPassThrough(host)
+                        allowHost = host
+                        shortenerActive = false
                         return false
                     }
 
-                    // ★ Se é navegação do frame principal COM gesto do usuário,
-                    //    permite e passa a confiar no novo host (troca para o player).
+                    // 2) Se MODO ENC. ativo (vindo de bit.ly), permite atravessar até cair no player final
+                    if (shortenerActive) {
+                        // quando sair do encurtador e cair no player, fixa o host e desliga o modo
+                        allowHost = host
+                        shortenerActive = false
+                        return false
+                    }
+
+                    // 3) Se é navegação do frame principal COM gesto do usuário, permite e troca o host
                     if (request.isForMainFrame && request.hasGesture()) {
                         allowHost = host
                         return false
                     }
 
-                    // Sem gesto: aplica “mesmo host do player”
+                    // 4) Sem gesto: aplica “mesmo host do player”
                     val allow = allowHost
                     val same = allow != null && (host == allow || host.endsWith(".$allow"))
                     if (!same) return true
 
-                    // (opcional) sem gesto e marcado como ad na lista → bloqueia
+                    // 5) (opcional) sem gesto e marcado como ad na lista → bloqueia
                     if (request.isForMainFrame && blockReady.get() && isBlocked(host, uLower)) {
                         return true
                     }
                     return false
                 }
 
+                // qualquer outro esquema desconhecido -> consumir (bloquear)
                 return true
             }
 
             override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
                 url?.let {
-                    allowHost = runCatching { Uri.parse(it).host?.lowercase(Locale.ROOT) }.getOrNull()
+                    val h = runCatching { Uri.parse(it).host?.lowercase(Locale.ROOT) }.getOrNull()
+                    // se ainda está no encurtador, mantém o modo; se não, desliga e fixa host
+                    if (isShortener(it, h)) {
+                        shortenerActive = true
+                    } else {
+                        allowHost = h
+                        shortenerActive = false
+                    }
                 }
             }
 
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
-                // ★ durante pass-through não injeta nada (evita quebrar encurtador)
-                if (isInPassThrough()) return
-
-                if (blockReady.get()) injectAdShieldJS()
-                else injectCoreShieldJS(emptyList())
+                // Durante o encurtador, segue normal (bloqueio continua valendo para terceiros)
+                if (blockReady.get()) {
+                    injectAdShieldJS()
+                } else {
+                    injectCoreShieldJS(emptyList())
+                }
             }
 
+            // BLOQUEIO de recursos secundários (scripts, iframes, imgs) usando a blocklist
             override fun shouldInterceptRequest(
                 view: WebView,
                 request: WebResourceRequest
             ): WebResourceResponse? {
+                // nunca bloquear o frame principal por aqui (deixa a navegação decidir)
                 if (request.isForMainFrame) return null
-                // ★ durante pass-through não bloqueia sub-recursos
-                if (isInPassThrough()) return null
                 if (!blockReady.get()) return null
 
                 val url = request.url.toString()
@@ -194,17 +213,19 @@ class WebViewActivity : AppCompatActivity() {
                 // mídia/legendas nunca bloquear
                 if (isMediaUrl(url)) return null
 
-                // ★ NÃO bloqueia sub-recursos do mesmo host do player (evita quebrar o player)
+                // NÃO bloqueia sub-recursos do mesmo host do player (evita quebrar)
                 val allow = allowHost
                 if (allow != null && (host == allow || host.endsWith(".$allow"))) {
                     return null
                 }
 
+                // curta: mesmo durante shortener, seguimos bloqueando terceiras (se houver)
                 return if (isBlocked(host, url.lowercase(Locale.ROOT))) empty204() else null
             }
         }
 
         web.webChromeClient = object : WebChromeClient() {
+            // cancela qualquer window.open / target=_blank
             override fun onCreateWindow(
                 view: WebView?,
                 isDialog: Boolean,
@@ -286,23 +307,11 @@ class WebViewActivity : AppCompatActivity() {
         return false
     }
 
+    // >>> checa se a URL/host está permitida pela allowlist (per:)
     private fun matchesAllowlist(host: String, fullUrlLower: String): Boolean {
         for (d in allowDomainRules) if (host == d || host.endsWith(".$d")) return true
         for (p in allowSubstringRules) if (p.isNotEmpty() && fullUrlLower.contains(p)) return true
         return false
-    }
-
-    // ★ Janela de passagem: 12 passos ou 15s (o que durar mais)
-    private fun openPassThrough(currentHost: String) {
-        passThroughLeft = 12
-        passThroughUntil = SystemClock.uptimeMillis() + 15_000
-        allowHost = currentHost
-    }
-
-    private fun isInPassThrough(): Boolean {
-        val timeOk = SystemClock.uptimeMillis() < passThroughUntil
-        val stepsOk = passThroughLeft > 0
-        return timeOk || stepsOk
     }
 
     private fun isMediaUrl(u: String): Boolean {
