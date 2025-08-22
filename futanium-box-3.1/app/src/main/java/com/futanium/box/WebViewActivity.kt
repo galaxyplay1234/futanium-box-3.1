@@ -87,6 +87,15 @@ class WebViewActivity : AppCompatActivity() {
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
         }
 
+        // ★ Se a URL inicial já bate com a allowlist (per:), abre a janela de passagem agora
+        runCatching {
+            val initHost = Uri.parse(initialUrl).host?.lowercase(Locale.ROOT) ?: ""
+            if (matchesAllowlist(initHost, initialUrl.lowercase(Locale.ROOT))) {
+                passThroughLeft = 6           // folga para 2–3 redirects + hop até o player
+                allowHost = initHost
+            }
+        }
+
         web.webViewClient = object : WebViewClient() {
 
             // BLOQUEIO de navegação principal (redirecionamentos/clicks que trocam a página)
@@ -120,18 +129,17 @@ class WebViewActivity : AppCompatActivity() {
                 if (u.startsWith("http")) {
                     val host = uri.host?.lowercase(Locale.ROOT) ?: return true
 
-                    // >>> 0) Se estamos em janela de passagem (após per:), deixa seguir e atualiza host
+                    // ★ 0) Em "janela de passagem": deixa seguir e atualiza host
                     if (passThroughLeft > 0) {
                         passThroughLeft--
                         allowHost = host
                         return false
                     }
 
-                    // >>> 1) Se estiver na ALLOWLIST (per:), libera e abre janela de passagem
+                    // 1) Se estiver na ALLOWLIST (per:), libera e abre janela de passagem
                     if (matchesAllowlist(host, uLower)) {
-                        // permite redirecionar para outro domínio (player final)
-                        passThroughLeft = 4  // margem para cadeia curta de redirects
-                        allowHost = host     // atualiza para o host atual
+                        passThroughLeft = 6
+                        allowHost = host
                         return false
                     }
 
@@ -141,7 +149,6 @@ class WebViewActivity : AppCompatActivity() {
                     if (!same) return true
 
                     // 3) se for navegação principal SEM gesto do usuário (popup), bloqueia
-                    //    (exceto quando em janela de passagem, que já tratamos acima)
                     if (request.isForMainFrame && !request.hasGesture()) return true
 
                     // 4) se a blocklist marcar como ad, bloqueia
@@ -184,11 +191,10 @@ class WebViewActivity : AppCompatActivity() {
                 val url = request.url.toString()
                 val host = request.url.host?.lowercase(Locale.ROOT) ?: return null
 
-                // nunca bloquear o host do player (e subdomínios)
-                val allow = allowHost
-                if (allow != null && (host == allow || host.endsWith(".$allow"))) {
-                    return null
-                }
+                // ★ Removida a isenção do allowHost.
+                //    Agora, mesmo no mesmo domínio do player, a gente ainda aplica a blocklist
+                //    (mas SEM nunca bloquear mídia/legendas).
+                if (isMediaUrl(url)) return null
 
                 if (isBlocked(host, url.lowercase(Locale.ROOT))) {
                     return empty204()
