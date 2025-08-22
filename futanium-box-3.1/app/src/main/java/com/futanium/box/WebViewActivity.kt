@@ -36,7 +36,7 @@ class WebViewActivity : AppCompatActivity() {
     private var allowHost: String? = null            // host/eTLD+1 do player atual
     private val blockReady = AtomicBoolean(false)
 
-    // ★ Janela de passagem após "per:" (cobre redirects + meta refresh/JS)
+    // ★ Janela de passagem (“modo encurtador”)
     private var passThroughLeft: Int = 0
     private var passThroughUntil: Long = 0L
     // --------------------------------
@@ -89,7 +89,7 @@ class WebViewActivity : AppCompatActivity() {
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
         }
 
-        // ★ Se a URL inicial já casa com per:, abre janela de passagem imediatamente
+        // ★ Se a URL inicial já casar com per:, abre a janela de passagem
         runCatching {
             val initHost = Uri.parse(initialUrl).host?.lowercase(Locale.ROOT) ?: ""
             if (matchesAllowlist(initHost, initialUrl.lowercase(Locale.ROOT))) {
@@ -99,7 +99,6 @@ class WebViewActivity : AppCompatActivity() {
 
         web.webViewClient = object : WebViewClient() {
 
-            // BLOQUEIO de navegação principal (redirecionamentos/clicks que trocam a página)
             override fun shouldOverrideUrlLoading(
                 view: WebView,
                 request: WebResourceRequest
@@ -108,10 +107,10 @@ class WebViewActivity : AppCompatActivity() {
                 val u = uri.toString()
                 val uLower = u.lowercase(Locale.ROOT)
 
-                // Sempre permite blobs/dados/mídia na própria guia
+                // blobs/dados/mídia sempre no WebView
                 if (isMediaUrl(u) || u.startsWith("blob:") || u.startsWith("data:")) return false
 
-                // Esquemas externos -> fora da WebView
+                // externos -> fora
                 if (u.startsWith("intent://") || u.startsWith("market://")
                     || u.startsWith("mailto:") || u.startsWith("tel:")
                     || u.startsWith("sms:")) {
@@ -126,39 +125,41 @@ class WebViewActivity : AppCompatActivity() {
                     } catch (_: Exception) { true }
                 }
 
-                // http/https
                 if (u.startsWith("http")) {
                     val host = uri.host?.lowercase(Locale.ROOT) ?: return true
 
-                    // ★ Em janela de passagem: permite e atualiza host
+                    // ★ Em pass-through: libera, atualiza host e consome um passo
                     if (isInPassThrough()) {
                         allowHost = host
                         passThroughLeft--
                         return false
                     }
 
-                    // Se estiver na ALLOWLIST (per:), abre janela e permite
+                    // ★ Se bateu allowlist (per:), abre pass-through e permite
                     if (matchesAllowlist(host, uLower)) {
                         openPassThrough(host)
                         return false
                     }
 
-                    // Regra do "mesmo host do player"
+                    // ★ Se é navegação do frame principal COM gesto do usuário,
+                    //    permite e passa a confiar no novo host (troca para o player).
+                    if (request.isForMainFrame && request.hasGesture()) {
+                        allowHost = host
+                        return false
+                    }
+
+                    // Sem gesto: aplica “mesmo host do player”
                     val allow = allowHost
                     val same = allow != null && (host == allow || host.endsWith(".$allow"))
                     if (!same) return true
 
-                    // Popup sem gesto? bloqueia
-                    if (request.isForMainFrame && !request.hasGesture()) return true
-
-                    // Blocklist marcando ad? bloqueia
+                    // (opcional) sem gesto e marcado como ad na lista → bloqueia
                     if (request.isForMainFrame && blockReady.get() && isBlocked(host, uLower)) {
                         return true
                     }
                     return false
                 }
 
-                // outros esquemas -> bloquear
                 return true
             }
 
@@ -171,39 +172,39 @@ class WebViewActivity : AppCompatActivity() {
 
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
-                // ★ Durante a janela de passagem, NÃO injetar JS (evita quebrar encurtadores)
+                // ★ durante pass-through não injeta nada (evita quebrar encurtador)
                 if (isInPassThrough()) return
 
                 if (blockReady.get()) injectAdShieldJS()
                 else injectCoreShieldJS(emptyList())
             }
 
-            // BLOQUEIO de recursos secundários (scripts, iframes, imgs)
             override fun shouldInterceptRequest(
                 view: WebView,
                 request: WebResourceRequest
             ): WebResourceResponse? {
-                // nunca bloquear o frame principal por aqui
                 if (request.isForMainFrame) return null
-
-                // ★ Durante a janela de passagem, NÃO bloquear sub-recursos
+                // ★ durante pass-through não bloqueia sub-recursos
                 if (isInPassThrough()) return null
-
                 if (!blockReady.get()) return null
 
                 val url = request.url.toString()
                 val host = request.url.host?.lowercase(Locale.ROOT) ?: return null
 
-                // nunca bloquear mídia/legendas
+                // mídia/legendas nunca bloquear
                 if (isMediaUrl(url)) return null
 
-                // aplica blocklist (inclusive no mesmo domínio do player)
+                // ★ NÃO bloqueia sub-recursos do mesmo host do player (evita quebrar o player)
+                val allow = allowHost
+                if (allow != null && (host == allow || host.endsWith(".$allow"))) {
+                    return null
+                }
+
                 return if (isBlocked(host, url.lowercase(Locale.ROOT))) empty204() else null
             }
         }
 
         web.webChromeClient = object : WebChromeClient() {
-            // cancela qualquer window.open / target=_blank
             override fun onCreateWindow(
                 view: WebView?,
                 isDialog: Boolean,
@@ -264,7 +265,6 @@ class WebViewActivity : AppCompatActivity() {
             val line = raw.trim()
             if (line.isEmpty() || line.startsWith("#")) return@forEach
 
-            // linhas "per:" vão para allowlist
             val isAllow = line.startsWith("per:", ignoreCase = true)
             val ruleText = if (isAllow) line.substringAfter("per:", "").trim() else line
             if (ruleText.isEmpty()) return@forEach
@@ -286,14 +286,13 @@ class WebViewActivity : AppCompatActivity() {
         return false
     }
 
-    // >>> checa se a URL/host está permitida pela allowlist (per:)
     private fun matchesAllowlist(host: String, fullUrlLower: String): Boolean {
         for (d in allowDomainRules) if (host == d || host.endsWith(".$d")) return true
         for (p in allowSubstringRules) if (p.isNotEmpty() && fullUrlLower.contains(p)) return true
         return false
     }
 
-    // ★ Helpers de “janela de passagem”
+    // ★ Janela de passagem: 12 passos ou 15s (o que durar mais)
     private fun openPassThrough(currentHost: String) {
         passThroughLeft = 12
         passThroughUntil = SystemClock.uptimeMillis() + 15_000
@@ -302,9 +301,8 @@ class WebViewActivity : AppCompatActivity() {
 
     private fun isInPassThrough(): Boolean {
         val timeOk = SystemClock.uptimeMillis() < passThroughUntil
-        // encerra se contador zerou
-        if (passThroughLeft <= 0 && !timeOk) return false
-        return true
+        val stepsOk = passThroughLeft > 0
+        return timeOk || stepsOk
     }
 
     private fun isMediaUrl(u: String): Boolean {
