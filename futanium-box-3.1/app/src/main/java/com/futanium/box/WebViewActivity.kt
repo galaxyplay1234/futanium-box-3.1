@@ -198,6 +198,43 @@ class WebViewActivity : AppCompatActivity() {
                 }
             }
 
+          // Se der erro de DNS/bloqueio no frame principal, recarrega via proxy
+override fun onReceivedError(
+    view: WebView?,
+    request: WebResourceRequest,
+    error: WebResourceError
+) {
+    super.onReceivedError(view, request, error)
+    if (request.isForMainFrame && error.errorCode == ERROR_HOST_LOOKUP) {
+        val original = request.url.toString()
+        val proxyBase = "https://controledeestoque.rf.gd/proxy.php?url="
+        val lower = original.lowercase(Locale.ROOT)
+        if (!lower.startsWith(proxyBase)) {
+            val proxied = proxyBase + Uri.encode(original)
+            view?.loadUrl(proxied)
+        }
+    }
+}
+
+// Compat para Androids antigos (mesma lógica)
+@Suppress("deprecation")
+override fun onReceivedError(
+    view: WebView?,
+    errorCode: Int,
+    description: String?,
+    failingUrl: String?
+) {
+    super.onReceivedError(view, errorCode, description, failingUrl)
+    if (errorCode == ERROR_HOST_LOOKUP && failingUrl != null) {
+        val proxyBase = "https://controledeestoque.rf.gd/proxy.php?url="
+        val lower = failingUrl.lowercase(Locale.ROOT)
+        if (!lower.startsWith(proxyBase)) {
+            val proxied = proxyBase + Uri.encode(failingUrl)
+            view?.loadUrl(proxied)
+        }
+    }
+}
+
             // BLOQUEIO de recursos secundários (scripts, iframes, imgs) usando a blocklist
             override fun shouldInterceptRequest(
                 view: WebView,
