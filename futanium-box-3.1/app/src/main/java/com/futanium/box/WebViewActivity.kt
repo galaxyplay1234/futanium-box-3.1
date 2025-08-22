@@ -2,6 +2,7 @@ package com.futanium.box
 
 import android.annotation.SuppressLint
 import android.app.PictureInPictureParams
+import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.graphics.Color
 import android.net.Uri
@@ -45,16 +46,45 @@ class WebViewActivity : AppCompatActivity() {
     private fun isShortener(url: String, host: String?): Boolean {
         val u = url.lowercase(Locale.ROOT)
         val h = (host ?: "").lowercase(Locale.ROOT)
+        // bit.ly direto OU bit.ly no caminho (ex.: rf.gd/bit.ly/...)
         return h == "bit.ly" || u.contains("/bit.ly/") || u.contains("://bit.ly/")
     }
     // ==========================
+
+    // ===== Bridge para PiP disparado pelo player (JS -> Android) =====
+    private inner class PipBridge {
+        @JavascriptInterface
+        fun enter() {
+            runOnUiThread { goPiPAndShowList() }
+        }
+    }
+
+    private fun goPiPAndShowList() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val params = PictureInPictureParams.Builder()
+                .setAspectRatio(Rational(16, 9))
+                .build()
+            enterPictureInPictureMode(params)
+        } else {
+            @Suppress("DEPRECATION")
+            enterPictureInPictureMode()
+        }
+        // traz a lista para frente (por baixo do PiP)
+        val i = Intent(this, MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        }
+        startActivity(i)
+    }
+    // ================================================================
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Horizontal com rotação
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
 
+        // Nav bar visível e preta; status bar oculta
         WindowCompat.setDecorFitsSystemWindows(window, true)
         window.navigationBarColor = Color.BLACK
         insets = WindowInsetsControllerCompat(window, window.decorView).apply {
@@ -68,8 +98,10 @@ class WebViewActivity : AppCompatActivity() {
         val initHost = runCatching { Uri.parse(initialUrl).host?.lowercase(Locale.ROOT) }.getOrNull()
         allowHost = initHost
 
+        // ativa modo encurtador se a URL inicial já for encurtada
         if (isShortener(initialUrl, initHost)) shortenerActive = true
 
+        // carrega blocklist em background
         Thread { loadBlocklist() }.start()
 
         web = findViewById(R.id.web)
@@ -81,24 +113,32 @@ class WebViewActivity : AppCompatActivity() {
             domStorageEnabled = true
             mediaPlaybackRequiresUserGesture = false
 
+            // pop-ups/abas novas
             setSupportMultipleWindows(false)
             javaScriptCanOpenWindowsAutomatically = false
 
+            // zoom OFF
             builtInZoomControls = false
             displayZoomControls = false
             setSupportZoom(false)
 
+            // Força layout MOBILE (controles grandes)
             useWideViewPort = false
             loadWithOverviewMode = false
 
+            // User-Agent de celular (Chrome Android)
             userAgentString =
                 "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
 
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
         }
 
+        // Bridge JS -> Android para PiP
+        web.addJavascriptInterface(PipBridge(), "AndroidPip")
+
         web.webViewClient = object : WebViewClient() {
 
+            // BLOQUEIO de navegação principal (redirecionamentos/clicks que trocam a página)
             override fun shouldOverrideUrlLoading(
                 view: WebView,
                 request: WebResourceRequest
@@ -107,45 +147,54 @@ class WebViewActivity : AppCompatActivity() {
                 val u = uri.toString()
                 val uLower = u.lowercase(Locale.ROOT)
 
+                // Sempre permite blobs/dados/mídia na própria guia
                 if (isMediaUrl(u) || u.startsWith("blob:") || u.startsWith("data:")) return false
+
+                // Evita travar players que usam about:blank no main-frame
                 if (u == "about:blank") return false
 
+                // Esquemas externos -> fora da WebView
                 if (u.startsWith("intent://") || u.startsWith("market://")
-                    || u.startsWith("mailto:") || u.startsWith("tel:") || u.startsWith("sms:")
-                ) {
+                    || u.startsWith("mailto:") || u.startsWith("tel:")
+                    || u.startsWith("sms:")) {
                     return try {
                         startActivity(
-                            android.content.Intent(
-                                android.content.Intent.ACTION_VIEW,
-                                Uri.parse(u)
-                            )
+                            Intent(Intent.ACTION_VIEW, Uri.parse(u))
                         )
                         true
                     } catch (_: Exception) { true }
                 }
 
+                // http/https
                 if (u.startsWith("http")) {
                     val host = uri.host?.lowercase(Locale.ROOT) ?: return true
 
+                    // 0) Encurtador (bit.ly): deixa passar até cair no player final
                     if (isShortener(u, host)) {
                         shortenerActive = true
                         return false
                     }
+
+                    // 1) Allowlist (per:) permite e fixa host
                     if (matchesAllowlist(host, uLower)) {
                         allowHost = host
                         shortenerActive = false
                         return false
                     }
+
+                    // 2) Se veio do encurtador, a primeira página destino vira o host do player
                     if (shortenerActive) {
                         allowHost = host
                         shortenerActive = false
                         return false
                     }
 
+                    // 3) Fora isso, só navega dentro do mesmo host do player
                     val allow = allowHost
                     val same = allow != null && (host == allow || host.endsWith(".$allow"))
                     if (!same) return true
 
+                    // 4) Se blocklist disser que é ad, barra
                     if (request.isForMainFrame && blockReady.get() && isBlocked(host, uLower)) {
                         return true
                     }
@@ -153,6 +202,7 @@ class WebViewActivity : AppCompatActivity() {
                     return false
                 }
 
+                // qualquer outro esquema desconhecido -> consumir (bloquear)
                 return true
             }
 
@@ -171,21 +221,31 @@ class WebViewActivity : AppCompatActivity() {
 
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
-                if (blockReady.get()) injectAdShieldJS() else injectCoreShieldJS(emptyList())
+                // injeta anti-ads + hook de PiP do player
+                if (blockReady.get()) {
+                    injectAdShieldJS()
+                } else {
+                    injectCoreShieldJS(emptyList())
+                }
+                injectPipHookJS() // <--- garante capturar o botão PiP do player
             }
 
+            // BLOQUEIO de recursos secundários (scripts, iframes, imgs)
             override fun shouldInterceptRequest(
                 view: WebView,
                 request: WebResourceRequest
             ): WebResourceResponse? {
+                // nunca bloquear o frame principal por aqui (deixa a navegação decidir)
                 if (request.isForMainFrame) return null
                 if (!blockReady.get()) return null
 
                 val url = request.url.toString()
                 val host = request.url.host?.lowercase(Locale.ROOT) ?: return null
 
+                // mídia/legendas nunca bloquear
                 if (isMediaUrl(url)) return null
 
+                // NÃO bloqueia sub-recursos do mesmo host do player (evita quebrar)
                 val allow = allowHost
                 if (allow != null && (host == allow || host.endsWith(".$allow"))) {
                     return null
@@ -196,6 +256,7 @@ class WebViewActivity : AppCompatActivity() {
         }
 
         web.webChromeClient = object : WebChromeClient() {
+            // cancela qualquer window.open / target=_blank
             override fun onCreateWindow(
                 view: WebView?,
                 isDialog: Boolean,
@@ -214,15 +275,10 @@ class WebViewActivity : AppCompatActivity() {
         insets.isAppearanceLightNavigationBars = false
     }
 
+    // Se o usuário apertar Home (ou gesture), entramos em PiP também
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val aspectRatio = Rational(16, 9)
-            val params = PictureInPictureParams.Builder()
-                .setAspectRatio(aspectRatio)
-                .build()
-            enterPictureInPictureMode(params)
-        }
+        goPiPAndShowList()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -231,7 +287,7 @@ class WebViewActivity : AppCompatActivity() {
     }
 
     override fun onBackPressed() {
-        finish() // garante que fecha a activity, não deixa em segundo plano
+        finish() // fecha a activity (não deixa em segundo plano)
     }
 
     companion object {
@@ -248,7 +304,9 @@ class WebViewActivity : AppCompatActivity() {
                 parseBlocklist(body)
                 blockReady.set(true)
             }
-        } catch (_: Exception) { }
+        } catch (_: Exception) {
+            // sem lista -> segue sem bloquear recursos por URL
+        }
     }
 
     private fun parseBlocklist(text: String) {
@@ -282,6 +340,7 @@ class WebViewActivity : AppCompatActivity() {
         return false
     }
 
+    // >>> checa se a URL/host está permitida pela allowlist (per:)
     private fun matchesAllowlist(host: String, fullUrlLower: String): Boolean {
         for (d in allowDomainRules) if (host == d || host.endsWith(".$d")) return true
         for (p in allowSubstringRules) if (p.isNotEmpty() && fullUrlLower.contains(p)) return true
@@ -333,9 +392,11 @@ class WebViewActivity : AppCompatActivity() {
                 return false;
               }
               window.open = function(u){ if (isBad(u)) return null; return null; };
-              ['assign','replace'].forEach(k=>{
-                const orig = location[k].bind(location);
-                location[k] = function(u){ if (isBad(u)) return; try{orig(u);}catch(e){} };
+              ['assign','replace'].forEach(function(k){
+                try {
+                  var orig = location[k].bind(location);
+                  location[k] = function(u){ if (isBad(u)) return; try{orig(u);}catch(e){} };
+                } catch(e) {}
               });
               Object.defineProperty(window, 'onbeforeunload', {get:()=>null,set:()=>true});
               window.addEventListener('click', function(e){
@@ -345,17 +406,18 @@ class WebViewActivity : AppCompatActivity() {
                   e.preventDefault(); e.stopImmediatePropagation(); return false;
                 }
               }, true);
-              const css = `
-                [id*="ad"], [class*="ad"], .ads, .adsbox, .advert, .adunit,
-                .ad-container, .ad-banner, .ad-overlay, [class*="overlay"] {
-                  display:none !important; pointer-events:none !important;
-                }
-                body { overscroll-behavior: contain; }
-              `;
-              const style = document.createElement('style');
-              style.type = 'text/css'; style.appendChild(document.createTextNode(css));
+              const css = [
+                '[id*="ad"]', '[class*="ad"]', '.ads', '.adsbox', '.advert', '.adunit',
+                '.ad-container', '.ad-banner', '.ad-overlay', '[class*="overlay"]'
+              ].join(',') + ' { display:none !important; pointer-events:none !important; } ' +
+              'body { overscroll-behavior: contain; }';
+              var style = document.createElement('style');
+              style.type = 'text/css';
+              style.appendChild(document.createTextNode(css));
               document.documentElement.appendChild(style);
-              const _setInterval = window.setInterval;
+
+              // (não bloqueamos timers aqui, só ignoramos strings maliciosas)
+              var _setInterval = window.setInterval;
               window.setInterval = function(fn, t){
                 if (typeof fn === 'string' && isBad(fn)) return 0;
                 return _setInterval(fn, t);
@@ -365,24 +427,57 @@ class WebViewActivity : AppCompatActivity() {
         web.evaluateJavascript(js, null)
     }
 
+    // Fallback mínimo (sem lista remota)
     private fun injectCoreShieldJS(extraTokens: List<String>) {
         val js = """
             (function(){
+              // anula window.open
               window.open = function(){ return null; };
-              ['assign','replace'].forEach(k=>{
-                const orig = location[k].bind(location);
-                location[k] = function(u){ if(!u) return; try{orig(u);}catch(e){} };
+
+              // blinda assign/replace (sem lista)
+              ['assign','replace'].forEach(function(k){
+                try {
+                  var orig = location[k].bind(location);
+                  location[k] = function(u){ if(!u) return; try{orig(u);}catch(e){} };
+                } catch(e) {}
               });
-              const css = `
-                [class*="overlay"], .ad, .ads, .ad-overlay { 
-                  display:none !important; 
-                  pointer-events:none !important; 
-                }
-              `;
-              const style = document.createElement('style');
+
+              // remove overlays comuns
+              var css = [
+                '[class*="overlay"]',
+                '.ad', '.ads', '.ad-overlay'
+              ].join(',') + ' { display:none !important; pointer-events:none !important; }';
+
+              var style = document.createElement('style');
               style.type = 'text/css';
               style.appendChild(document.createTextNode(css));
               document.documentElement.appendChild(style);
+            })();
+        """.trimIndent()
+        web.evaluateJavascript(js, null)
+    }
+
+    // ---- Hook de Picture-in-Picture do player (HTML5 -> Android) ----
+    private fun injectPipHookJS() {
+        val js = """
+            (function(){
+              try {
+                if (!window.__pip_hooked) {
+                  window.__pip_hooked = true;
+                  var orig = HTMLVideoElement.prototype.requestPictureInPicture;
+                  if (orig) {
+                    HTMLVideoElement.prototype.requestPictureInPicture = function(){
+                      try { if (window.AndroidPip && AndroidPip.enter) AndroidPip.enter(); } catch(e){}
+                      return orig.apply(this, arguments);
+                    };
+                  } else {
+                    // alguns players disparam via document; ainda assim chamamos Android
+                    document.addEventListener('enterpictureinpicture', function(){
+                      try { if (window.AndroidPip && AndroidPip.enter) AndroidPip.enter(); } catch(e){}
+                    }, {once:true});
+                  }
+                }
+              } catch(e){}
             })();
         """.trimIndent()
         web.evaluateJavascript(js, null)
