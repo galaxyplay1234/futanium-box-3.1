@@ -25,6 +25,11 @@ class WebViewActivity : AppCompatActivity() {
     private lateinit var web: WebView
     private lateinit var insets: WindowInsetsControllerCompat
 
+
+    // --- Controle de PiP apenas quando houver vídeo em fullscreen ---
+private var isFullscreenVideo = false
+private var customViewCallback: WebChromeClient.CustomViewCallback? = null
+
     // --- BLOQUEIO (lista remota) ---
     private val client = OkHttpClient()
     private val blocklistUrl =
@@ -256,7 +261,23 @@ class WebViewActivity : AppCompatActivity() {
         }
 
         web.webChromeClient = object : WebChromeClient() {
-    // redireciona window.open / target=_blank para o mesmo WebView
+
+    // Detecta quando o <video> entra/sai de fullscreen
+    override fun onShowCustomView(view: android.view.View?, callback: CustomViewCallback?) {
+        isFullscreenVideo = true
+        customViewCallback = callback
+        // não precisamos adicionar a view manualmente porque é o próprio player do site
+        super.onShowCustomView(view, callback)
+    }
+
+    override fun onHideCustomView() {
+        isFullscreenVideo = false
+        customViewCallback?.onCustomViewHidden()
+        customViewCallback = null
+        super.onHideCustomView()
+    }
+
+    // Redireciona window.open/target=_blank para o mesmo WebView
     override fun onCreateWindow(
         view: WebView?,
         isDialog: Boolean,
@@ -264,7 +285,7 @@ class WebViewActivity : AppCompatActivity() {
         resultMsg: android.os.Message?
     ): Boolean {
         val transport = resultMsg?.obj as? WebView.WebViewTransport ?: return false
-        transport.webView = web   // reusa o mesmo WebView
+        transport.webView = web
         resultMsg.sendToTarget()
         return true
     }
@@ -280,9 +301,15 @@ class WebViewActivity : AppCompatActivity() {
 
     // Se o usuário apertar Home (ou gesture), entramos em PiP também
     override fun onUserLeaveHint() {
-        super.onUserLeaveHint()
-        goPiPAndShowList()
+    super.onUserLeaveHint()
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && isFullscreenVideo) {
+        val params = PictureInPictureParams.Builder()
+            .setAspectRatio(android.util.Rational(16, 9))
+            .build()
+        enterPictureInPictureMode(params)
     }
+    // Se não estiver em fullscreen, não entra em PiP (assim a lista de jogos nunca vira PiP)
+}
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
