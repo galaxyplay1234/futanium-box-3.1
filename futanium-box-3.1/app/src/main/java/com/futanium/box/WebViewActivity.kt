@@ -256,16 +256,19 @@ class WebViewActivity : AppCompatActivity() {
         }
 
         web.webChromeClient = object : WebChromeClient() {
-            // cancela qualquer window.open / target=_blank
-            override fun onCreateWindow(
-                view: WebView?,
-                isDialog: Boolean,
-                isUserGesture: Boolean,
-                resultMsg: android.os.Message?
-            ): Boolean {
-                return false
-            }
-        }
+    // redireciona window.open / target=_blank para o mesmo WebView
+    override fun onCreateWindow(
+        view: WebView?,
+        isDialog: Boolean,
+        isUserGesture: Boolean,
+        resultMsg: android.os.Message?
+    ): Boolean {
+        val transport = resultMsg?.obj as? WebView.WebViewTransport ?: return false
+        transport.webView = web   // reusa o mesmo WebView
+        resultMsg.sendToTarget()
+        return true
+    }
+}
 
         if (initialUrl.isNotBlank()) web.loadUrl(initialUrl)
     }
