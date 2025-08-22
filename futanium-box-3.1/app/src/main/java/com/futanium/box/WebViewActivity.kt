@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
+import android.view.WindowManager
 import android.webkit.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
@@ -59,6 +60,9 @@ class WebViewActivity : AppCompatActivity() {
 
         setContentView(R.layout.activity_webview)
 
+        // Mantém a tela ligada (reforço além do keepScreenOn da WebView)
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
         val initialUrl = intent.getStringExtra(EXTRA_URL).orEmpty()
         val initHost = runCatching { Uri.parse(initialUrl).host?.lowercase(Locale.ROOT) }.getOrNull()
         allowHost = initHost
@@ -113,7 +117,7 @@ class WebViewActivity : AppCompatActivity() {
                 if (isMediaUrl(u) || u.startsWith("blob:") || u.startsWith("data:")) return false
 
                 // Evita travar players que usam about:blank no main-frame
-                if (u == "about:blank") return false  // *** ALTERAÇÃO ***
+                if (u == "about:blank") return false
 
                 // Esquemas externos -> fora da WebView
                 if (u.startsWith("intent://") || u.startsWith("market://")
@@ -154,8 +158,7 @@ class WebViewActivity : AppCompatActivity() {
                         return false
                     }
 
-                    // 3) *** REMOVIDO O BYPASS POR GESTO ***
-                    //    Mesmo com gesto do usuário, não deixa sair do eTLD+1 do player.
+                    // 3) Mesmo com gesto, não deixa sair do eTLD+1 do player
                     val allow = allowHost
                     val same = allow != null && (host == allow || host.endsWith(".$allow"))
                     if (!same) return true   // bloqueia ida para domínio de anúncio
@@ -245,12 +248,15 @@ class WebViewActivity : AppCompatActivity() {
         if (hasFocus) hideStatusBar()
     }
 
+    // Botão voltar: fecha a WebView (não fica em segundo plano / sem histórico)
     override fun onBackPressed() {
-        if (this::web.isInitialized && web.canGoBack()) {
-            web.goBack()
-        } else {
-            super.onBackPressed()
-        }
+        finish()
+    }
+
+    override fun onDestroy() {
+        // limpa o flag de manter a tela ligada (boa prática)
+        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        super.onDestroy()
     }
 
     companion object {
