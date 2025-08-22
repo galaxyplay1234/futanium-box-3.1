@@ -370,4 +370,21 @@ class WebViewActivity : AppCompatActivity() {
             (function(){
               window.open = function(){ return null; };
               ['assign','replace'].forEach(k=>{
-                val
+                const orig = location[k].bind(location);
+                location[k] = function(u){ if(!u) return; try{orig(u);}catch(e){} };
+              });
+              const css = `
+                [class*="overlay"], .ad, .ads, .ad-overlay { 
+                  display:none !important; 
+                  pointer-events:none !important; 
+                }
+              `;
+              const style = document.createElement('style');
+              style.type = 'text/css';
+              style.appendChild(document.createTextNode(css));
+              document.documentElement.appendChild(style);
+            })();
+        """.trimIndent()
+        web.evaluateJavascript(js, null)
+    }
+}
