@@ -174,23 +174,46 @@ class WebViewActivity : AppCompatActivity() {
                 return true
             }
 
+            // >>> ALTERAÇÃO #1: não “envenenar” o allowHost e injetar JS cedo
             override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
-                url?.let {
-                    val h = runCatching { Uri.parse(it).host?.lowercase(Locale.ROOT) }.getOrNull()
-                    // se ainda está no encurtador, mantém o modo; se não, desliga e fixa host
-                    if (isShortener(it, h)) {
-                        shortenerActive = true
-                    } else {
+                if (url == null) return
+
+                val h = runCatching { Uri.parse(url).host?.lowercase(Locale.ROOT) }.getOrNull()
+                val urlLower = url.lowercase(Locale.ROOT)
+
+                // Se ainda está no encurtador, mantém o modo (não fixa host ainda)
+                if (isShortener(url, h)) {
+                    shortenerActive = true
+                } else {
+                    // Pode atualizar allowHost apenas se:
+                    // - URL está na allowlist (per:), ou
+                    // - é o mesmo host/subdomínio do atual, ou
+                    // - ainda estávamos em modo encurtador (acabamos de sair dele)
+                    val whitelisted = matchesAllowlist(h ?: "", urlLower)
+                    val same = allowHost?.let { base ->
+                        h != null && (h == base || h.endsWith(".$base"))
+                    } ?: false
+
+                    if (whitelisted || same || shortenerActive) {
                         allowHost = h
                         shortenerActive = false
+                    } else {
+                        // ignora hosts suspeitos (típicos de ad) para não quebrar a página com tela preta
                     }
+                }
+
+                // >>> ALTERAÇÃO #2: injeta o shield JS já no início do carregamento
+                if (blockReady.get()) {
+                    injectAdShieldJS()
+                } else {
+                    injectCoreShieldJS(emptyList())
                 }
             }
 
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
-                // Durante o encurtador, segue normal (bloqueio continua valendo para terceiros)
+                // Mantém injeção no fim também
                 if (blockReady.get()) {
                     injectAdShieldJS()
                 } else {
