@@ -112,6 +112,9 @@ class WebViewActivity : AppCompatActivity() {
                 // Sempre permite blobs/dados/mídia na própria guia
                 if (isMediaUrl(u) || u.startsWith("blob:") || u.startsWith("data:")) return false
 
+                // Evita travar players que usam about:blank no main-frame
+                if (u == "about:blank") return false  // *** ALTERAÇÃO ***
+
                 // Esquemas externos -> fora da WebView
                 if (u.startsWith("intent://") || u.startsWith("market://")
                     || u.startsWith("mailto:") || u.startsWith("tel:")
@@ -146,74 +149,45 @@ class WebViewActivity : AppCompatActivity() {
 
                     // 2) Se MODO ENC. ativo (vindo de bit.ly), permite atravessar até cair no player final
                     if (shortenerActive) {
-                        // quando sair do encurtador e cair no player, fixa o host e desliga o modo
                         allowHost = host
                         shortenerActive = false
                         return false
                     }
 
-                    // 3) Se é navegação do frame principal COM gesto do usuário, permite e troca o host
-                    if (request.isForMainFrame && request.hasGesture()) {
-                        allowHost = host
-                        return false
-                    }
-
-                    // 4) Sem gesto: aplica “mesmo host do player”
+                    // 3) *** REMOVIDO O BYPASS POR GESTO ***
+                    //    Mesmo com gesto do usuário, não deixa sair do eTLD+1 do player.
                     val allow = allowHost
                     val same = allow != null && (host == allow || host.endsWith(".$allow"))
-                    if (!same) return true
+                    if (!same) return true   // bloqueia ida para domínio de anúncio
 
-                    // 5) (opcional) sem gesto e marcado como ad na lista → bloqueia
+                    // 4) Se a blocklist marcar como ad, bloqueia
                     if (request.isForMainFrame && blockReady.get() && isBlocked(host, uLower)) {
                         return true
                     }
-                    return false
+
+                    return false // permitir dentro do mesmo host do player
                 }
 
                 // qualquer outro esquema desconhecido -> consumir (bloquear)
                 return true
             }
 
-            // >>> ALTERAÇÃO #1: não “envenenar” o allowHost e injetar JS cedo
             override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
-                if (url == null) return
-
-                val h = runCatching { Uri.parse(url).host?.lowercase(Locale.ROOT) }.getOrNull()
-                val urlLower = url.lowercase(Locale.ROOT)
-
-                // Se ainda está no encurtador, mantém o modo (não fixa host ainda)
-                if (isShortener(url, h)) {
-                    shortenerActive = true
-                } else {
-                    // Pode atualizar allowHost apenas se:
-                    // - URL está na allowlist (per:), ou
-                    // - é o mesmo host/subdomínio do atual, ou
-                    // - ainda estávamos em modo encurtador (acabamos de sair dele)
-                    val whitelisted = matchesAllowlist(h ?: "", urlLower)
-                    val same = allowHost?.let { base ->
-                        h != null && (h == base || h.endsWith(".$base"))
-                    } ?: false
-
-                    if (whitelisted || same || shortenerActive) {
+                url?.let {
+                    val h = runCatching { Uri.parse(it).host?.lowercase(Locale.ROOT) }.getOrNull()
+                    // se ainda está no encurtador, mantém o modo; se não, desliga e fixa host
+                    if (isShortener(it, h)) {
+                        shortenerActive = true
+                    } else {
                         allowHost = h
                         shortenerActive = false
-                    } else {
-                        // ignora hosts suspeitos (típicos de ad) para não quebrar a página com tela preta
                     }
-                }
-
-                // >>> ALTERAÇÃO #2: injeta o shield JS já no início do carregamento
-                if (blockReady.get()) {
-                    injectAdShieldJS()
-                } else {
-                    injectCoreShieldJS(emptyList())
                 }
             }
 
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
-                // Mantém injeção no fim também
                 if (blockReady.get()) {
                     injectAdShieldJS()
                 } else {
@@ -242,7 +216,6 @@ class WebViewActivity : AppCompatActivity() {
                     return null
                 }
 
-                // curta: mesmo durante shortener, seguimos bloqueando terceiras (se houver)
                 return if (isBlocked(host, url.lowercase(Locale.ROOT))) empty204() else null
             }
         }
