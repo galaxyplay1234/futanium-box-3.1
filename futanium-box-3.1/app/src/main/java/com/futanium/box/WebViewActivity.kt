@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
+import android.os.SystemClock
 import android.webkit.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
@@ -35,8 +36,9 @@ class WebViewActivity : AppCompatActivity() {
     private var allowHost: String? = null            // host/eTLD+1 do player atual
     private val blockReady = AtomicBoolean(false)
 
-    // >>> PASSAGEM TEMPORÁRIA após um "per:" (libera alguns redirects de main-frame)
+    // ★ Janela de passagem após "per:" (cobre redirects + meta refresh/JS)
     private var passThroughLeft: Int = 0
+    private var passThroughUntil: Long = 0L
     // --------------------------------
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -87,12 +89,11 @@ class WebViewActivity : AppCompatActivity() {
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
         }
 
-        // ★ Se a URL inicial já bate com a allowlist (per:), abre a janela de passagem agora
+        // ★ Se a URL inicial já casa com per:, abre janela de passagem imediatamente
         runCatching {
             val initHost = Uri.parse(initialUrl).host?.lowercase(Locale.ROOT) ?: ""
             if (matchesAllowlist(initHost, initialUrl.lowercase(Locale.ROOT))) {
-                passThroughLeft = 6           // folga para 2–3 redirects + hop até o player
-                allowHost = initHost
+                openPassThrough(initHost)
             }
         }
 
@@ -110,7 +111,7 @@ class WebViewActivity : AppCompatActivity() {
                 // Sempre permite blobs/dados/mídia na própria guia
                 if (isMediaUrl(u) || u.startsWith("blob:") || u.startsWith("data:")) return false
 
-                // Esquemas externos -> deixam o Android decidir (fora da WebView)
+                // Esquemas externos -> fora da WebView
                 if (u.startsWith("intent://") || u.startsWith("market://")
                     || u.startsWith("mailto:") || u.startsWith("tel:")
                     || u.startsWith("sms:")) {
@@ -129,77 +130,75 @@ class WebViewActivity : AppCompatActivity() {
                 if (u.startsWith("http")) {
                     val host = uri.host?.lowercase(Locale.ROOT) ?: return true
 
-                    // ★ 0) Em "janela de passagem": deixa seguir e atualiza host
-                    if (passThroughLeft > 0) {
+                    // ★ Em janela de passagem: permite e atualiza host
+                    if (isInPassThrough()) {
+                        allowHost = host
                         passThroughLeft--
-                        allowHost = host
                         return false
                     }
 
-                    // 1) Se estiver na ALLOWLIST (per:), libera e abre janela de passagem
+                    // Se estiver na ALLOWLIST (per:), abre janela e permite
                     if (matchesAllowlist(host, uLower)) {
-                        passThroughLeft = 6
-                        allowHost = host
+                        openPassThrough(host)
                         return false
                     }
 
-                    // 2) Caso contrário, mantém a regra de "mesmo host do player"
+                    // Regra do "mesmo host do player"
                     val allow = allowHost
                     val same = allow != null && (host == allow || host.endsWith(".$allow"))
                     if (!same) return true
 
-                    // 3) se for navegação principal SEM gesto do usuário (popup), bloqueia
+                    // Popup sem gesto? bloqueia
                     if (request.isForMainFrame && !request.hasGesture()) return true
 
-                    // 4) se a blocklist marcar como ad, bloqueia
+                    // Blocklist marcando ad? bloqueia
                     if (request.isForMainFrame && blockReady.get() && isBlocked(host, uLower)) {
                         return true
                     }
-                    return false // permitir
+                    return false
                 }
 
-                // qualquer outro esquema desconhecido -> consumir (bloquear)
+                // outros esquemas -> bloquear
                 return true
             }
 
             override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
                 url?.let {
-                    // atualiza host principal ao trocar de URL
                     allowHost = runCatching { Uri.parse(it).host?.lowercase(Locale.ROOT) }.getOrNull()
                 }
             }
 
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
-                if (blockReady.get()) {
-                    injectAdShieldJS()
-                } else {
-                    injectCoreShieldJS(emptyList())
-                }
+                // ★ Durante a janela de passagem, NÃO injetar JS (evita quebrar encurtadores)
+                if (isInPassThrough()) return
+
+                if (blockReady.get()) injectAdShieldJS()
+                else injectCoreShieldJS(emptyList())
             }
 
-            // BLOQUEIO de recursos secundários (scripts, iframes, imgs) usando a blocklist
+            // BLOQUEIO de recursos secundários (scripts, iframes, imgs)
             override fun shouldInterceptRequest(
                 view: WebView,
                 request: WebResourceRequest
             ): WebResourceResponse? {
-                // nunca bloquear o frame principal por aqui (deixa a navegação decidir)
+                // nunca bloquear o frame principal por aqui
                 if (request.isForMainFrame) return null
+
+                // ★ Durante a janela de passagem, NÃO bloquear sub-recursos
+                if (isInPassThrough()) return null
+
                 if (!blockReady.get()) return null
 
                 val url = request.url.toString()
                 val host = request.url.host?.lowercase(Locale.ROOT) ?: return null
 
-                // ★ Removida a isenção do allowHost.
-                //    Agora, mesmo no mesmo domínio do player, a gente ainda aplica a blocklist
-                //    (mas SEM nunca bloquear mídia/legendas).
+                // nunca bloquear mídia/legendas
                 if (isMediaUrl(url)) return null
 
-                if (isBlocked(host, url.lowercase(Locale.ROOT))) {
-                    return empty204()
-                }
-                return null
+                // aplica blocklist (inclusive no mesmo domínio do player)
+                return if (isBlocked(host, url.lowercase(Locale.ROOT))) empty204() else null
             }
         }
 
@@ -294,6 +293,20 @@ class WebViewActivity : AppCompatActivity() {
         return false
     }
 
+    // ★ Helpers de “janela de passagem”
+    private fun openPassThrough(currentHost: String) {
+        passThroughLeft = 12
+        passThroughUntil = SystemClock.uptimeMillis() + 15_000
+        allowHost = currentHost
+    }
+
+    private fun isInPassThrough(): Boolean {
+        val timeOk = SystemClock.uptimeMillis() < passThroughUntil
+        // encerra se contador zerou
+        if (passThroughLeft <= 0 && !timeOk) return false
+        return true
+    }
+
     private fun isMediaUrl(u: String): Boolean {
         val x = u.lowercase(Locale.ROOT)
         return x.endsWith(".m3u8") || x.endsWith(".mpd") || x.endsWith(".ts") ||
@@ -313,7 +326,6 @@ class WebViewActivity : AppCompatActivity() {
         )
 
     // ---------- Injeção de JS anti-pop/overlay/redirecionamento ----------
-
     private fun injectAdShieldJS() {
         val tokens = (substringRules + domainRules.map { ".$it" })
             .filter { it.isNotBlank() }
