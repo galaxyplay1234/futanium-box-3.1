@@ -9,7 +9,6 @@ import android.os.Looper
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
@@ -98,10 +97,13 @@ class PlayerActivity : AppCompatActivity() {
             }
             false
         }
-        playerView.setControllerVisibilityListener { visibility ->
-            if (visibility == View.VISIBLE) scheduleControllerAutoHide()
-            else controllerHandler.removeCallbacks(controllerAutoHide)
-        }
+        // >>> FIX: especificar o tipo para evitar ambiguidade
+        playerView.setControllerVisibilityListener(
+            PlayerView.ControllerVisibilityListener { visibility ->
+                if (visibility == View.VISIBLE) scheduleControllerAutoHide()
+                else controllerHandler.removeCallbacks(controllerAutoHide)
+            }
+        )
 
         // padding anti-corte (minutos direitos e barra)
         ViewCompat.setOnApplyWindowInsetsListener(playerView) { _, ins ->
@@ -147,7 +149,7 @@ class PlayerActivity : AppCompatActivity() {
         val ua = intent.getStringExtra(EXTRA_USER_AGENT)
         val subtitleUrl = intent.getStringExtra(EXTRA_SUBTITLE)
 
-        // <<< ALTERAÇÃO AQUI: se não for m3u8/ts, abre WebView e encerra o Player >>>
+        // Se não for m3u8/ts, abre WebView e encerra o Player
         if (!isSupported(url)) {
             startActivity(Intent(this, WebViewActivity::class.java).apply {
                 putExtra(WebViewActivity.EXTRA_URL, url)
