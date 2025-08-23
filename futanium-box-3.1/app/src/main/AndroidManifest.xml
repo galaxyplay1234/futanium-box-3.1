@@ -32,6 +32,15 @@
             </intent-filter>
         </activity>
 
+
+<activity
+    android:name=".PlayerActivity"
+    android:exported="false"
+    android:screenOrientation="landscape"
+    android:resizeableActivity="false"
+    android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|uiMode"
+    android:theme="@style/Theme.Material3.DayNight.NoActionBar" />
+
     </application>
 
 </manifest>
