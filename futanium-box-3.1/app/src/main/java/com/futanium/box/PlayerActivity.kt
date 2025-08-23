@@ -7,11 +7,13 @@ import android.os.Handler
 import android.os.Looper
 import android.view.View
 import android.view.WindowManager
+import android.widget.ProgressBar
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import androidx.core.view.ViewCompat // << ADICIONADO
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
@@ -34,7 +36,6 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var playerView: PlayerView
     private var player: ExoPlayer? = null
 
-    // UI (status bar oculta; nav bar sempre preta)
     private lateinit var insets: WindowInsetsControllerCompat
 
     // Retry se travar muito tempo em BUFFERING
@@ -60,17 +61,18 @@ class PlayerActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // >>> AJUSTE: desenhar por baixo da status bar (ela fica por cima, transparente)
+        // Barras do sistema sobrepostas ao conteúdo (não redimensiona o player)
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        window.statusBarColor = Color.TRANSPARENT
-        // navbar preta + ícones claros (igual WebView)
+        window.statusBarColor = 0x66000000  // preto 40% (translúcido) quando visível
         window.navigationBarColor = Color.BLACK
         insets = WindowInsetsControllerCompat(window, window.decorView).apply {
             isAppearanceLightStatusBars = false
             isAppearanceLightNavigationBars = false
+            // quando o usuário arrastar, as barras aparecem de forma transitória e somem
+            systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
         hideStatusBar()
-        // <<<
 
         // mantém tela ligada
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -78,34 +80,61 @@ class PlayerActivity : AppCompatActivity() {
         setContentView(R.layout.activity_player)
         playerView = findViewById(R.id.playerView)
 
-        // >>> AJUSTE: levantar APENAS o controller acima da navbar (vídeo continua full)
-        val controller = playerView.findViewById<View>(androidx.media3.ui.R.id.exo_controller)
-        controller?.let { ctrl ->
-            ViewCompat.setOnApplyWindowInsetsListener(ctrl) { v, ins ->
-                val bars = ins.getInsets(WindowInsetsCompat.Type.systemBars())
-                // top 0 (status bar sobrepõe), bottom = altura da navbar
-                v.setPadding(v.paddingLeft, 0, v.paddingRight, bars.bottom)
-                ins
-            }
-        }
-        // <<<
-
         // Controller: some tudo junto e volta no toque
         playerView.setControllerShowTimeoutMs(3000)
         playerView.setControllerHideOnTouch(true)
-        playerView.setControllerVisibilityListener(ControllerVisibilityListener { vis ->
-            val root = playerView.findViewById<View>(androidx.media3.ui.R.id.exo_controller)
-            root?.visibility = if (vis == View.VISIBLE) View.VISIBLE else View.GONE
-        })
+        playerView.setControllerVisibilityListener(
+            ControllerVisibilityListener { visibility ->
+                // status bar: aparece quando o controller aparece e some sozinha logo depois
+                if (visibility == View.VISIBLE) {
+                    insets.show(WindowInsetsCompat.Type.statusBars())
+                    // deixa 2s visível e esconde de novo
+                    main.removeCallbacks(hideBarsRunnable)
+                    main.postDelayed(hideBarsRunnable, 2000)
+                } else {
+                    main.removeCallbacks(hideBarsRunnable)
+                    hideStatusBar()
+                }
+                // garante que o container do controller todo vá junto
+                playerView.findViewById<View>(androidx.media3.ui.R.id.exo_controller)
+                    ?.visibility = if (visibility == View.VISIBLE) View.VISIBLE else View.GONE
+            }
+        )
 
         // Spinner (retry) branco
-        findViewById<android.widget.ProgressBar>(androidx.media3.ui.R.id.exo_buffering)?.let { pb ->
+        findViewById<ProgressBar>(androidx.media3.ui.R.id.exo_buffering)?.let { pb ->
             val white = android.content.res.ColorStateList.valueOf(Color.WHITE)
             pb.indeterminateTintList = white
             pb.indeterminateTintMode = android.graphics.PorterDuff.Mode.SRC_IN
         }
 
-        // Esconde os botões que você não quer
+        // Empurra elementos inferiores para cima do nav bar (minutos à direita e timebar)
+        ViewCompat.setOnApplyWindowInsetsListener(playerView) { _, ins ->
+            val bottomInset = ins.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
+            // ids padrão do layout do controller
+            listOf(
+                androidx.media3.ui.R.id.exo_progress,   // barra de progresso/buffer
+                androidx.media3.ui.R.id.exo_position,   // minutos à esquerda
+                androidx.media3.ui.R.id.exo_duration    // minutos à direita
+            ).forEach { id ->
+                playerView.findViewById<View>(id)?.let { v ->
+                    v.setPadding(
+                        v.paddingLeft, v.paddingTop, v.paddingRight,
+                        bottomInset + dp(12)
+                    )
+                }
+            }
+            // também ajusta o scrim inferior (fundo translúcido da faixa)
+            playerView.findViewById<View>(R.id.exo_bottom_scrim)?.let { scrim ->
+                scrim.setPadding(
+                    scrim.paddingLeft, scrim.paddingTop, scrim.paddingRight,
+                    bottomInset
+                )
+            }
+            ins
+        }
+
+        // Esconde botões extra (mantém só play/pause + barra/tempos)
         listOf(
             androidx.media3.ui.R.id.exo_prev,
             androidx.media3.ui.R.id.exo_next,
@@ -124,6 +153,8 @@ class PlayerActivity : AppCompatActivity() {
         initPlayer(url, title, referer, ua, subtitleUrl)
     }
 
+    private val hideBarsRunnable = Runnable { hideStatusBar() }
+
     private fun hideStatusBar() {
         insets.hide(WindowInsetsCompat.Type.statusBars())
         insets.isAppearanceLightNavigationBars = false
@@ -136,7 +167,6 @@ class PlayerActivity : AppCompatActivity() {
         ua: String?,
         subtitleUrl: String?
     ) {
-        // DataSource com cabeçalhos opcionais
         val dsFactory = DefaultHttpDataSource.Factory().apply {
             setAllowCrossProtocolRedirects(true)
             ua?.let { setUserAgent(it) }
@@ -153,17 +183,15 @@ class PlayerActivity : AppCompatActivity() {
             .build()
             .also { playerView.player = it }
 
-        // MediaItem + metadata
         val itemBuilder = MediaItem.Builder().setUri(url)
         if (!title.isNullOrBlank()) {
             itemBuilder.setMediaMetadata(
                 MediaMetadata.Builder().setTitle(title).build()
             )
         }
-        // Legenda opcional
         if (!subtitleUrl.isNullOrBlank()) {
             val sub = MediaItem.SubtitleConfiguration.Builder(Uri.parse(subtitleUrl))
-                .setMimeType("text/vtt") // para .srt use "application/x-subrip"
+                .setMimeType("text/vtt")
                 .setLanguage("pt")
                 .setSelectionFlags(0)
                 .build()
@@ -174,7 +202,6 @@ class PlayerActivity : AppCompatActivity() {
         p.prepare()
         p.playWhenReady = true
 
-        // Listener p/ retry e controle do watchdog
         p.addListener(object : Player.Listener {
             override fun onPlaybackStateChanged(state: Int) {
                 when (state) {
@@ -207,6 +234,7 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        main.removeCallbacks(hideBarsRunnable)
         main.removeCallbacks(bufferingWatchdog)
         playerView.player = null
         player?.release()
@@ -214,4 +242,7 @@ class PlayerActivity : AppCompatActivity() {
         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         super.onDestroy()
     }
+
+    private fun dp(v: Int): Int =
+        (v * resources.displayMetrics.density).toInt()
 }
