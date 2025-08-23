@@ -1,28 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <!-- Tema do app (sem ActionBar, já que você usa Toolbar) -->
+    <!-- Tema do app (sem ActionBar) -->
     <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
-        <!-- opcional: status bar escura -->
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
     </style>
 
+    <!-- Tema fullscreen preto (status/nav bar pretas) -->
+    <style name="Theme.Futanium.Fullscreen" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="android:statusBarColor">@android:color/black</item>
+        <item name="android:navigationBarColor">@android:color/black</item>
+    </style>
 
-
-   <style name="Theme.Futanium.Fullscreen" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-    <item name="android:statusBarColor">@android:color/black</item>
-    <item name="android:navigationBarColor">@android:color/black</item>
-</style>
-
-
-<!-- Tema customizado pro PlayerView -->
-<style name="CustomPlayerView" parent="Widget.Media3.PlayerView">
-        <item name="app:surface_type">surface_view</item>
+    <!-- Tema do PlayerView -->
+    <style name="CustomPlayerView" parent="Widget.Media3.PlayerView">
+        <!-- NÃO usar prefixo app: aqui -->
+        <item name="surface_type">surface_view</item>
         <item name="show_buffering">when_playing</item>
         <item name="controller_show_timeout_ms">3000</item>
-        <!-- deixa o spinner branco -->
-        <item name="app:buffered_color">@android:color/white</item>
-</style>
- 
+    </style>
+
 </resources>
