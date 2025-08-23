@@ -1,10 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/playerRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#000000">
+    android:background="@android:color/black">
 
     <androidx.media3.ui.PlayerView
         android:id="@+id/playerView"
@@ -12,8 +11,7 @@
         android:layout_height="match_parent"
         android:keepScreenOn="true"
         app:use_controller="true"
-        app:controller_layout_id="@layout/exo_player_controller_minimal"
         app:resize_mode="fit"
-        app:show_buffering="when_playing"
-        app:surface_type="texture_view" />
+        app:show_buffering="when_playing"    <!-- mostra o spinner -->
+        app:controller_show_timeout_ms="3000" />
 </FrameLayout>
