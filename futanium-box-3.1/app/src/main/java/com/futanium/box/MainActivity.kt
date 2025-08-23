@@ -56,6 +56,10 @@ class MainActivity : AppCompatActivity() {
 
         vb.rvGames.layoutManager = LinearLayoutManager(this)
         vb.rvGames.adapter = adapter
+        // Decide se abre WebView ou Player Exo conforme o link
+adapter.onOpenLink = { url, title, referer, ua ->
+    com.futanium.box.LinkHelper.openLinkSmart(this, url, title, referer, ua)
+}
 
         // >>> ADIÇÃO: quando o adapter avisar um link, decide ExoPlayer x WebView
         adapter.onOpenLink = { url, title, referer, userAgent ->
