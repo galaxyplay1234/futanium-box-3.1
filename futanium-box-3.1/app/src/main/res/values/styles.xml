@@ -16,15 +16,13 @@
 </style>
 
 
-    <!-- Tema customizado pro PlayerView -->
-    <style name="CustomPlayerView" parent="Widget.Media3.PlayerView">
+<!-- Tema customizado pro PlayerView -->
+<style name="CustomPlayerView" parent="Widget.Media3.PlayerView">
         <item name="app:surface_type">surface_view</item>
         <item name="show_buffering">when_playing</item>
         <item name="controller_show_timeout_ms">3000</item>
         <!-- deixa o spinner branco -->
         <item name="app:buffered_color">@android:color/white</item>
+</style>
  
-</resources>
-
-
-</resources>
+</resources>.
