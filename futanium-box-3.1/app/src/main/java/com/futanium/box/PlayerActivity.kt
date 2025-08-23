@@ -57,46 +57,52 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+    super.onCreate(savedInstanceState)
 
-        // fullscreen: oculta status bar; deixa nav bar visível e preta
-        WindowCompat.setDecorFitsSystemWindows(window, true)
-        window.navigationBarColor = Color.BLACK
-        insets = WindowInsetsControllerCompat(window, window.decorView).apply {
-            isAppearanceLightNavigationBars = false // ícones claros sobre barra preta
-        }
-        hideStatusBar()
+    // fullscreen: oculta status bar; deixa nav bar visível e preta
+    WindowCompat.setDecorFitsSystemWindows(window, false) // <- ALTERADO
+    window.statusBarColor = Color.BLACK                   // <- força preto
+    window.navigationBarColor = Color.BLACK
+    insets = WindowInsetsControllerCompat(window, window.decorView).apply {
+        isAppearanceLightStatusBars = false
+        isAppearanceLightNavigationBars = false
+    }
+    hideStatusBar()
 
-        // mantém tela ligada
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    // mantém tela ligada
+    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-        setContentView(R.layout.activity_player)
-        playerView = findViewById(R.id.playerView)
+    setContentView(R.layout.activity_player)
+    playerView = findViewById(R.id.playerView)
 
-        // Garante que toda a UI do controller some junto e reapareça no toque
-playerView.setControllerShowTimeoutMs(3000)
-playerView.setControllerHideOnTouch(true)
+    // Garante que toda a UI do controller some junto e reapareça no toque
+    playerView.setControllerShowTimeoutMs(3000)
+    playerView.setControllerHideOnTouch(true)
 
-// Garante que toda a UI do controller some junto e reapareça no toque
-playerView.setControllerShowTimeoutMs(3000)
-playerView.setControllerHideOnTouch(true)
+    // 🔹 Corrige sumiço assíncrono do timebar: sincroniza root controller
+    playerView.setControllerVisibilityListener { vis ->
+        val root = playerView.findViewById<View>(androidx.media3.ui.R.id.exo_controller)
+        root?.visibility = if (vis == View.VISIBLE) View.VISIBLE else View.GONE
+    }
 
-// Força o spinner (retry/loading) a ser branco em qualquer tema
-(findViewById<android.widget.ProgressBar>(androidx.media3.ui.R.id.exo_buffering))?.let { pb ->
-    val white = android.content.res.ColorStateList.valueOf(android.graphics.Color.WHITE)
-    pb.indeterminateTintList = white
-    pb.indeterminateTintMode = android.graphics.PorterDuff.Mode.SRC_IN
+    // Força o spinner (retry/loading) a ser branco
+    (findViewById<android.widget.ProgressBar>(androidx.media3.ui.R.id.exo_buffering))?.let { pb ->
+        val white = android.content.res.ColorStateList.valueOf(Color.WHITE)
+        pb.indeterminateTintList = white
+        pb.indeterminateTintMode = android.graphics.PorterDuff.Mode.SRC_IN
+    }
+
+    // Esconde os botões que você não quer
+    listOf(
+        androidx.media3.ui.R.id.exo_prev,
+        androidx.media3.ui.R.id.exo_next,
+        androidx.media3.ui.R.id.exo_settings
+    ).forEach { id ->
+        playerView.findViewById<View?>(id)?.visibility = View.GONE
+    }
+
+    // ... resto igual
 }
-
-        // Esconde os botões que você não quer no controller
-        // (mantém play/pause + barra exatamente do PlayerView padrão)
-        listOf(
-            androidx.media3.ui.R.id.exo_prev,
-            androidx.media3.ui.R.id.exo_next,
-            androidx.media3.ui.R.id.exo_settings
-        ).forEach { id ->
-            playerView.findViewById<View?>(id)?.visibility = View.GONE
-        }
 
         // Prepara o player
         val url = intent.getStringExtra(EXTRA_URL).orEmpty()
