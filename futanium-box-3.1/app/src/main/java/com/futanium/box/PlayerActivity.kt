@@ -140,20 +140,24 @@ class PlayerActivity : AppCompatActivity() {
         }
 
         // Prepara o player (só m3u8 e .ts)
-        val url = intent.getStringExtra(EXTRA_URL).orEmpty()
-        val title = intent.getStringExtra(EXTRA_TITLE).orEmpty()
-        val referer = intent.getStringExtra(EXTRA_REFERER)
-        val ua = intent.getStringExtra(EXTRA_USER_AGENT)
-        val subtitleUrl = intent.getStringExtra(EXTRA_SUBTITLE)
+val url = intent.getStringExtra(EXTRA_URL).orEmpty()
+val title = intent.getStringExtra(EXTRA_TITLE).orEmpty()
+val referer = intent.getStringExtra(EXTRA_REFERER)
+val ua = intent.getStringExtra(EXTRA_USER_AGENT)
+val subtitleUrl = intent.getStringExtra(EXTRA_SUBTITLE)
 
-        if (!isSupported(url)) {
-            Toast.makeText(this, "Formato não suportado (apenas .m3u8 ou .ts)", Toast.LENGTH_LONG).show()
-            finish()
-            return
+// SE não suportado, abre WebView e encerra o player (sem toast)
+if (!isSupported(url)) {
+    startActivity(
+        android.content.Intent(this, WebViewActivity::class.java).apply {
+            putExtra(WebViewActivity.EXTRA_URL, url)
         }
+    )
+    finish()
+    return
+}
 
-        initPlayer(url, title, referer, ua, subtitleUrl)
-    }
+initPlayer(url, title, referer, ua, subtitleUrl)
 
     private fun isSupported(u: String): Boolean {
         val s = u.lowercase()
