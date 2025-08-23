@@ -11,6 +11,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.core.view.ViewCompat // << ADICIONADO
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
@@ -59,21 +60,35 @@ class PlayerActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // fullscreen: oculta status bar; mantém nav bar visível e preta
+        // >>> AJUSTE: desenhar por baixo da status bar (ela fica por cima, transparente)
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        window.statusBarColor = Color.BLACK
+        window.statusBarColor = Color.TRANSPARENT
+        // navbar preta + ícones claros (igual WebView)
         window.navigationBarColor = Color.BLACK
         insets = WindowInsetsControllerCompat(window, window.decorView).apply {
             isAppearanceLightStatusBars = false
             isAppearanceLightNavigationBars = false
         }
         hideStatusBar()
+        // <<<
 
         // mantém tela ligada
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         setContentView(R.layout.activity_player)
         playerView = findViewById(R.id.playerView)
+
+        // >>> AJUSTE: levantar APENAS o controller acima da navbar (vídeo continua full)
+        val controller = playerView.findViewById<View>(androidx.media3.ui.R.id.exo_controller)
+        controller?.let { ctrl ->
+            ViewCompat.setOnApplyWindowInsetsListener(ctrl) { v, ins ->
+                val bars = ins.getInsets(WindowInsetsCompat.Type.systemBars())
+                // top 0 (status bar sobrepõe), bottom = altura da navbar
+                v.setPadding(v.paddingLeft, 0, v.paddingRight, bars.bottom)
+                ins
+            }
+        }
+        // <<<
 
         // Controller: some tudo junto e volta no toque
         playerView.setControllerShowTimeoutMs(3000)
