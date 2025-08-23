@@ -1,62 +1,51 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@id/exo_controller"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:padding="16dp"
     android:background="@android:color/transparent">
 
-    <!-- Botão PLAY (mostrado quando está pausado) -->
+    <!-- Spinner de buffering (branco) -->
+    <ProgressBar
+        android:id="@id/exo_buffering"
+        style="?android:attr/progressBarStyleLarge"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:layout_gravity="center"
+        android:indeterminate="true"
+        android:indeterminateTint="@android:color/white"
+        android:visibility="gone" />
+
+    <!-- Botão Play/Pause central -->
     <ImageButton
-        android:id="@+id/exo_play"
+        android:id="@id/exo_play_pause"
         android:layout_width="64dp"
         android:layout_height="64dp"
         android:layout_gravity="center"
-        android:background="@android:color/transparent"
-        android:src="@android:drawable/ic_media_play"
-        android:tint="@android:color/white"
+        android:background="?attr/selectableItemBackgroundBorderless"
         android:contentDescription="@string/exo_controls_play_description" />
 
-    <!-- Botão PAUSE (mostrado quando está tocando) -->
-    <ImageButton
-        android:id="@+id/exo_pause"
-        android:layout_width="64dp"
-        android:layout_height="64dp"
-        android:layout_gravity="center"
-        android:background="@android:color/transparent"
-        android:src="@android:drawable/ic_media_pause"
-        android:tint="@android:color/white"
-        android:contentDescription="@string/exo_controls_pause_description" />
-
-    <!-- Barra de progresso -->
+    <!-- Barra de progresso padrão do Media3 -->
     <androidx.media3.ui.DefaultTimeBar
-        android:id="@+id/exo_progress"
+        android:id="@id/exo_progress"
         android:layout_width="match_parent"
-        android:layout_height="32dp"
+        android:layout_height="28dp"
         android:layout_gravity="bottom"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"
-        android:paddingTop="6dp"
-        android:paddingBottom="6dp" />
+        android:layout_marginStart="8dp"
+        android:layout_marginEnd="8dp"
+        android:layout_marginBottom="8dp"
+        app:bar_gravity="bottom" />
 
-    <!-- Tempos (opcionais) -->
+    <!-- Mensagens de erro (opcional) -->
     <TextView
-        android:id="@+id/exo_position"
+        android:id="@id/exo_error_message"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal|top"
+        android:padding="8dp"
         android:textColor="@android:color/white"
-        android:textSize="12sp"
-        android:layout_gravity="bottom|start"
-        android:layout_marginStart="16dp"
-        android:layout_marginBottom="40dp" />
-
-    <TextView
-        android:id="@+id/exo_duration"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textColor="@android:color/white"
-        android:textSize="12sp"
-        android:layout_gravity="bottom|end"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="40dp" />
+        android:visibility="gone" />
 
 </FrameLayout>
