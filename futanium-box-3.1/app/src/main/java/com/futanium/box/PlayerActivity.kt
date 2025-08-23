@@ -73,6 +73,17 @@ class PlayerActivity : AppCompatActivity() {
         setContentView(R.layout.activity_player)
         playerView = findViewById(R.id.playerView)
 
+        // Garante que toda a UI do controller some junto e reapareça no toque
+playerView.setControllerShowTimeoutMs(3000)
+playerView.setControllerHideOnTouch(true)
+
+// Força o spinner (retry/loading) a ser branco em qualquer tema
+(findViewById<android.widget.ProgressBar>(androidx.media3.ui.R.id.exo_buffering))?.let { pb ->
+    val white = android.content.res.ColorStateList.valueOf(android.graphics.Color.WHITE)
+    pb.indeterminateTintList = white
+    pb.indeterminateTintMode = android.graphics.PorterDuff.Mode.SRC_IN
+}
+
         // Esconde os botões que você não quer no controller
         // (mantém play/pause + barra exatamente do PlayerView padrão)
         listOf(
