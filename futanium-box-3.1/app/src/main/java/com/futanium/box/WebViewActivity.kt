@@ -33,6 +33,11 @@ class WebViewActivity : AppCompatActivity() {
     private val allowDomainRules = HashSet<String>()      // domínios permitidos (navegação principal)
     private val allowSubstringRules = ArrayList<String>() // trechos permitidos (navegação principal)
 
+    // >>> PROXY (linhas iniciadas com "proxy:")
+    private val proxyDomainRules = HashSet<String>()      // domínios que devem ir via proxy
+    private val proxySubstringRules = ArrayList<String>() // trechos que devem ir via proxy
+    private val PROXY_BASE = "https://controledeestoque.rf.gd/proxy.php?url="
+
     private var allowHost: String? = null            // host/eTLD+1 do player atual
     private val blockReady = AtomicBoolean(false)
     // --------------------------------
@@ -138,6 +143,12 @@ class WebViewActivity : AppCompatActivity() {
                 if (u.startsWith("http")) {
                     val host = uri.host?.lowercase(Locale.ROOT) ?: return true
 
+                    // (A) Se estiver marcado para PROXY no blocklist, reescreve antes de carregar
+                    if (mustProxy(host, uLower) && !uLower.startsWith(PROXY_BASE)) {
+                        view.loadUrl(PROXY_BASE + Uri.encode(u))
+                        return true
+                    }
+
                     // 0) Se é encurtador (bit.ly), permite e mantém shortenerActive ligado
                     if (isShortener(u, host)) {
                         shortenerActive = true
@@ -198,42 +209,38 @@ class WebViewActivity : AppCompatActivity() {
                 }
             }
 
-          // Se der erro de DNS/bloqueio no frame principal, recarrega via proxy
-override fun onReceivedError(
-    view: WebView?,
-    request: WebResourceRequest,
-    error: WebResourceError
-) {
-    super.onReceivedError(view, request, error)
-    if (request.isForMainFrame && error.errorCode == ERROR_HOST_LOOKUP) {
-        val original = request.url.toString()
-        val proxyBase = "https://controledeestoque.rf.gd/proxy.php?url="
-        val lower = original.lowercase(Locale.ROOT)
-        if (!lower.startsWith(proxyBase)) {
-            val proxied = proxyBase + Uri.encode(original)
-            view?.loadUrl(proxied)
-        }
-    }
-}
+            // Se der erro de DNS/bloqueio no frame principal, recarrega via proxy
+            override fun onReceivedError(
+                view: WebView?,
+                request: WebResourceRequest,
+                error: WebResourceError
+            ) {
+                super.onReceivedError(view, request, error)
+                if (request.isForMainFrame && error.errorCode == ERROR_HOST_LOOKUP) {
+                    val original = request.url.toString()
+                    val lower = original.lowercase(Locale.ROOT)
+                    if (!lower.startsWith(PROXY_BASE)) {
+                        view?.loadUrl(PROXY_BASE + Uri.encode(original))
+                    }
+                }
+            }
 
-// Compat para Androids antigos (mesma lógica)
-@Suppress("deprecation")
-override fun onReceivedError(
-    view: WebView?,
-    errorCode: Int,
-    description: String?,
-    failingUrl: String?
-) {
-    super.onReceivedError(view, errorCode, description, failingUrl)
-    if (errorCode == ERROR_HOST_LOOKUP && failingUrl != null) {
-        val proxyBase = "https://controledeestoque.rf.gd/proxy.php?url="
-        val lower = failingUrl.lowercase(Locale.ROOT)
-        if (!lower.startsWith(proxyBase)) {
-            val proxied = proxyBase + Uri.encode(failingUrl)
-            view?.loadUrl(proxied)
-        }
-    }
-}
+            // Compat para Androids antigos (mesma lógica)
+            @Suppress("deprecation")
+            override fun onReceivedError(
+                view: WebView?,
+                errorCode: Int,
+                description: String?,
+                failingUrl: String?
+            ) {
+                super.onReceivedError(view, errorCode, description, failingUrl)
+                if (errorCode == ERROR_HOST_LOOKUP && failingUrl != null) {
+                    val lower = failingUrl.lowercase(Locale.ROOT)
+                    if (!lower.startsWith(PROXY_BASE)) {
+                        view?.loadUrl(PROXY_BASE + Uri.encode(failingUrl))
+                    }
+                }
+            }
 
             // BLOQUEIO de recursos secundários (scripts, iframes, imgs) usando a blocklist
             override fun shouldInterceptRequest(
@@ -320,22 +327,36 @@ override fun onReceivedError(
         substringRules.clear()
         allowDomainRules.clear()
         allowSubstringRules.clear()
+        proxyDomainRules.clear()
+        proxySubstringRules.clear()
 
         text.lineSequence().forEach { raw ->
             val line = raw.trim()
             if (line.isEmpty() || line.startsWith("#")) return@forEach
 
-            val isAllow = line.startsWith("per:", ignoreCase = true)
-            val ruleText = if (isAllow) line.substringAfter("per:", "").trim() else line
+            val isAllow = line.startsWith("per:",   ignoreCase = true)
+            val isProxy = line.startsWith("proxy:", ignoreCase = true)
+
+            val ruleText = when {
+                isAllow -> line.substringAfter("per:",   "").trim()
+                isProxy -> line.substringAfter("proxy:", "").trim()
+                else    -> line
+            }
             if (ruleText.isEmpty()) return@forEach
 
             val rule = ruleText.lowercase(Locale.ROOT)
             val isDomain = rule.contains('.') && !rule.contains(' ') && !rule.contains('/')
 
-            if (isAllow) {
-                if (isDomain) allowDomainRules += rule else allowSubstringRules += rule
-            } else {
-                if (isDomain) domainRules += rule else substringRules += rule
+            when {
+                isAllow -> {
+                    if (isDomain) allowDomainRules += rule else allowSubstringRules += rule
+                }
+                isProxy -> {
+                    if (isDomain) proxyDomainRules += rule else proxySubstringRules += rule
+                }
+                else -> {
+                    if (isDomain) domainRules += rule else substringRules += rule
+                }
             }
         }
     }
@@ -343,6 +364,13 @@ override fun onReceivedError(
     private fun isBlocked(host: String, fullUrlLower: String): Boolean {
         for (d in domainRules) if (host == d || host.endsWith(".$d")) return true
         for (p in substringRules) if (p.isNotEmpty() && fullUrlLower.contains(p)) return true
+        return false
+    }
+
+    // >>> checa se a URL/host está marcada para ir via proxy
+    private fun mustProxy(host: String, fullUrlLower: String): Boolean {
+        for (d in proxyDomainRules) if (host == d || host.endsWith(".$d")) return true
+        for (p in proxySubstringRules) if (p.isNotEmpty() && fullUrlLower.contains(p)) return true
         return false
     }
 
