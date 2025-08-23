@@ -1,181 +1,110 @@
 package com.futanium.box
 
-import android.graphics.Color
-import android.net.Uri
-import android.os.Build
 import android.os.Bundle
-import android.view.View
+import android.view.WindowManager
 import androidx.appcompat.app.AppCompatActivity
-import com.google.android.exoplayer2.ExoPlayer
-import com.google.android.exoplayer2.MediaItem
-import com.google.android.exoplayer2.MediaMetadata
-import com.google.android.exoplayer2.ui.PlayerView
-import com.google.android.exoplayer2.util.Util
-import com.google.android.exoplayer2.source.MediaSource
-import com.google.android.exoplayer2.source.ProgressiveMediaSource
-import com.google.android.exoplayer2.source.hls.HlsMediaSource
-import com.google.android.exoplayer2.source.dash.DashMediaSource
-import com.google.android.exoplayer2.upstream.DefaultHttpDataSource
-import com.google.android.exoplayer2.upstream.HttpDataSource
+import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
+import androidx.media3.common.Player
+import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.PlayerView
 
 class PlayerActivity : AppCompatActivity() {
 
-    private var player: ExoPlayer? = null
-    private lateinit var playerView: PlayerView
-
     companion object {
-        const val EXTRA_URL = "url"           // obrigatória
-        const val EXTRA_REFERER = "referer"   // opcional
-        const val EXTRA_USER_AGENT = "ua"     // opcional
-        const val EXTRA_SUBTITLE = "subtitle" // opcional (vtt/srt)
-        const val EXTRA_TITLE = "title"       // opcional
+        const val EXTRA_URL = "url"
+        const val EXTRA_TITLE = "title"
+        const val EXTRA_REFERER = "referer"
+        const val EXTRA_USER_AGENT = "ua"
+        const val EXTRA_SUBTITLE = "subtitle"
     }
+
+    private lateinit var playerView: PlayerView
+    private var player: ExoPlayer? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        // barras pretas / immersive
-        window.navigationBarColor = Color.BLACK
-        window.statusBarColor = Color.BLACK
-        window.decorView.systemUiVisibility = (
-            View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-          or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-          or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-          or View.SYSTEM_UI_FLAG_FULLSCREEN
-          or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-          or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-        )
-
+        // Mantém a tela ligada durante a reprodução
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         setContentView(R.layout.activity_player)
-        playerView = findViewById(R.id.player_view)
-        playerView.setShutterBackgroundColor(Color.BLACK)
-        playerView.setControllerAutoShow(true)
+
+        playerView = findViewById(R.id.playerView)
+        initPlayer()
     }
 
-    private fun buildDataSourceFactory(
-        referer: String?,
-        ua: String?
-    ): HttpDataSource.Factory {
-        val defaultUA = ua ?: "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
-        val props = HashMap<String, String>().apply {
-            put("User-Agent", defaultUA)
-            if (!referer.isNullOrBlank()) put("Referer", referer)
-            // alguns players pedem cabeçalhos extras:
-            put("Accept", "*/*")
-            put("Connection", "keep-alive")
-        }
-        return DefaultHttpDataSource.Factory()
-            .setConnectTimeoutMs(15000)
-            .setReadTimeoutMs(30000)
-            .setAllowCrossProtocolRedirects(true)
-            .setDefaultRequestProperties(props)
-    }
-
-    private fun buildMediaSource(
-        url: String,
-        referer: String?,
-        ua: String?,
-        subtitleUrl: String?
-    ): MediaSource {
-        val uri = Uri.parse(url)
-        val last = uri.lastPathSegment?.lowercase() ?: ""
-        val isHls = last.endsWith(".m3u8") || url.contains(".m3u8", true)
-        val isDash = last.endsWith(".mpd") || url.contains(".mpd", true)
-
-        val dsFactory = buildDataSourceFactory(referer, ua)
-
-        val baseItem = MediaItem.Builder()
-            .setUri(uri)
-            .setMediaMetadata(
-                MediaMetadata.Builder()
-                    .setTitle(intent.getStringExtra(EXTRA_TITLE) ?: "")
-                    .build()
-            )
-            .build()
-
-        // Legenda opcional
-        val withSubtitle = if (!subtitleUrl.isNullOrBlank()) {
-            val subItem = MediaItem.SubtitleConfiguration.Builder(Uri.parse(subtitleUrl))
-                .setMimeType(
-                    when {
-                        subtitleUrl.endsWith(".vtt", true) -> "text/vtt"
-                        subtitleUrl.endsWith(".srt", true) -> "application/x-subrip"
-                        else -> "text/vtt"
-                    }
-                )
-                .setSelectionFlags(0)
-                .setLanguage("pt-BR")
-                .build()
-            baseItem.buildUpon().setSubtitleConfigurations(listOf(subItem)).build()
-        } else baseItem
-
-        return when {
-            isHls  -> HlsMediaSource.Factory(dsFactory).createMediaSource(withSubtitle)
-            isDash -> DashMediaSource.Factory(dsFactory).createMediaSource(withSubtitle)
-            else   -> ProgressiveMediaSource.Factory(dsFactory).createMediaSource(withSubtitle)
-        }
-    }
-
-    private fun initializePlayer() {
-        val url = intent.getStringExtra(EXTRA_URL).orEmpty()
-        if (url.isBlank()) {
-            finish(); return
-        }
+    private fun initPlayer() {
+        val url = intent.getStringExtra(EXTRA_URL) ?: return
+        val title = intent.getStringExtra(EXTRA_TITLE)
         val referer = intent.getStringExtra(EXTRA_REFERER)
         val ua = intent.getStringExtra(EXTRA_USER_AGENT)
         val subtitle = intent.getStringExtra(EXTRA_SUBTITLE)
 
-        player = ExoPlayer.Builder(this).build().also { exo ->
-            playerView.player = exo
-            val mediaSource = buildMediaSource(url, referer, ua, subtitle)
-            exo.setMediaSource(mediaSource)
-            exo.prepare()
-            exo.playWhenReady = true
+        // Headers (UA/Referer)
+        val httpFactory = DefaultHttpDataSource.Factory().apply {
+            if (!ua.isNullOrBlank()) {
+                setUserAgent(ua)
+            }
+            val headers = HashMap<String, String>()
+            if (!referer.isNullOrBlank()) headers["Referer"] = referer
+            if (headers.isNotEmpty()) setDefaultRequestProperties(headers)
         }
+
+        // Cria o player
+        val exo = ExoPlayer.Builder(this)
+            .setMediaSourceFactory(
+                // passa a factory de HTTP para todas as fontes (HLS/DASH/Progressive)
+                androidx.media3.exoplayer.source.DefaultMediaSourceFactory(this, httpFactory)
+            )
+            .build().also { playerView.player = it }
+        player = exo
+
+        // Monta o MediaItem (Media3 detecta HLS/DASH/MP4 automaticamente)
+        val itemBuilder = MediaItem.Builder()
+            .setUri(url)
+
+        // Se quiser, ajude o detector para HLS/DASH:
+        val lower = url.lowercase()
+        when {
+            lower.contains(".m3u8") -> itemBuilder.setMimeType(MimeTypes.APPLICATION_M3U8)
+            lower.contains(".mpd")  -> itemBuilder.setMimeType(MimeTypes.APPLICATION_MPD)
+        }
+
+        if (!title.isNullOrBlank()) {
+            itemBuilder.setMediaMetadata(
+                androidx.media3.common.MediaMetadata.Builder()
+                    .setTitle(title)
+                    .build()
+            )
+        }
+
+        val mediaItem = itemBuilder.build()
+        exo.setMediaItem(mediaItem)
+
+        // Legenda externa opcional (VTT/SRT)
+        if (!subtitle.isNullOrBlank()) {
+            val subItem = MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(subtitle))
+                .setMimeType(MimeTypes.TEXT_VTT) // ajuste se for SRT: MimeTypes.APPLICATION_SUBRIP
+                .setLanguage("pt-BR")
+                .setSelectionFlags(0)
+                .build()
+            exo.addMediaItem(
+                mediaItem.buildUpon().setSubtitleConfigurations(listOf(subItem)).build()
+            )
+        }
+
+        exo.prepare()
+        exo.playWhenReady = true
+
+        exo.addListener(object : Player.Listener {})
     }
 
-    public override fun onStart() {
-        super.onStart()
-        if (Util.SDK_INT >= 24) initializePlayer()
-    }
-
-    public override fun onResume() {
-        super.onResume()
-        hideSystemBars()
-        if (Util.SDK_INT < 24 || player == null) initializePlayer()
-    }
-
-    public override fun onPause() {
-        super.onPause()
-        if (Util.SDK_INT < 24) releasePlayer()
-    }
-
-    public override fun onStop() {
+    override fun onStop() {
         super.onStop()
-        if (Util.SDK_INT >= 24) releasePlayer()
-    }
-
-    private fun releasePlayer() {
+        // Libera o player ao sair da tela
         playerView.player = null
         player?.release()
         player = null
-    }
-
-    private fun hideSystemBars() {
-        if (Build.VERSION.SDK_INT >= 19) {
-            window.decorView.systemUiVisibility = (
-                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-              or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-              or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-              or View.SYSTEM_UI_FLAG_FULLSCREEN
-              or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-              or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-            )
-        }
-    }
-
-    override fun onBackPressed() {
-        // fecha o player imediatamente
-        finish()
+        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 }
