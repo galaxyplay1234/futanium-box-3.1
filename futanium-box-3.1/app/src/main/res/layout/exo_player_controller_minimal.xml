@@ -37,7 +37,7 @@
         android:gravity="center_vertical"
         android:paddingStart="12dp"
         android:paddingEnd="12dp"
-        android:background="#66000000">
+        android:background="#99000000">
 
         <!-- tempo atual (esquerda) -->
         <TextView
