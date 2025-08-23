@@ -19,7 +19,6 @@ import com.futanium.box.ui.GameAdapter
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONArray
-import org.json.JSONObject
 
 class MainActivity : AppCompatActivity() {
 
@@ -57,6 +56,18 @@ class MainActivity : AppCompatActivity() {
 
         vb.rvGames.layoutManager = LinearLayoutManager(this)
         vb.rvGames.adapter = adapter
+
+        // >>> ADIÇÃO: quando o adapter avisar um link, decide ExoPlayer x WebView
+        adapter.onOpenLink = { url, title, referer, userAgent ->
+            LinkHelper.openLinkSmart(
+                context = this,
+                url = url,
+                title = title,
+                referer = referer,
+                ua = userAgent
+            )
+        }
+        // <<< FIM DA ADIÇÃO
 
         vb.swipe.setOnRefreshListener { fetchGames() }
 
@@ -107,54 +118,46 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
-    /** Converte o JSON da sua API -> lista de Game.
-     *  Ignora entradas que sejam 'header'. NÃO usa 'background'. */
-    /** Converte o JSON da API -> lista de Game.
- *  Ignora itens com "header". */
-private fun parseGames(json: String): List<Game> {
-    val arr = JSONArray(json)
-    val list = ArrayList<Game>(arr.length())
+    /** Converte o JSON da API -> lista de Game. Ignora itens com "header". */
+    private fun parseGames(json: String): List<Game> {
+        val arr = JSONArray(json)
+        val list = ArrayList<Game>(arr.length())
 
-    for (i in 0 until arr.length()) {
-        val o = arr.optJSONObject(i) ?: continue
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            if (o.has("header")) continue
 
-        // pular itens de header
-        if (o.has("header")) continue
+            val championship         = o.optString("championship", "")
+            val championshipImageUrl = o.optString("championship_image_url", null)
+            val startTime            = o.optString("start_time", "")
+            val homeTeam             = o.optString("home_team", "")
+            val visitingTeam         = o.optString("visiting_team", "")
+            val homeLogo             = o.optString("home_team_image_url", null)
+            val visitingLogo         = o.optString("visiting_team_image_url", null)
+            val isLive               = o.optBoolean("is_live", false)
+            val isFinished           = o.optBoolean("is_finished", false)
 
-        val championship          = o.optString("championship", "")
-        val championshipImageUrl  = o.optString("championship_image_url", null)
-        val startTime             = o.optString("start_time", "")
-        val homeTeam              = o.optString("home_team", "")
-        val visitingTeam          = o.optString("visiting_team", "")
-        val homeLogo              = o.optString("home_team_image_url", null)
-        val visitingLogo          = o.optString("visiting_team_image_url", null)
-        val isLive                = o.optBoolean("is_live", false)
-        val isFinished            = o.optBoolean("is_finished", false)
-
-        // buttons -> List<Any>?
-        val buttonsList: List<Any>? = o.optJSONArray("buttons")?.let { ja ->
-            val tmp = ArrayList<Any>(ja.length())
-            for (j in 0 until ja.length()) {
-                tmp += ja.get(j)  // pode ser JSONObject/Map etc.
+            val buttonsList: List<Any>? = o.optJSONArray("buttons")?.let { ja ->
+                val tmp = ArrayList<Any>(ja.length())
+                for (j in 0 until ja.length()) tmp += ja.get(j)
+                tmp
             }
-            tmp
-        }
 
-        list += Game(
-            championship = championship,
-            championshipImageUrl = championshipImageUrl,
-            homeName = homeTeam,
-            homeLogo = homeLogo,
-            awayName = visitingTeam,
-            awayLogo = visitingLogo,
-            time = startTime,           // <-- apenas a hora inicial
-            isLive = isLive,
-            isFinished = isFinished,
-            buttons = buttonsList
-        )
+            list += Game(
+                championship = championship,
+                championshipImageUrl = championshipImageUrl,
+                homeName = homeTeam,
+                homeLogo = homeLogo,
+                awayName = visitingTeam,
+                awayLogo = visitingLogo,
+                time = startTime,
+                isLive = isLive,
+                isFinished = isFinished,
+                buttons = buttonsList
+            )
+        }
+        return list
     }
-    return list
-}
 
     // --- animação do ícone "atualizar" (rotaciona enquanto carrega) ---
     private fun spinMenuItem(item: MenuItem) {
