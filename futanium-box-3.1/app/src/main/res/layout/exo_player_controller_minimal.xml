@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/transparent"
+    app:cardBackgroundColor="@android:color/transparent"
+    app:cardUseCompatPadding="false"
+    app:cardElevation="0dp">
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@android:color/transparent">
+
+        <!-- Botão central (play/pause) -->
+        <ImageButton
+            android:id="@+id/exo_play_pause"
+            style="@style/Widget.Media3.PlayerView.PlayPauseButton"
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:layout_gravity="center"
+            android:background="@android:color/transparent"
+            android:contentDescription="@string/exo_controls_play_description" />
+
+        <!-- Barra de progresso na base -->
+        <androidx.media3.ui.DefaultTimeBar
+            android:id="@+id/exo_progress"
+            android:layout_width="match_parent"
+            android:layout_height="32dp"
+            android:layout_gravity="bottom"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp" />
+
+        <!-- Textos de tempo (opcional; remova se quiser ainda mais limpo) -->
+        <TextView
+            android:id="@+id/exo_position"
+            style="@style/Widget.Media3.PlayerView.TimeText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|start"
+            android:layout_marginStart="16dp"
+            android:layout_marginBottom="40dp"/>
+
+        <TextView
+            android:id="@+id/exo_duration"
+            style="@style/Widget.Media3.PlayerView.TimeText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="40dp"/>
+
+        <!-- Escondemos explicitamente botões que NÃO queremos -->
+        <LinearLayout
+            android:id="@+id/exo_basic_controls"
+            android:visibility="gone"
+            android:layout_width="0dp"
+            android:layout_height="0dp"/>
+    </FrameLayout>
+</com.google.android.material.card.MaterialCardView>
