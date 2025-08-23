@@ -209,38 +209,72 @@ class WebViewActivity : AppCompatActivity() {
                 }
             }
 
-            // Se der erro de DNS/bloqueio no frame principal, recarrega via proxy
-            override fun onReceivedError(
-                view: WebView?,
-                request: WebResourceRequest,
-                error: WebResourceError
-            ) {
-                super.onReceivedError(view, request, error)
-                if (request.isForMainFrame && error.errorCode == ERROR_HOST_LOOKUP) {
-                    val original = request.url.toString()
-                    val lower = original.lowercase(Locale.ROOT)
-                    if (!lower.startsWith(PROXY_BASE)) {
-                        view?.loadUrl(PROXY_BASE + Uri.encode(original))
-                    }
-                }
-            }
+            // Se der erro de DNS/Conexão/Timeout no frame principal, evita tela de erro e vai direto pro proxy
+override fun onReceivedError(
+    view: WebView?,
+    request: WebResourceRequest,
+    error: WebResourceError
+) {
+    super.onReceivedError(view, request, error)
 
-            // Compat para Androids antigos (mesma lógica)
-            @Suppress("deprecation")
-            override fun onReceivedError(
-                view: WebView?,
-                errorCode: Int,
-                description: String?,
-                failingUrl: String?
-            ) {
-                super.onReceivedError(view, errorCode, description, failingUrl)
-                if (errorCode == ERROR_HOST_LOOKUP && failingUrl != null) {
-                    val lower = failingUrl.lowercase(Locale.ROOT)
-                    if (!lower.startsWith(PROXY_BASE)) {
-                        view?.loadUrl(PROXY_BASE + Uri.encode(failingUrl))
-                    }
+    if (request.isForMainFrame) {
+        val code = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+            error.errorCode
+        } else 0
+
+        // erros que indicam bloqueio/dns/timeout
+        val shouldProxy = code == ERROR_HOST_LOOKUP ||
+                          code == ERROR_CONNECT ||
+                          code == ERROR_TIMEOUT
+
+        if (shouldProxy) {
+            val original = request.url.toString()
+            val lower = original.lowercase(Locale.ROOT)
+            val proxyBase = PROXY_BASE // já existe no seu código
+
+            if (!lower.startsWith(proxyBase)) {
+                // 1) Para o carregamento e limpa a tela (nada de página de erro)
+                view?.stopLoading()
+                view?.loadUrl("about:blank")
+
+                // 2) Na próxima volta do loop da UI, manda pro proxy
+                view?.post {
+                    view.loadUrl(proxyBase + Uri.encode(original))
                 }
             }
+        }
+    }
+}
+
+// Compat para Androids antigos (mesma lógica)
+@Suppress("deprecation")
+override fun onReceivedError(
+    view: WebView?,
+    errorCode: Int,
+    description: String?,
+    failingUrl: String?
+) {
+    super.onReceivedError(view, errorCode, description, failingUrl)
+
+    if (failingUrl != null) {
+        val shouldProxy = errorCode == ERROR_HOST_LOOKUP ||
+                          errorCode == ERROR_CONNECT ||
+                          errorCode == ERROR_TIMEOUT
+
+        if (shouldProxy) {
+            val lower = failingUrl.lowercase(Locale.ROOT)
+            val proxyBase = PROXY_BASE
+
+            if (!lower.startsWith(proxyBase)) {
+                view?.stopLoading()
+                view?.loadUrl("about:blank")
+                view?.post {
+                    view.loadUrl(proxyBase + Uri.encode(failingUrl))
+                }
+            }
+        }
+    }
+}
 
             // BLOQUEIO de recursos secundários (scripts, iframes, imgs) usando a blocklist
             override fun shouldInterceptRequest(
