@@ -1,13 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/playerRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#000">
+    android:background="#000000">
 
     <androidx.media3.ui.PlayerView
         android:id="@+id/playerView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:keepScreenOn="true"
-        android:background="#000"/>
+        app:use_controller="true"
+        app:controller_layout_id="@layout/exo_player_controller_minimal"
+        app:resize_mode="fit"
+        app:show_buffering="when_playing"
+        app:surface_type="texture_view" />
 </FrameLayout>
