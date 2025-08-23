@@ -77,6 +77,10 @@ class PlayerActivity : AppCompatActivity() {
 playerView.setControllerShowTimeoutMs(3000)
 playerView.setControllerHideOnTouch(true)
 
+// Garante que toda a UI do controller some junto e reapareça no toque
+playerView.setControllerShowTimeoutMs(3000)
+playerView.setControllerHideOnTouch(true)
+
 // Força o spinner (retry/loading) a ser branco em qualquer tema
 (findViewById<android.widget.ProgressBar>(androidx.media3.ui.R.id.exo_buffering))?.let { pb ->
     val white = android.content.res.ColorStateList.valueOf(android.graphics.Color.WHITE)
