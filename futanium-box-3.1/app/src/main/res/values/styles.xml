@@ -13,12 +13,4 @@
         <item name="android:navigationBarColor">@android:color/black</item>
     </style>
 
-    <!-- Tema do PlayerView -->
-    <style name="CustomPlayerView" parent="Widget.Media3.PlayerView">
-        <!-- NÃO usar prefixo app: aqui -->
-        <item name="surface_type">surface_view</item>
-        <item name="show_buffering">when_playing</item>
-        <item name="controller_show_timeout_ms">3000</item>
-    </style>
-
 </resources>
