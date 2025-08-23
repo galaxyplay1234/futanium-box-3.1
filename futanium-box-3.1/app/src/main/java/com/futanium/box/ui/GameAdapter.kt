@@ -21,8 +21,14 @@ class GameAdapter(
 
     /** Callback chamada ao tocar em um botão de canal.
      *  MainActivity deve definir: adapter.onOpenLink = { url, title, referer, ua -> LinkHelper.openLinkSmart(...) } */
-    var onOpenLink: (url: String, title: String?, referer: String?, userAgent: String?) -> Unit =
-        { url, title, _, _ -> fallbackOpenLink(url, title) } // fallback mantém o comportamento antigo
+    private fun openLink(view: View, link: String) {
+    val ctx = view.context
+    try {
+        com.futanium.box.LinkHelper.openLinkSmart(ctx, link, title = null)
+    } catch (e: Exception) {
+        Toast.makeText(ctx, "Não foi possível abrir o link.", Toast.LENGTH_SHORT).show()
+    }
+}
 
     /** posição atualmente expandida; -1 = nenhuma */
     private var expandedPos: Int = -1
