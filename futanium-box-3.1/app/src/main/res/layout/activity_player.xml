@@ -12,8 +12,6 @@
         android:keepScreenOn="true"
         app:use_controller="true"
         app:controller_layout_id="@layout/exo_player_controller_minimal"
-        app:controller_show_timeout_ms="3000"
-        app:controller_animation_enabled="false"
         app:show_buffering="when_playing"
         app:resize_mode="fit"
         app:surface_type="surface_view" />
