@@ -48,6 +48,7 @@ dependencies {
     implementation("androidx.recyclerview:recyclerview:1.3.2")
     implementation("androidx.cardview:cardview:1.0.0")
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
+    implementation "com.google.android.exoplayer:exoplayer:2.19.1"
 
     // Imagens
     implementation("io.coil-kt:coil:2.6.0")
