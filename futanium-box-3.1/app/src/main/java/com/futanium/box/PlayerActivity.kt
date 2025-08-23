@@ -108,31 +108,27 @@ class PlayerActivity : AppCompatActivity() {
             pb.indeterminateTintMode = android.graphics.PorterDuff.Mode.SRC_IN
         }
 
-        // Empurra elementos inferiores para cima do nav bar (minutos à direita e timebar)
-        ViewCompat.setOnApplyWindowInsetsListener(playerView) { _, ins ->
-            val bottomInset = ins.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
-            // ids padrão do layout do controller
-            listOf(
-                androidx.media3.ui.R.id.exo_progress,   // barra de progresso/buffer
-                androidx.media3.ui.R.id.exo_position,   // minutos à esquerda
-                androidx.media3.ui.R.id.exo_duration    // minutos à direita
-            ).forEach { id ->
-                playerView.findViewById<View>(id)?.let { v ->
-                    v.setPadding(
-                        v.paddingLeft, v.paddingTop, v.paddingRight,
-                        bottomInset + dp(12)
-                    )
-                }
-            }
-            // também ajusta o scrim inferior (fundo translúcido da faixa)
-            playerView.findViewById<View>(R.id.exo_bottom_scrim)?.let { scrim ->
-                scrim.setPadding(
-                    scrim.paddingLeft, scrim.paddingTop, scrim.paddingRight,
-                    bottomInset
-                )
-            }
-            ins
+        // Empurra elementos inferiores para cima do nav bar (minutos e timebar)
+ViewCompat.setOnApplyWindowInsetsListener(playerView) { _, ins ->
+    val bottomInset = ins.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
+
+    // ids padrão do controller Media3
+    listOf(
+        androidx.media3.ui.R.id.exo_progress,   // barra de progresso/buffer
+        androidx.media3.ui.R.id.exo_position,   // minutos à esquerda
+        androidx.media3.ui.R.id.exo_duration    // minutos à direita
+    ).forEach { id ->
+        playerView.findViewById<View>(id)?.let { v ->
+            v.setPadding(
+                v.paddingLeft, v.paddingTop, v.paddingRight,
+                bottomInset + dp(16) // sobe um pouco mais pra não encostar na nav bar
+            )
         }
+    }
+
+    // (removido o ajuste do exo_bottom_scrim, que não existe no teu layout)
+    ins
+}
 
         // Esconde botões extra (mantém só play/pause + barra/tempos)
         listOf(
