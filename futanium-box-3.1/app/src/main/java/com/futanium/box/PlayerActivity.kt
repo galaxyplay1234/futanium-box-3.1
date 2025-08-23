@@ -8,6 +8,7 @@ import android.os.Looper
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
@@ -28,16 +29,14 @@ class PlayerActivity : AppCompatActivity() {
         const val EXTRA_TITLE = "title"
         const val EXTRA_REFERER = "referer"
         const val EXTRA_USER_AGENT = "ua"
-        const val EXTRA_SUBTITLE = "subtitle" // opcional .vtt/.srt
+        const val EXTRA_SUBTITLE = "subtitle"
     }
 
     private lateinit var playerView: PlayerView
     private var player: ExoPlayer? = null
-
-    // UI (status bar oculta; nav bar sempre preta)
     private lateinit var insets: WindowInsetsControllerCompat
 
-    // Retry se travar muito tempo em BUFFERING
+    // watchdog de buffering
     private val main = Handler(Looper.getMainLooper())
     private var bufferingStartAt: Long = 0L
     private val bufferingWatchdog = object : Runnable {
@@ -57,16 +56,22 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
+    // === Auto-hide manual (timebar some junto com todo mundo) ===
+    private val controllerHandler = Handler(Looper.getMainLooper())
+    private val controllerAutoHide = Runnable { playerView.hideController() }
+    private fun scheduleControllerAutoHide() {
+        controllerHandler.removeCallbacks(controllerAutoHide)
+        controllerHandler.postDelayed(controllerAutoHide, 3000)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // fullscreen: conteúdo sob as barras do sistema
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = Color.BLACK
         window.navigationBarColor = Color.BLACK
-
         insets = WindowInsetsControllerCompat(window, window.decorView).apply {
-            // barras só aparecem com gesto (swipe), não por toque
+            // barras só aparecem ao "puxar", não por toque
             systemBarsBehavior =
                 WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             isAppearanceLightStatusBars = false
@@ -74,43 +79,42 @@ class PlayerActivity : AppCompatActivity() {
         }
         hideStatusBar()
 
-        // mantém tela ligada
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         setContentView(R.layout.activity_player)
         playerView = findViewById(R.id.playerView)
 
-        // Controller: tempo na tela e animação ligada (sincroniza a timebar com o resto)
-        playerView.setControllerShowTimeoutMs(3000)
+        // Desliga o timeout interno e controlamos manualmente
+        playerView.setControllerShowTimeoutMs(0)
         playerView.setControllerHideOnTouch(true)
         playerView.setControllerAnimationEnabled(true)
 
-        // Evita que um simples toque revele a status bar
-        playerView.setOnTouchListener { _, ev: MotionEvent ->
+        // qualquer toque volta a ocultar as barras do sistema + reagenda auto-hide
+        playerView.setOnTouchListener { _, ev ->
             if (ev.action == MotionEvent.ACTION_DOWN || ev.action == MotionEvent.ACTION_UP) {
                 hideStatusBar()
+                scheduleControllerAutoHide()
             }
-            false // deixa o PlayerView processar o toque normalmente
+            false
+        }
+        playerView.setControllerVisibilityListener { visibility ->
+            if (visibility == View.VISIBLE) scheduleControllerAutoHide()
+            else controllerHandler.removeCallbacks(controllerAutoHide)
         }
 
-        // Ajusta padding para não cortar minutos/barra junto da nav bar
+        // padding anti-corte (minutos direitos e barra)
         ViewCompat.setOnApplyWindowInsetsListener(playerView) { _, ins ->
             val bars = ins.getInsets(WindowInsetsCompat.Type.systemBars())
             val bottomInset = bars.bottom
-
-            // ids padrão do controller Media3
-            val ids = listOf(
-                androidx.media3.ui.R.id.exo_progress,   // barra (buffer/seek)
-                androidx.media3.ui.R.id.exo_position,   // minutos à esquerda
-                androidx.media3.ui.R.id.exo_duration    // minutos à direita
-            )
-
-            ids.forEach { id ->
+            listOf(
+                androidx.media3.ui.R.id.exo_progress,
+                androidx.media3.ui.R.id.exo_position,
+                androidx.media3.ui.R.id.exo_duration
+            ).forEach { id ->
                 playerView.findViewById<View>(id)?.let { v ->
                     v.setPadding(
                         v.paddingLeft,
                         v.paddingTop,
-                        // um pouco de padding à direita ajuda o tempo não encostar no gesto/ímã da nav
                         if (id == androidx.media3.ui.R.id.exo_duration) v.paddingRight + dp(10) else v.paddingRight,
                         bottomInset + dp(16)
                     )
@@ -126,7 +130,7 @@ class PlayerActivity : AppCompatActivity() {
             pb.indeterminateTintMode = android.graphics.PorterDuff.Mode.SRC_IN
         }
 
-        // Esconde os botões que você não quer
+        // Oculta botões que não queremos
         listOf(
             androidx.media3.ui.R.id.exo_prev,
             androidx.media3.ui.R.id.exo_next,
@@ -135,14 +139,25 @@ class PlayerActivity : AppCompatActivity() {
             playerView.findViewById<View?>(id)?.visibility = View.GONE
         }
 
-        // Prepara o player
+        // Prepara o player (só m3u8 e .ts)
         val url = intent.getStringExtra(EXTRA_URL).orEmpty()
         val title = intent.getStringExtra(EXTRA_TITLE).orEmpty()
         val referer = intent.getStringExtra(EXTRA_REFERER)
         val ua = intent.getStringExtra(EXTRA_USER_AGENT)
         val subtitleUrl = intent.getStringExtra(EXTRA_SUBTITLE)
 
+        if (!isSupported(url)) {
+            Toast.makeText(this, "Formato não suportado (apenas .m3u8 ou .ts)", Toast.LENGTH_LONG).show()
+            finish()
+            return
+        }
+
         initPlayer(url, title, referer, ua, subtitleUrl)
+    }
+
+    private fun isSupported(u: String): Boolean {
+        val s = u.lowercase()
+        return s.contains(".m3u8") || s.endsWith(".ts")
     }
 
     private fun hideStatusBar() {
@@ -175,9 +190,7 @@ class PlayerActivity : AppCompatActivity() {
 
         val itemBuilder = MediaItem.Builder().setUri(url)
         if (!title.isNullOrBlank()) {
-            itemBuilder.setMediaMetadata(
-                MediaMetadata.Builder().setTitle(title).build()
-            )
+            itemBuilder.setMediaMetadata(MediaMetadata.Builder().setTitle(title).build())
         }
         if (!subtitleUrl.isNullOrBlank()) {
             val sub = MediaItem.SubtitleConfiguration.Builder(Uri.parse(subtitleUrl))
@@ -225,6 +238,7 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         main.removeCallbacks(bufferingWatchdog)
+        controllerHandler.removeCallbacks(controllerAutoHide)
         playerView.player = null
         player?.release()
         player = null
@@ -232,6 +246,5 @@ class PlayerActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
-    private fun dp(v: Int): Int =
-        (v * resources.displayMetrics.density).toInt()
+    private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
 }
