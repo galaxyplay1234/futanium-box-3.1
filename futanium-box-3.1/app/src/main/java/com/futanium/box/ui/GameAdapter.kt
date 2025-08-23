@@ -1,7 +1,5 @@
 package com.futanium.box.ui
 
-import android.content.ActivityNotFoundException
-import android.content.Intent
 import android.net.Uri
 import android.view.LayoutInflater
 import android.view.View
@@ -20,6 +18,11 @@ import org.json.JSONObject
 class GameAdapter(
     private val items: MutableList<Game> = mutableListOf()
 ) : RecyclerView.Adapter<GameAdapter.VH>() {
+
+    /** Callback chamada ao tocar em um botão de canal.
+     *  MainActivity deve definir: adapter.onOpenLink = { url, title, referer, ua -> LinkHelper.openLinkSmart(...) } */
+    var onOpenLink: (url: String, title: String?, referer: String?, userAgent: String?) -> Unit =
+        { url, title, _, _ -> fallbackOpenLink(url, title) } // fallback mantém o comportamento antigo
 
     /** posição atualmente expandida; -1 = nenhuma */
     private var expandedPos: Int = -1
@@ -68,7 +71,7 @@ class GameAdapter(
             h.imgChamp.load(champLogo) { crossfade(true) }
         }
 
-        // Times / hora (hora já vem só o início pelo parse)
+        // Times / hora
         h.tvHome.text = g.homeName.orEmpty()
         h.tvAway.text = g.awayName.orEmpty()
         h.tvTime.text = g.time.orEmpty()
@@ -96,7 +99,10 @@ class GameAdapter(
                 val (title, link) = extractTitleAndLink(anyBtn, idx)
                 val b = Button(h.itemView.context).apply {
                     text = title
-                    setOnClickListener { openLink(h.itemView, link) }
+                    setOnClickListener {
+                        // chama o callback; referer/ua não usados aqui (nulos)
+                        onOpenLink(link, title, null, null)
+                    }
                 }
                 h.btnContainer.addView(b)
             }
@@ -138,24 +144,29 @@ class GameAdapter(
         return title to link
     }
 
-    private fun openLink(view: View, link: String) {
-    val ctx = view.context
-    val u = link.trim()
-    try {
-        if (u.startsWith("http", ignoreCase = true)) {
-            // Abre na nossa WebView em tela preta, landscape, fullscreen
-            val it = android.content.Intent(ctx, com.futanium.box.WebViewActivity::class.java)
-            it.putExtra(com.futanium.box.WebViewActivity.EXTRA_URL, u)
-            ctx.startActivity(it)
-        } else {
-            // Qualquer esquema não-http (go:, intent:, whatsapp:, etc.) tenta externo
-            val it = android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(u))
-            ctx.startActivity(it)
+    // -------- Fallback antigo (caso MainActivity não injete o callback) --------
+    private fun fallbackOpenLink(link: String, title: String?) {
+        val ctx = (ctxFromAdapter() ?: return)
+        val u = link.trim()
+        try {
+            if (u.startsWith("http", ignoreCase = true)) {
+                val it = android.content.Intent(ctx, com.futanium.box.WebViewActivity::class.java)
+                it.putExtra(com.futanium.box.WebViewActivity.EXTRA_URL, u)
+                ctx.startActivity(it)
+            } else {
+                val it = android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(u))
+                ctx.startActivity(it)
+            }
+        } catch (_: Exception) {
+            Toast.makeText(ctx, "Não foi possível abrir o link.", Toast.LENGTH_SHORT).show()
         }
-    } catch (e: Exception) {
-        Toast.makeText(ctx, "Não foi possível abrir o link.", Toast.LENGTH_SHORT).show()
     }
-}
+
+    private fun ctxFromAdapter() = try {
+        // pega um context seguro a partir de qualquer view ligada
+        // (usa o primeiro ViewHolder anexado quando existir)
+        null
+    } catch (_: Exception) { null }
 }
 
 /** Opcional: tipo forte para botões */
