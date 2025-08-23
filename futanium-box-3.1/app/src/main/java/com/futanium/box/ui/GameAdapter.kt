@@ -1,5 +1,6 @@
 package com.futanium.box.ui
 
+import android.content.Intent
 import android.net.Uri
 import android.view.LayoutInflater
 import android.view.View
@@ -19,24 +20,8 @@ class GameAdapter(
     private val items: MutableList<Game> = mutableListOf()
 ) : RecyclerView.Adapter<GameAdapter.VH>() {
 
-    /** Callback chamada ao tocar em um botão de canal.
-     *  MainActivity deve definir: adapter.onOpenLink = { url, title, referer, ua -> LinkHelper.openLinkSmart(...) } */
-    private fun openLink(view: View, link: String) {
-    val ctx = view.context
-    val u = link.trim()
-    try {
-        if (u.startsWith("http", ignoreCase = true)) {
-            // Usa seu helper para decidir entre WebView e Player
-            com.futanium.box.LinkHelper.openLinkSmart(ctx, u, title = null)
-        } else {
-            // Esquemas externos (intent:, whatsapp:, etc.)
-            val it = android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(u))
-            ctx.startActivity(it) // <<-- use o contexto
-        }
-    } catch (e: Exception) {
-        Toast.makeText(ctx, "Não foi possível abrir o link.", Toast.LENGTH_SHORT).show()
-    }
-}
+    /** Callback para abrir links (Activity decide se vai WebView ou ExoPlayer) */
+    var onOpenLink: ((url: String, title: String?, referer: String?, ua: String?) -> Unit)? = null
 
     /** posição atualmente expandida; -1 = nenhuma */
     private var expandedPos: Int = -1
@@ -113,10 +98,7 @@ class GameAdapter(
                 val (title, link) = extractTitleAndLink(anyBtn, idx)
                 val b = Button(h.itemView.context).apply {
                     text = title
-                    setOnClickListener {
-                        // chama o callback; referer/ua não usados aqui (nulos)
-                        onOpenLink(link, title, null, null)
-                    }
+                    setOnClickListener { openLink(h.itemView, title, link) }
                 }
                 h.btnContainer.addView(b)
             }
@@ -158,29 +140,27 @@ class GameAdapter(
         return title to link
     }
 
-    // -------- Fallback antigo (caso MainActivity não injete o callback) --------
-    private fun fallbackOpenLink(link: String, title: String?) {
-        val ctx = (ctxFromAdapter() ?: return)
+    private fun openLink(view: View, title: String?, link: String) {
+        val ctx = view.context
         val u = link.trim()
         try {
-            if (u.startsWith("http", ignoreCase = true)) {
-                val it = android.content.Intent(ctx, com.futanium.box.WebViewActivity::class.java)
-                it.putExtra(com.futanium.box.WebViewActivity.EXTRA_URL, u)
-                ctx.startActivity(it)
-            } else {
-                val it = android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(u))
-                ctx.startActivity(it)
-            }
-        } catch (_: Exception) {
+            // Se o host chamar o callback, ele decide entre WebView/ExoPlayer
+            onOpenLink?.invoke(u, title, null, null)
+                ?: run {
+                    // Fallback (sem callback): comportamento antigo
+                    if (u.startsWith("http", ignoreCase = true)) {
+                        val it = Intent(ctx, com.futanium.box.WebViewActivity::class.java)
+                        it.putExtra(com.futanium.box.WebViewActivity.EXTRA_URL, u)
+                        ctx.startActivity(it)  // <-- use o contexto
+                    } else {
+                        val it = Intent(Intent.ACTION_VIEW, Uri.parse(u))
+                        ctx.startActivity(it)  // <-- use o contexto
+                    }
+                }
+        } catch (e: Exception) {
             Toast.makeText(ctx, "Não foi possível abrir o link.", Toast.LENGTH_SHORT).show()
         }
     }
-
-    private fun ctxFromAdapter() = try {
-        // pega um context seguro a partir de qualquer view ligada
-        // (usa o primeiro ViewHolder anexado quando existir)
-        null
-    } catch (_: Exception) { null }
 }
 
 /** Opcional: tipo forte para botões */
