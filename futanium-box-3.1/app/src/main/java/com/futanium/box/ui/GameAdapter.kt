@@ -23,8 +23,16 @@ class GameAdapter(
      *  MainActivity deve definir: adapter.onOpenLink = { url, title, referer, ua -> LinkHelper.openLinkSmart(...) } */
     private fun openLink(view: View, link: String) {
     val ctx = view.context
+    val u = link.trim()
     try {
-        com.futanium.box.LinkHelper.openLinkSmart(ctx, link, title = null)
+        if (u.startsWith("http", ignoreCase = true)) {
+            // Usa seu helper para decidir entre WebView e Player
+            com.futanium.box.LinkHelper.openLinkSmart(ctx, u, title = null)
+        } else {
+            // Esquemas externos (intent:, whatsapp:, etc.)
+            val it = android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(u))
+            ctx.startActivity(it) // <<-- use o contexto
+        }
     } catch (e: Exception) {
         Toast.makeText(ctx, "Não foi possível abrir o link.", Toast.LENGTH_SHORT).show()
     }
