@@ -4,10 +4,9 @@
     android:id="@id/exo_controller"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="0dp"
     android:background="@android:color/transparent">
 
-    <!-- Spinner de buffering (branco) -->
+    <!-- Spinner (vai ficar branco via código) -->
     <ProgressBar
         android:id="@id/exo_buffering"
         style="?android:attr/progressBarStyleLarge"
@@ -15,20 +14,18 @@
         android:layout_height="56dp"
         android:layout_gravity="center"
         android:indeterminate="true"
-        android:indeterminateTint="@android:color/white"
-        android:indeterminateTintMode="src_in"
         android:visibility="gone" />
 
-    <!-- Play/Pause central (sem prev/next/ff/rew) -->
+    <!-- Play/Pause central -->
     <ImageButton
         android:id="@id/exo_play_pause"
-        android:layout_width="66dp"
-        android:layout_height="66dp"
+        android:layout_width="64dp"
+        android:layout_height="64dp"
         android:layout_gravity="center"
         android:background="?attr/selectableItemBackgroundBorderless"
         android:contentDescription="@string/exo_controls_play_description" />
 
-    <!-- Barra inferior com fundo preto translúcido + tempos -->
+    <!-- Faixa inferior (mais opaca: #99 = ~60% opaco) -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="56dp"
@@ -39,7 +36,6 @@
         android:paddingEnd="12dp"
         android:background="#99000000">
 
-        <!-- tempo atual (esquerda) -->
         <TextView
             android:id="@id/exo_position"
             android:layout_width="wrap_content"
@@ -49,7 +45,6 @@
             android:textStyle="bold"
             android:minWidth="56dp" />
 
-        <!-- timebar -->
         <androidx.media3.ui.DefaultTimeBar
             android:id="@id/exo_progress"
             android:layout_width="0dp"
@@ -59,7 +54,6 @@
             android:layout_weight="1"
             app:bar_gravity="center" />
 
-        <!-- duração total (direita) -->
         <TextView
             android:id="@id/exo_duration"
             android:layout_width="wrap_content"
@@ -69,7 +63,6 @@
             android:minWidth="56dp" />
     </LinearLayout>
 
-    <!-- mensagem de erro (opcional) -->
     <TextView
         android:id="@id/exo_error_message"
         android:layout_width="wrap_content"
@@ -78,5 +71,4 @@
         android:padding="8dp"
         android:textColor="@android:color/white"
         android:visibility="gone" />
-
 </FrameLayout>
