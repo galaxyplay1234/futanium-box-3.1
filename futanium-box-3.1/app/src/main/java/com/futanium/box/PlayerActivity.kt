@@ -5,10 +5,9 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
-import android.widget.ProgressBar
-import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
@@ -21,7 +20,6 @@ import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
-import androidx.media3.ui.PlayerView.ControllerVisibilityListener
 
 class PlayerActivity : AppCompatActivity() {
 
@@ -36,6 +34,7 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var playerView: PlayerView
     private var player: ExoPlayer? = null
 
+    // UI (status bar oculta; nav bar sempre preta)
     private lateinit var insets: WindowInsetsControllerCompat
 
     // Retry se travar muito tempo em BUFFERING
@@ -61,16 +60,17 @@ class PlayerActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Barras do sistema sobrepostas ao conteúdo (não redimensiona o player)
+        // fullscreen: conteúdo sob as barras do sistema
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        window.statusBarColor = 0x66000000  // preto 40% (translúcido) quando visível
+        window.statusBarColor = Color.BLACK
         window.navigationBarColor = Color.BLACK
+
         insets = WindowInsetsControllerCompat(window, window.decorView).apply {
-            isAppearanceLightStatusBars = false
-            isAppearanceLightNavigationBars = false
-            // quando o usuário arrastar, as barras aparecem de forma transitória e somem
+            // barras só aparecem com gesto (swipe), não por toque
             systemBarsBehavior =
                 WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            isAppearanceLightStatusBars = false
+            isAppearanceLightNavigationBars = false
         }
         hideStatusBar()
 
@@ -80,57 +80,53 @@ class PlayerActivity : AppCompatActivity() {
         setContentView(R.layout.activity_player)
         playerView = findViewById(R.id.playerView)
 
-        // Controller: some tudo junto e volta no toque
+        // Controller: tempo na tela e animação ligada (sincroniza a timebar com o resto)
         playerView.setControllerShowTimeoutMs(3000)
         playerView.setControllerHideOnTouch(true)
-        playerView.setControllerVisibilityListener(
-            ControllerVisibilityListener { visibility ->
-                // status bar: aparece quando o controller aparece e some sozinha logo depois
-                if (visibility == View.VISIBLE) {
-                    insets.show(WindowInsetsCompat.Type.statusBars())
-                    // deixa 2s visível e esconde de novo
-                    main.removeCallbacks(hideBarsRunnable)
-                    main.postDelayed(hideBarsRunnable, 2000)
-                } else {
-                    main.removeCallbacks(hideBarsRunnable)
-                    hideStatusBar()
-                }
-                // garante que o container do controller todo vá junto
-                playerView.findViewById<View>(androidx.media3.ui.R.id.exo_controller)
-                    ?.visibility = if (visibility == View.VISIBLE) View.VISIBLE else View.GONE
+        playerView.setControllerAnimationEnabled(true)
+
+        // Evita que um simples toque revele a status bar
+        playerView.setOnTouchListener { _, ev: MotionEvent ->
+            if (ev.action == MotionEvent.ACTION_DOWN || ev.action == MotionEvent.ACTION_UP) {
+                hideStatusBar()
             }
-        )
+            false // deixa o PlayerView processar o toque normalmente
+        }
+
+        // Ajusta padding para não cortar minutos/barra junto da nav bar
+        ViewCompat.setOnApplyWindowInsetsListener(playerView) { _, ins ->
+            val bars = ins.getInsets(WindowInsetsCompat.Type.systemBars())
+            val bottomInset = bars.bottom
+
+            // ids padrão do controller Media3
+            val ids = listOf(
+                androidx.media3.ui.R.id.exo_progress,   // barra (buffer/seek)
+                androidx.media3.ui.R.id.exo_position,   // minutos à esquerda
+                androidx.media3.ui.R.id.exo_duration    // minutos à direita
+            )
+
+            ids.forEach { id ->
+                playerView.findViewById<View>(id)?.let { v ->
+                    v.setPadding(
+                        v.paddingLeft,
+                        v.paddingTop,
+                        // um pouco de padding à direita ajuda o tempo não encostar no gesto/ímã da nav
+                        if (id == androidx.media3.ui.R.id.exo_duration) v.paddingRight + dp(10) else v.paddingRight,
+                        bottomInset + dp(16)
+                    )
+                }
+            }
+            ins
+        }
 
         // Spinner (retry) branco
-        findViewById<ProgressBar>(androidx.media3.ui.R.id.exo_buffering)?.let { pb ->
+        findViewById<android.widget.ProgressBar>(androidx.media3.ui.R.id.exo_buffering)?.let { pb ->
             val white = android.content.res.ColorStateList.valueOf(Color.WHITE)
             pb.indeterminateTintList = white
             pb.indeterminateTintMode = android.graphics.PorterDuff.Mode.SRC_IN
         }
 
-        // Empurra elementos inferiores para cima do nav bar (minutos e timebar)
-ViewCompat.setOnApplyWindowInsetsListener(playerView) { _, ins ->
-    val bottomInset = ins.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
-
-    // ids padrão do controller Media3
-    listOf(
-        androidx.media3.ui.R.id.exo_progress,   // barra de progresso/buffer
-        androidx.media3.ui.R.id.exo_position,   // minutos à esquerda
-        androidx.media3.ui.R.id.exo_duration    // minutos à direita
-    ).forEach { id ->
-        playerView.findViewById<View>(id)?.let { v ->
-            v.setPadding(
-                v.paddingLeft, v.paddingTop, v.paddingRight,
-                bottomInset + dp(16) // sobe um pouco mais pra não encostar na nav bar
-            )
-        }
-    }
-
-    // (removido o ajuste do exo_bottom_scrim, que não existe no teu layout)
-    ins
-}
-
-        // Esconde botões extra (mantém só play/pause + barra/tempos)
+        // Esconde os botões que você não quer
         listOf(
             androidx.media3.ui.R.id.exo_prev,
             androidx.media3.ui.R.id.exo_next,
@@ -148,8 +144,6 @@ ViewCompat.setOnApplyWindowInsetsListener(playerView) { _, ins ->
 
         initPlayer(url, title, referer, ua, subtitleUrl)
     }
-
-    private val hideBarsRunnable = Runnable { hideStatusBar() }
 
     private fun hideStatusBar() {
         insets.hide(WindowInsetsCompat.Type.statusBars())
@@ -187,7 +181,7 @@ ViewCompat.setOnApplyWindowInsetsListener(playerView) { _, ins ->
         }
         if (!subtitleUrl.isNullOrBlank()) {
             val sub = MediaItem.SubtitleConfiguration.Builder(Uri.parse(subtitleUrl))
-                .setMimeType("text/vtt")
+                .setMimeType("text/vtt") // para .srt use "application/x-subrip"
                 .setLanguage("pt")
                 .setSelectionFlags(0)
                 .build()
@@ -230,7 +224,6 @@ ViewCompat.setOnApplyWindowInsetsListener(playerView) { _, ins ->
     }
 
     override fun onDestroy() {
-        main.removeCallbacks(hideBarsRunnable)
         main.removeCallbacks(bufferingWatchdog)
         playerView.player = null
         player?.release()
