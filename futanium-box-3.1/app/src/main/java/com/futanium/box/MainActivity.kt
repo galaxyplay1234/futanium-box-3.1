@@ -48,16 +48,15 @@ class MainActivity : AppCompatActivity() {
 
         setSupportActionBar(vb.toolbar)
 
-        // Status bar #10131C
+        // cor da status bar
         window.statusBarColor = Color.parseColor("#10131C")
 
-        // Sombra leve na toolbar
+        // sombra leve
         vb.toolbar.elevation = 6f
 
-        // Afastar os actions da borda (bem visível)
-        vb.toolbar.contentInsetEndWithActions = dp(32)
-        // Também aumenta os insets base
-        vb.toolbar.setContentInsetsRelative(dp(16), dp(32))
+        // Afastar ações da borda direita (mais à esquerda mesmo)
+        vb.toolbar.contentInsetEndWithActions = dp(56)
+        vb.toolbar.setContentInsetsRelative(dp(16), dp(56))
 
         // Título menor e bold
         vb.toolbar.post {
@@ -107,32 +106,29 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** ActionView com margem grande, ripple CLARO e mais contido. */
+    /** ActionView com margem grande e ripple claro borderless. */
     private fun setupRefreshButton(item: MenuItem) {
         val btn = AppCompatImageButton(this).apply {
-            // Ripple BOUNDED (menor) e claro
+            // Ripple BORDERLESS (visível e claro)
             val tv = TypedValue()
-            theme.resolveAttribute(android.R.attr.selectableItemBackground, tv, true)
-            background = getDrawable(tv.resourceId)?.mutate()
-            // deixa o efeito de clique bem claro
-            foregroundTintList = ColorStateList.valueOf(Color.parseColor("#99FFFFFF"))
-
-            // Ícone + tint branco
+            theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, tv, true)
+            setBackgroundResource(tv.resourceId) // garante efeito de clique
+            // ícone branco
             setImageDrawable(item.icon)
             ImageViewCompat.setImageTintList(this, ColorStateList.valueOf(Color.WHITE))
 
-            // Tamanho & margens (afasta bem da borda)
-            val size = dp(40) // botão um pouco menor para ripple ficar mais “curto”
+            // tamanho + margens (ainda mais longe da borda)
+            val size = dp(44)
             layoutParams = androidx.appcompat.widget.Toolbar.LayoutParams(
-                size,
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                Gravity.END
+                size, ViewGroup.LayoutParams.MATCH_PARENT, Gravity.END
             ).apply {
-                marginEnd = dp(16)  // margem adicional
+                marginEnd = dp(24) // afasta mais
             }
-            // padding reduzido = ripple visualmente menor
-            setPadding(dp(4), 0, dp(4), 0)
+            // padding moderado (ripple não fica gigante)
+            setPadding(dp(6), 0, dp(6), 0)
             scaleType = android.widget.ImageView.ScaleType.CENTER
+            isClickable = true
+            isFocusable = true
             contentDescription = item.title
 
             setOnClickListener {
@@ -146,18 +142,19 @@ class MainActivity : AppCompatActivity() {
         refreshBtn = btn
     }
 
-    /** Inicia rotação contínua (sempre no mesmo sentido). */
+    /** Inicia rotação contínua, suave. */
     private fun startSpin() {
         val v = refreshBtn ?: return
-        // se já está girando, não recria
         if (spinAnim?.isRunning == true) return
 
         v.post {
             v.pivotX = v.width / 2f
             v.pivotY = max(1, v.height / 2) * 1f
+            v.setLayerType(View.LAYER_TYPE_HARDWARE, null) // fica bem fluido
+
             val startAngle = v.rotation % 360f
             spinAnim = ObjectAnimator.ofFloat(v, View.ROTATION, startAngle, startAngle + 360f).apply {
-                duration = 700
+                duration = 800
                 interpolator = LinearInterpolator()
                 repeatCount = ValueAnimator.INFINITE
                 repeatMode = ValueAnimator.RESTART
@@ -167,7 +164,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** Para rotação, mas respeita um tempo mínimo para completar 1 volta. */
+    /** Para rotação, mas respeitando tempo mínimo para completar 1 volta. */
     private fun stopSpin() {
         val needDelay = (spinStartedAt + MIN_SPIN_MS) - System.currentTimeMillis()
         if (needDelay > 0) {
@@ -180,7 +177,10 @@ class MainActivity : AppCompatActivity() {
     private fun reallyStopSpin() {
         spinAnim?.cancel()
         spinAnim = null
-        refreshBtn?.rotation = 0f
+        refreshBtn?.apply {
+            rotation = 0f
+            setLayerType(View.LAYER_TYPE_NONE, null)
+        }
     }
 
     // ---------------- Dados ----------------
