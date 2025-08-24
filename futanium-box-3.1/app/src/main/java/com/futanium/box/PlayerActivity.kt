@@ -57,7 +57,7 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
-    // Auto-hide manual (timebar some junto com todo mundo)
+    // Auto-hide manual
     private val controllerHandler = Handler(Looper.getMainLooper())
     private val controllerAutoHide = Runnable { playerView.hideController() }
     private fun scheduleControllerAutoHide() {
@@ -65,47 +65,46 @@ class PlayerActivity : AppCompatActivity() {
         controllerHandler.postDelayed(controllerAutoHide, 3000)
     }
 
-    // ------- Centralização horizontal do controller (pillarbox) -------
-    private var videoAspect: Float = 0f          // largura/altura do vídeo efetivo
-    private var bottomInsetPx: Int = 0
-    private var sidePadPx: Int = 0
+    // ---------- centralização levando em conta os insets ----------
+    private var videoAspect: Float = 0f
+    private var insetLeft = 0
+    private var insetRight = 0
+    private var insetTop = 0
+    private var insetBottom = 0
+    private var sidePadPx = 0
 
     private fun computeSidePadding() {
-        val w = playerView.width
-        val h = playerView.height
+        val vw = playerView.width
+        val vh = playerView.height
         val aspect = videoAspect
-        if (w <= 0 || h <= 0 || aspect <= 0f) {
+        if (vw <= 0 || vh <= 0 || aspect <= 0f) {
             sidePadPx = 0
             applyControllerPadding()
             return
         }
-        // conteúdo “fit”: conteúdo em largura = h * aspect (se menor que w -> faixas laterais)
-        val contentWidth = (h * aspect)
-        val pad = ((w - contentWidth) / 2f).coerceAtLeast(0f)
-        sidePadPx = pad.toInt()
+
+        // área realmente visível para o vídeo (fora das barras do sistema)
+        val availW = (vw - insetLeft - insetRight).coerceAtLeast(0)
+        val availH = (vh - insetTop - insetBottom).coerceAtLeast(0)
+
+        // PlayerView está em FIT (resize_mode="fit"): calcula largura ocupada pelo conteúdo
+        val contentW = (availH * aspect).toInt()
+        val pillar = (availW - contentW).coerceAtLeast(0) / 2
+        sidePadPx = pillar
         applyControllerPadding()
     }
 
     private fun applyControllerPadding() {
-        // aplica padding lateral ao container do controller
         val controller = playerView.findViewById<View?>(androidx.media3.ui.R.id.exo_controller)
         controller?.setPadding(
-            sidePadPx,
+            insetLeft + sidePadPx,
             controller.paddingTop,
-            sidePadPx,
-            bottomInsetPx + dp(16)
+            insetRight + sidePadPx,
+            insetBottom + dp(8) // encostado no rodapé (só 8dp de respiro)
         )
-        // mantemos a barra e tempos sem paddings próprios extras (ficam dentro do container).
-        val progress = playerView.findViewById<View?>(androidx.media3.ui.R.id.exo_progress)
-        progress?.setPadding(progress.paddingLeft, progress.paddingTop, progress.paddingRight, 0)
-
-        val pos = playerView.findViewById<View?>(androidx.media3.ui.R.id.exo_position)
-        pos?.setPadding(pos.paddingLeft, pos.paddingTop, pos.paddingRight, 0)
-
-        val dur = playerView.findViewById<View?>(androidx.media3.ui.R.id.exo_duration)
-        dur?.setPadding(dur.paddingLeft, dur.paddingTop, dur.paddingRight, 0)
+        // os filhos usam o padding do container; não precisamos dar padding neles
     }
-    // ------------------------------------------------------------------
+    // --------------------------------------------------------------
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -114,7 +113,6 @@ class PlayerActivity : AppCompatActivity() {
         window.statusBarColor = Color.BLACK
         window.navigationBarColor = Color.BLACK
         insets = WindowInsetsControllerCompat(window, window.decorView).apply {
-            // barras só aparecem ao “puxar”
             systemBarsBehavior =
                 WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             isAppearanceLightStatusBars = false
@@ -127,12 +125,10 @@ class PlayerActivity : AppCompatActivity() {
         setContentView(R.layout.activity_player)
         playerView = findViewById(R.id.playerView)
 
-        // Desliga o timeout interno e controlamos manualmente
+        // Controller
         playerView.setControllerShowTimeoutMs(0)
         playerView.setControllerHideOnTouch(true)
         playerView.setControllerAnimationEnabled(true)
-
-        // qualquer toque esconde status bar e reagenda o auto-hide do controller
         playerView.setOnTouchListener { _, ev ->
             if (ev.action == MotionEvent.ACTION_DOWN || ev.action == MotionEvent.ACTION_UP) {
                 hideStatusBar()
@@ -147,25 +143,28 @@ class PlayerActivity : AppCompatActivity() {
             }
         )
 
-        // Inset inferior (não deixar nada por baixo dos botões)
+        // Captura insets (inclusive nav-bar lateral) e recalcula paddings
         ViewCompat.setOnApplyWindowInsetsListener(playerView) { _, ins ->
             val bars = ins.getInsets(WindowInsetsCompat.Type.systemBars())
-            bottomInsetPx = bars.bottom
-            applyControllerPadding() // re-aplica com o novo inset
+            insetLeft = bars.left
+            insetRight = bars.right
+            insetTop = bars.top
+            insetBottom = bars.bottom
+            applyControllerPadding()
             ins
         }
 
-        // Recalcula padding quando o PlayerView muda de tamanho (rotação, etc.)
+        // Recalcula quando o layout muda (rotação etc.)
         playerView.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> computeSidePadding() }
 
-        // Spinner (retry) branco
+        // Spinner branco
         findViewById<android.widget.ProgressBar>(androidx.media3.ui.R.id.exo_buffering)?.let { pb ->
             val white = android.content.res.ColorStateList.valueOf(Color.WHITE)
             pb.indeterminateTintList = white
             pb.indeterminateTintMode = android.graphics.PorterDuff.Mode.SRC_IN
         }
 
-        // Deixa só o play/pause (remove botões laterais)
+        // Só play/pause (remove extras)
         listOf(
             androidx.media3.ui.R.id.exo_rew,
             androidx.media3.ui.R.id.exo_ffwd,
@@ -179,20 +178,19 @@ class PlayerActivity : AppCompatActivity() {
             playerView.findViewById<View?>(id)?.visibility = View.GONE
         }
 
-        // Prepara o player (só m3u8 e .ts)
+        // Dados
         val url = intent.getStringExtra(EXTRA_URL).orEmpty()
         val title = intent.getStringExtra(EXTRA_TITLE).orEmpty()
         val referer = intent.getStringExtra(EXTRA_REFERER)
         val ua = intent.getStringExtra(EXTRA_USER_AGENT)
         val subtitleUrl = intent.getStringExtra(EXTRA_SUBTITLE)
 
-        // Se não for m3u8/ts, abre WebView e encerra o Player
+        // Se não for m3u8/ts -> WebView
         if (!isSupported(url)) {
             startActivity(Intent(this, WebViewActivity::class.java).apply {
                 putExtra(WebViewActivity.EXTRA_URL, url)
             })
-            finish()
-            return
+            finish(); return
         }
 
         initPlayer(url, title, referer, ua, subtitleUrl)
@@ -237,7 +235,7 @@ class PlayerActivity : AppCompatActivity() {
         }
         if (!subtitleUrl.isNullOrBlank()) {
             val sub = MediaItem.SubtitleConfiguration.Builder(Uri.parse(subtitleUrl))
-                .setMimeType("text/vtt") // para .srt use "application/x-subrip"
+                .setMimeType("text/vtt")
                 .setLanguage("pt")
                 .setSelectionFlags(0)
                 .build()
@@ -267,9 +265,9 @@ class PlayerActivity : AppCompatActivity() {
             }
 
             override fun onVideoSizeChanged(videoSize: VideoSize) {
-                // calcula aspect ratio efetivo (considerando pixelRatio)
                 val ratio = if (videoSize.height == 0) 0f
-                else (videoSize.width * (videoSize.pixelWidthHeightRatio.takeIf { it > 0f } ?: 1f)) /
+                else (videoSize.width *
+                        (videoSize.pixelWidthHeightRatio.takeIf { it > 0f } ?: 1f)) /
                         videoSize.height.toFloat()
                 videoAspect = ratio
                 computeSidePadding()
