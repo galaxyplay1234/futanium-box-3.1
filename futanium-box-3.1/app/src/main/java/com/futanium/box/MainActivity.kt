@@ -8,9 +8,14 @@ import android.util.TypedValue
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
+import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import android.view.animation.LinearInterpolator
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.AppCompatImageButton
+import androidx.core.view.MenuItemCompat
+import androidx.core.widget.ImageViewCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.futanium.box.databinding.ActivityMainBinding
 import com.futanium.box.model.Game
@@ -28,10 +33,9 @@ class MainActivity : AppCompatActivity() {
 
     private val API_URL = "http://91.108.124.236:8080/games/api"
 
-    // ---- animação do botão "Atualizar" sem trocar a view do Toolbar ----
-    private var refreshView: View? = null
-    private var refreshSpin: ObjectAnimator? = null
-    // --------------------------------------------------------------------
+    // guarda o botão customizado e a animação
+    private var refreshBtn: AppCompatImageButton? = null
+    private var spinAnim: ObjectAnimator? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,12 +50,12 @@ class MainActivity : AppCompatActivity() {
         // Sombra leve na toolbar
         vb.toolbar.elevation = 6f
 
-        // Título menor e em negrito, alinhado à esquerda
+        // Título menor e em negrito
         vb.toolbar.post {
             for (i in 0 until vb.toolbar.childCount) {
                 val child = vb.toolbar.getChildAt(i)
                 if (child is TextView) {
-                    child.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
+                    child.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
                     child.typeface = Typeface.DEFAULT_BOLD
                     break
                 }
@@ -63,13 +67,7 @@ class MainActivity : AppCompatActivity() {
 
         // Decide se abre WebView ou Player Exo conforme o link
         adapter.onOpenLink = { url, title, referer, ua ->
-            LinkHelper.openLinkSmart(
-                context = this,
-                url = url,
-                title = title,
-                referer = referer,
-                ua = ua
-            )
+            LinkHelper.openLinkSmart(this, url, title, referer, ua)
         }
 
         vb.swipe.setOnRefreshListener { fetchGames() }
@@ -79,40 +77,70 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.main_menu, menu)
-        // captura a view real do item de menu criado pelo Toolbar (mantém ripple)
-        vb.toolbar.post {
-            refreshView = vb.toolbar.findViewById(R.id.action_refresh)
+
+        // Substitui por um actionView com ripple “borderless”, mantendo layout e sem pular
+        val item = menu.findItem(R.id.action_refresh)
+        refreshBtn = (item.actionView as? AppCompatImageButton) ?: run {
+            val btn = AppCompatImageButton(this)
+
+            // ripple padrão de itens do toolbar (borderless)
+            val tv = TypedValue()
+            theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, tv, true)
+            btn.setBackgroundResource(tv.resourceId)
+
+            // mesmo ícone e tint do menu
+            btn.setImageDrawable(item.icon)
+            ImageViewCompat.setImageTintList(btn, item.iconTintList)
+
+            // altura igual à do toolbar, largura wrap; centraliza verticalmente
+            btn.layoutParams = androidx.appcompat.widget.Toolbar.LayoutParams(
+                WRAP_CONTENT, androidx.appcompat.widget.Toolbar.LayoutParams.MATCH_PARENT
+            )
+
+            // acessibilidade
+            btn.contentDescription = item.title
+
+            // clique: ripple + animação + refresh
+            btn.setOnClickListener {
+                startSpin()
+                fetchGames(onFinally = { stopSpin() })
+            }
+
+            // coloca como actionView do item (sem mudar tamanho/posição)
+            MenuItemCompat.setActionView(item, btn)
+            btn
         }
+
         return true
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        // o clique principal agora é no próprio botão (actionView)
         return when (item.itemId) {
             R.id.action_refresh -> {
-                startRefreshSpin()
-                fetchGames(onFinally = { stopRefreshSpin() })
+                // fallback: se clicar pelo item (ex.: teclado/TV), dispara o botão
+                refreshBtn?.performClick()
                 true
             }
             else -> super.onOptionsItemSelected(item)
         }
     }
 
-    private fun startRefreshSpin() {
-        val v = refreshView ?: vb.toolbar.findViewById(R.id.action_refresh)
-        if (v != null) {
-            refreshSpin?.cancel()
-            // gira a própria view do item (sem trocar por actionView)
-            refreshSpin = ObjectAnimator.ofFloat(v, "rotation", 0f, 360f).apply {
-                duration = 700
-                repeatCount = ObjectAnimator.INFINITE
-            }
-            refreshSpin?.start()
+    private fun startSpin() {
+        val v = refreshBtn ?: return
+        spinAnim?.cancel()
+        // gira continuamente mantendo o ripple
+        spinAnim = ObjectAnimator.ofFloat(v, View.ROTATION, 0f, 360f).apply {
+            duration = 700
+            interpolator = LinearInterpolator()
+            repeatCount = ObjectAnimator.INFINITE
         }
+        spinAnim?.start()
     }
 
-    private fun stopRefreshSpin() {
-        refreshSpin?.cancel()
-        refreshView?.rotation = 0f
+    private fun stopSpin() {
+        spinAnim?.cancel()
+        refreshBtn?.rotation = 0f
     }
 
     private fun fetchGames(onFinally: (() -> Unit)? = null) {
