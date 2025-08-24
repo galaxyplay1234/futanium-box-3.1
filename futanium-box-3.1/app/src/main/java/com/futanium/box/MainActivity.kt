@@ -223,7 +223,7 @@ class MainActivity : AppCompatActivity() {
             fun loop() {
                 v.animate()
                     .rotationBy(360f)
-                    .setDuration(1200)               // 1.2s por volta (deixe 1000–1400 ao seu gosto)
+                    .setDuration(1000)               // 1.2s por volta (deixe 1000–1400 ao seu gosto)
                     .setInterpolator(LinearInterpolator())
                     .withEndAction {
                         if (v.getTag(SPIN_TAG_KEY) == true) loop()
