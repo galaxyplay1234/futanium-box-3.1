@@ -56,12 +56,20 @@ class WebViewActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        WindowCompat.setDecorFitsSystemWindows(window, true)
+        // ====== (AJUSTE) Barras do sistema como no Player ======
+        // Conteúdo por trás das barras; status bar preta/translúcida sobre o conteúdo
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.statusBarColor = Color.BLACK
         window.navigationBarColor = Color.BLACK
         insets = WindowInsetsControllerCompat(window, window.decorView).apply {
+            // barras só aparecem ao "puxar" (swipe), não por toque na WebView
+            systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            isAppearanceLightStatusBars = false
             isAppearanceLightNavigationBars = false
         }
         hideStatusBar()
+        // =======================================================
 
         setContentView(R.layout.activity_webview)
 
@@ -210,88 +218,76 @@ class WebViewActivity : AppCompatActivity() {
             }
 
             // Se der erro de DNS/Conexão/Timeout no frame principal, evita tela de erro e vai direto pro proxy
-override fun onReceivedError(
-    view: WebView?,
-    request: WebResourceRequest,
-    error: WebResourceError
-) {
-    super.onReceivedError(view, request, error)
+            override fun onReceivedError(
+                view: WebView?,
+                request: WebResourceRequest,
+                error: WebResourceError
+            ) {
+                super.onReceivedError(view, request, error)
 
-    if (request.isForMainFrame) {
-        val code = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-            error.errorCode
-        } else 0
+                if (request.isForMainFrame) {
+                    val code = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                        error.errorCode
+                    } else 0
 
-        // erros que indicam bloqueio/dns/timeout
-        val shouldProxy = code == ERROR_HOST_LOOKUP ||
-                          code == ERROR_CONNECT ||
-                          code == ERROR_TIMEOUT
+                    val shouldProxy = code == ERROR_HOST_LOOKUP ||
+                                      code == ERROR_CONNECT ||
+                                      code == ERROR_TIMEOUT
 
-        if (shouldProxy) {
-            val original = request.url.toString()
-            val lower = original.lowercase(Locale.ROOT)
-            val proxyBase = PROXY_BASE // já existe no seu código
+                    if (shouldProxy) {
+                        val original = request.url.toString()
+                        val lower = original.lowercase(Locale.ROOT)
+                        val proxyBase = PROXY_BASE
 
-            if (!lower.startsWith(proxyBase)) {
-                // 1) Para o carregamento e limpa a tela (nada de página de erro)
-                view?.stopLoading()
-                view?.loadUrl("about:blank")
-
-                // 2) Na próxima volta do loop da UI, manda pro proxy
-                view?.post {
-                    view.loadUrl(proxyBase + Uri.encode(original))
+                        if (!lower.startsWith(proxyBase)) {
+                            view?.stopLoading()
+                            view?.loadUrl("about:blank")
+                            view?.post { view.loadUrl(proxyBase + Uri.encode(original)) }
+                        }
+                    }
                 }
             }
-        }
-    }
-}
 
-// Compat para Androids antigos (mesma lógica)
-@Suppress("deprecation")
-override fun onReceivedError(
-    view: WebView?,
-    errorCode: Int,
-    description: String?,
-    failingUrl: String?
-) {
-    super.onReceivedError(view, errorCode, description, failingUrl)
+            @Suppress("deprecation")
+            override fun onReceivedError(
+                view: WebView?,
+                errorCode: Int,
+                description: String?,
+                failingUrl: String?
+            ) {
+                super.onReceivedError(view, errorCode, description, failingUrl)
 
-    if (failingUrl != null) {
-        val shouldProxy = errorCode == ERROR_HOST_LOOKUP ||
-                          errorCode == ERROR_CONNECT ||
-                          errorCode == ERROR_TIMEOUT
+                if (failingUrl != null) {
+                    val shouldProxy = errorCode == ERROR_HOST_LOOKUP ||
+                                      errorCode == ERROR_CONNECT ||
+                                      errorCode == ERROR_TIMEOUT
 
-        if (shouldProxy) {
-            val lower = failingUrl.lowercase(Locale.ROOT)
-            val proxyBase = PROXY_BASE
+                    if (shouldProxy) {
+                        val lower = failingUrl.lowercase(Locale.ROOT)
+                        val proxyBase = PROXY_BASE
 
-            if (!lower.startsWith(proxyBase)) {
-                view?.stopLoading()
-                view?.loadUrl("about:blank")
-                view?.post {
-                    view.loadUrl(proxyBase + Uri.encode(failingUrl))
+                        if (!lower.startsWith(proxyBase)) {
+                            view?.stopLoading()
+                            view?.loadUrl("about:blank")
+                            view?.post { view.loadUrl(proxyBase + Uri.encode(failingUrl)) }
+                        }
+                    }
                 }
             }
-        }
-    }
-}
 
-            // BLOQUEIO de recursos secundários (scripts, iframes, imgs) usando a blocklist
+            // BLOQUEIO de recursos secundários
             override fun shouldInterceptRequest(
                 view: WebView,
                 request: WebResourceRequest
             ): WebResourceResponse? {
-                // nunca bloquear o frame principal por aqui (deixa a navegação decidir)
                 if (request.isForMainFrame) return null
                 if (!blockReady.get()) return null
 
                 val url = request.url.toString()
                 val host = request.url.host?.lowercase(Locale.ROOT) ?: return null
 
-                // mídia/legendas nunca bloquear
                 if (isMediaUrl(url)) return null
 
-                // NÃO bloqueia sub-recursos do mesmo host do player (evita quebrar)
                 val allow = allowHost
                 if (allow != null && (host == allow || host.endsWith(".$allow"))) {
                     return null
@@ -332,7 +328,6 @@ override fun onReceivedError(
     }
 
     override fun onDestroy() {
-        // limpa o flag de manter a tela ligada (boa prática)
         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         super.onDestroy()
     }
@@ -401,14 +396,12 @@ override fun onReceivedError(
         return false
     }
 
-    // >>> checa se a URL/host está marcada para ir via proxy
     private fun mustProxy(host: String, fullUrlLower: String): Boolean {
         for (d in proxyDomainRules) if (host == d || host.endsWith(".$d")) return true
         for (p in proxySubstringRules) if (p.isNotEmpty() && fullUrlLower.contains(p)) return true
         return false
     }
 
-    // >>> checa se a URL/host está permitida pela allowlist (per:)
     private fun matchesAllowlist(host: String, fullUrlLower: String): Boolean {
         for (d in allowDomainRules) if (host == d || host.endsWith(".$d")) return true
         for (p in allowSubstringRules) if (p.isNotEmpty() && fullUrlLower.contains(p)) return true
