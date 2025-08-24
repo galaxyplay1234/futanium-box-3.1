@@ -88,7 +88,7 @@ class MainActivity : AppCompatActivity() {
         vb.todayRail.bringToFront()
         vb.root.post {
             // altura do rail + um espacinho
-            val topSpace = vb.todayRail.bottom + dp(8)
+            val topSpace = vb.todayRail.bottom + dp(4)
             vb.rvGames.setPadding(
                 vb.rvGames.paddingLeft,
                 topSpace,
