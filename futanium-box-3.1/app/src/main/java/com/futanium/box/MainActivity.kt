@@ -102,7 +102,7 @@ class MainActivity : AppCompatActivity() {
             // cor do efeito (mais claro → "#22FFFFFF"; mais forte → "#44FFFFFF")
             val rippleColor = ColorStateList.valueOf(Color.parseColor("#33FFFFFF"))
             // máscara oval com margem interna (↑ aumente inset para efeito MENOR)
-            val inset = dp(10) // experimente 8–12
+            val inset = dp(9) // experimente 8–12
             val mask = InsetDrawable(ShapeDrawable(OvalShape()), inset, inset, inset, inset)
             background = RippleDrawable(rippleColor, /*content*/ null, /*mask*/ mask)
             // padding leve para centralizar o toque visualmente
