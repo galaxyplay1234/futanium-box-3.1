@@ -3,7 +3,10 @@ package com.futanium.box
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.InsetDrawable
 import android.graphics.drawable.RippleDrawable
+import android.graphics.drawable.ShapeDrawable
+import android.graphics.drawable.shapes.OvalShape
 import android.os.Bundle
 import android.util.TypedValue
 import android.view.Menu
@@ -15,7 +18,6 @@ import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.content.res.AppCompatResources
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.core.view.MenuItemCompat
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -55,7 +57,7 @@ class MainActivity : AppCompatActivity() {
         vb.toolbar.elevation = 6f
 
         // Ícone da direita “mais pra dentro”
-        vb.toolbar.contentInsetEndWithActions = dp(44) // afastado da borda
+        vb.toolbar.contentInsetEndWithActions = dp(44) // ajuste fino da posição
 
         // Título menor e em negrito
         vb.toolbar.post {
@@ -77,9 +79,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         vb.swipe.setOnRefreshListener {
-            // puxa pra atualizar
             if (!vb.swipe.isRefreshing) vb.swipe.isRefreshing = true
-            startRefreshSpin() // sincronia visual com o botão
+            startRefreshSpin() // sincroniza com o botão
             fetchGames(onFinally = { stopRefreshSpin() })
         }
 
@@ -90,26 +91,23 @@ class MainActivity : AppCompatActivity() {
         menuInflater.inflate(R.menu.main_menu, menu)
         refreshItem = menu.findItem(R.id.action_refresh)
 
-        // ActionView fixa com ripple custom (leve e menor) e sem "pulo"
+        // ActionView fixa com ripple custom (menor e claro) e sem "pulo"
         val size = obtainActionBarSize()
         val iv = AppCompatImageView(this).apply {
             layoutParams = ViewGroup.LayoutParams(size, size)
             setImageDrawable(refreshItem!!.icon)
             scaleType = ImageView.ScaleType.CENTER
 
-            // ripple borderless do tema, clareado e com área um pouco menor
-            val out = TypedValue()
-            theme.resolveAttribute(
-                android.R.attr.selectableItemBackgroundBorderless,
-                out, true
-            )
-            val ripple = AppCompatResources.getDrawable(this@MainActivity, out.resourceId)?.mutate()
-            if (ripple is RippleDrawable) {
-                // branco ~20% de opacidade (ajuste fácil: 0x22..0x33)
-                ripple.setColor(ColorStateList.valueOf(Color.parseColor("#33FFFFFF")))
-            }
-            background = ripple
+            // --- Ripple menor/claro ---
+            // cor do efeito (mais claro → "#22FFFFFF"; mais forte → "#44FFFFFF")
+            val rippleColor = ColorStateList.valueOf(Color.parseColor("#33FFFFFF"))
+            // máscara oval com margem interna (↑ aumente inset para efeito MENOR)
+            val inset = dp(10) // experimente 8–12
+            val mask = InsetDrawable(ShapeDrawable(OvalShape()), inset, inset, inset, inset)
+            background = RippleDrawable(rippleColor, /*content*/ null, /*mask*/ mask)
+            // padding leve para centralizar o toque visualmente
             setPadding(dp(8), dp(8), dp(8), dp(8))
+            // ---------------------------
 
             contentDescription = refreshItem!!.title
             isClickable = true
@@ -210,18 +208,22 @@ class MainActivity : AppCompatActivity() {
         val v = refreshView ?: return
         if (v.getTag(SPIN_TAG_KEY) == true) return // já está girando
 
-        v.setTag(SPIN_TAG_KEY, true)
-        v.setLayerType(ImageView.LAYER_TYPE_HARDWARE, null)
+        // limpa qualquer animação pendente para evitar "trancos"
+        v.animate().cancel()
+        v.clearAnimation()
 
-        // garante que pivot está no centro
+        v.setTag(SPIN_TAG_KEY, true)
+        v.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+
         v.post {
             v.pivotX = v.width / 2f
             v.pivotY = v.height / 2f
+            v.rotation = (v.rotation % 360f)
 
             fun loop() {
                 v.animate()
                     .rotationBy(360f)
-                    .setDuration(1000) // 1s = giro liso; aumente para 1200/1400 se preferir
+                    .setDuration(1200)               // 1.2s por volta (deixe 1000–1400 ao seu gosto)
                     .setInterpolator(LinearInterpolator())
                     .withEndAction {
                         if (v.getTag(SPIN_TAG_KEY) == true) loop()
@@ -235,11 +237,12 @@ class MainActivity : AppCompatActivity() {
     private fun stopRefreshSpin() {
         val v = refreshView ?: return
         v.setTag(SPIN_TAG_KEY, false)
+        v.animate().cancel()
         v.animate()
             .rotation(0f)
-            .setDuration(160)
+            .setDuration(180)
             .setInterpolator(LinearInterpolator())
-            .withEndAction { v.setLayerType(ImageView.LAYER_TYPE_NONE, null) }
+            .withEndAction { v.setLayerType(View.LAYER_TYPE_NONE, null) }
             .start()
     }
 
