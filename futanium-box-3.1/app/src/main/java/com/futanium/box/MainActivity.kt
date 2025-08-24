@@ -80,17 +80,11 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Texto "Jogos de hoje <data no formato do sistema>"
-val todayStr = java.text.DateFormat
-    .getDateInstance(java.text.DateFormat.SHORT)
-    .format(java.util.Date())
-vb.todayBadge.text = "Jogos de Hoje $todayStr"
+        // Atualiza o texto: "Jogos de Hoje - dd/MM"
+val sdf = java.text.SimpleDateFormat("dd/MM", java.util.Locale.getDefault())
+vb.todayBadge.text = "Jogos de Hoje - ${sdf.format(java.util.Date())}"
 
-// Coloca 10dp abaixo da toolbar sem usar margin/cast
-vb.todayBadge.bringToFront()
-vb.toolbar.post {
-    vb.todayBadge.y = vb.toolbar.height + dp(10).toFloat()
-}
+
 
         vb.rvGames.layoutManager = LinearLayoutManager(this)
         vb.rvGames.adapter = adapter
