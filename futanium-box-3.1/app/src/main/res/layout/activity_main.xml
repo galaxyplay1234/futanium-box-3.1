@@ -22,6 +22,26 @@
         android:layout_height="match_parent"
         android:layout_marginTop="?attr/actionBarSize">
 
+
+    <TextView
+    android:id="@+id/todayBadge"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_today_badge"
+    android:paddingStart="14dp"
+    android:paddingEnd="14dp"
+    android:paddingTop="6dp"
+    android:paddingBottom="6dp"
+    android:text="Jogos de hoje"
+    android:textColor="@android:color/white"
+    android:textSize="13sp"
+    android:ellipsize="end"
+    android:maxLines="1"
+    android:gravity="center"
+    android:layout_gravity="top|center_horizontal"
+    android:translationZ="8dp"
+    android:elevation="8dp"/>
+
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rvGames"
             android:layout_width="match_parent"
