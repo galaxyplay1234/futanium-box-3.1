@@ -102,7 +102,7 @@ class MainActivity : AppCompatActivity() {
 
             // Ripple menor/claro
             val rippleColor = ColorStateList.valueOf(Color.parseColor("#33FFFFFF"))
-            val inset = dp(6) // ↑ aumenta para diminuir ainda mais a área do efeito
+            val inset = dp(5)
             val mask = InsetDrawable(ShapeDrawable(OvalShape()), inset, inset, inset, inset)
             background = RippleDrawable(rippleColor, null, mask)
             setPadding(dp(8), dp(8), dp(8), dp(8))
@@ -200,17 +200,15 @@ class MainActivity : AppCompatActivity() {
         return list
     }
 
-    // -------- animação suave do refresh (mín. 1 volta) --------
+    // -------- animação suave do refresh (mín. 1 volta, sem “voltar”) --------
 
     private fun startRefreshSpin() {
         val v = refreshView ?: return
         if (v.getTag(SPIN_TAG_KEY) == true) return // já está girando
 
-        // limpa qualquer animação pendente para evitar “trancos”
         v.animate().cancel()
         v.clearAnimation()
 
-        // estado inicial
         spinCompletedOne = false
         spinPendingStop = false
 
@@ -220,19 +218,18 @@ class MainActivity : AppCompatActivity() {
         v.post {
             v.pivotX = v.width / 2f
             v.pivotY = v.height / 2f
-            v.rotation = (v.rotation % 360f)
+            v.rotation = (v.rotation % 360f + 360f) % 360f
 
             fun loop() {
                 v.animate()
                     .rotationBy(360f)
-                    .setDuration(1000) // ajuste fino 1000–1400ms
+                    .setDuration(1100) // 1.1s: liso, dá tempo de “ver” a volta
                     .setInterpolator(LinearInterpolator())
                     .withEndAction {
                         spinCompletedOne = true
                         if (v.getTag(SPIN_TAG_KEY) == true) {
                             if (spinPendingStop) {
-                                // parar agora que já completou 1 volta
-                                finalizeStop(v)
+                                finalizeStop(v) // parar só pra frente
                             } else {
                                 loop()
                             }
@@ -248,8 +245,8 @@ class MainActivity : AppCompatActivity() {
         val v = refreshView ?: return
         if (v.getTag(SPIN_TAG_KEY) != true) return
 
-        // se ainda não completou 1 volta, marca para parar no fim da primeira
         if (!spinCompletedOne) {
+            // ainda não completou 1 volta → pede pra parar quando completar
             spinPendingStop = true
             return
         }
@@ -257,14 +254,27 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun finalizeStop(v: View) {
+        // encerra a volta atual SEM girar para trás
         v.setTag(SPIN_TAG_KEY, false)
         v.animate().cancel()
-        v.animate()
-            .rotation(0f)
-            .setDuration(180)
-            .setInterpolator(LinearInterpolator())
-            .withEndAction { v.setLayerType(View.LAYER_TYPE_NONE, null) }
-            .start()
+
+        val current = (v.rotation % 360f + 360f) % 360f
+        val remaining = if (current == 0f) 0f else 360f - current
+        if (remaining > 0f) {
+            val dur = (remaining / 360f * 250).toLong().coerceAtLeast(100L) // 100–250ms
+            v.animate()
+                .rotationBy(remaining)      // completa para frente
+                .setDuration(dur)
+                .setInterpolator(LinearInterpolator())
+                .withEndAction {
+                    v.rotation = 0f          // normaliza, sem “pulo”
+                    v.setLayerType(View.LAYER_TYPE_NONE, null)
+                }
+                .start()
+        } else {
+            v.rotation = 0f
+            v.setLayerType(View.LAYER_TYPE_NONE, null)
+        }
     }
 
     // -------------------------------------------
