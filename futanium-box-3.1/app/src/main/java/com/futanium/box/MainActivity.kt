@@ -7,11 +7,14 @@ import android.os.Bundle
 import android.util.TypedValue
 import android.view.Menu
 import android.view.MenuItem
+import android.view.View
+import android.view.ViewGroup
 import android.view.animation.LinearInterpolator
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.AppCompatImageView
 import androidx.core.view.MenuItemCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.futanium.box.databinding.ActivityMainBinding
@@ -29,9 +32,10 @@ class MainActivity : AppCompatActivity() {
 
     private val API_URL = "http://91.108.124.236:8080/games/api"
 
-    // guardamos o animator atual pra não reiniciar a cada clique
-    private var refreshAnimator: ObjectAnimator? = null
+    // referências do botão de refresh
     private var refreshItem: MenuItem? = null
+    private var refreshView: AppCompatImageView? = null
+    private var refreshAnimator: ObjectAnimator? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,11 +50,10 @@ class MainActivity : AppCompatActivity() {
         // Sombra leve na toolbar
         vb.toolbar.elevation = 6f
 
-        // Deixar o ícone de atualizar mais “pra dentro” (longe da borda)
-        // Aumente/diminua esse valor se quiser mais/menos margem.
-        vb.toolbar.contentInsetEndWithActions = dp(28)
+        // Ícone da direita "mais pra dentro"
+        vb.toolbar.contentInsetEndWithActions = dp(32)
 
-        // Título menor e em negrito, alinhado à esquerda
+        // Título menor e em negrito
         vb.toolbar.post {
             for (i in 0 until vb.toolbar.childCount) {
                 val child = vb.toolbar.getChildAt(i)
@@ -65,12 +68,10 @@ class MainActivity : AppCompatActivity() {
         vb.rvGames.layoutManager = LinearLayoutManager(this)
         vb.rvGames.adapter = adapter
 
-        // Decide ExoPlayer x WebView automaticamente
         adapter.onOpenLink = { url, title, referer, ua ->
             LinkHelper.openLinkSmart(this, url, title, referer, ua)
         }
 
-        // Pull-to-refresh
         vb.swipe.setOnRefreshListener {
             if (!vb.swipe.isRefreshing) vb.swipe.isRefreshing = true
             fetchGames()
@@ -82,15 +83,41 @@ class MainActivity : AppCompatActivity() {
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.main_menu, menu)
         refreshItem = menu.findItem(R.id.action_refresh)
+
+        // Criamos UMA actionView fixa com ripple + tamanho estável (sem "pulo")
+        val size = obtainActionBarSize()
+        val iv = AppCompatImageView(this).apply {
+            layoutParams = ViewGroup.LayoutParams(size, size)
+            setImageDrawable(refreshItem!!.icon) // usa o mesmo ícone do menu (já vem com tint)
+            scaleType = ImageView.ScaleType.CENTER
+            // ripple borderless do tema
+            val out = TypedValue()
+            theme.resolveAttribute(
+                android.R.attr.selectableItemBackgroundBorderless,
+                out, true
+            )
+            setBackgroundResource(out.resourceId)
+            // padding pra ripple ficar “menor/mais bonito”
+            setPadding(dp(8), dp(8), dp(8), dp(8))
+            contentDescription = refreshItem!!.title
+            isClickable = true
+            isFocusable = true
+
+            setOnClickListener {
+                // delega o clique pro item do menu (mantém comportamento padrão)
+                onOptionsItemSelected(refreshItem!!)
+            }
+        }
+        MenuItemCompat.setActionView(refreshItem, iv)
+        refreshView = iv
+
         return true
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             R.id.action_refresh -> {
-                // evita recriar anim se já está girando
-                if (refreshAnimator?.isRunning != true) startRefreshSpin(item)
-                // inicia o carregamento
+                startRefreshSpin()
                 if (!vb.swipe.isRefreshing) vb.swipe.isRefreshing = true
                 fetchGames(onFinally = { stopRefreshSpin() })
                 true
@@ -100,7 +127,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun fetchGames(onFinally: (() -> Unit)? = null) {
-        // garante que a bolinha não “trave” mesmo se algo der errado
         if (!vb.swipe.isRefreshing) vb.swipe.isRefreshing = true
 
         Thread {
@@ -129,7 +155,6 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
-    /** Converte o JSON da API -> lista de Game. Ignora itens com "header". */
     private fun parseGames(json: String): List<Game> {
         val arr = JSONArray(json)
         val list = ArrayList<Game>(arr.length())
@@ -170,18 +195,16 @@ class MainActivity : AppCompatActivity() {
         return list
     }
 
-    // ------------------ Refresh icon animation ------------------
+    // -------- refresh animation --------
 
-    private fun startRefreshSpin(item: MenuItem) {
-        // usa ActionView só enquanto gira (mantém ripple padrão quando parar)
-        val iv = ImageView(this).apply {
-            setImageDrawable(item.icon)
-            // melhora suavidade do giro
-            setLayerType(ImageView.LAYER_TYPE_HARDWARE, null)
-        }
-        MenuItemCompat.setActionView(item, iv)
+    private fun startRefreshSpin() {
+        val target = refreshView ?: return
+        if (refreshAnimator?.isRunning == true) return
 
-        refreshAnimator = ObjectAnimator.ofFloat(iv, "rotation", 0f, 360f).apply {
+        // melhora a fluidez
+        target.setLayerType(ImageView.LAYER_TYPE_HARDWARE, null)
+
+        refreshAnimator = ObjectAnimator.ofFloat(target, View.ROTATION, 0f, 360f).apply {
             duration = 700
             interpolator = LinearInterpolator()
             repeatCount = ObjectAnimator.INFINITE
@@ -190,14 +213,21 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun stopRefreshSpin() {
-        val item = refreshItem ?: return
         refreshAnimator?.cancel()
         refreshAnimator = null
-        // volta ao menu normal para recuperar o ripple de clique padrão
-        MenuItemCompat.setActionView(item, null)
+        refreshView?.animate()?.rotation(0f)?.setDuration(150)?.start()
     }
 
-    // ------------------------------------------------------------
+    // -----------------------------------
+
+    private fun obtainActionBarSize(): Int {
+        val tv = TypedValue()
+        var size = dp(48) // fallback
+        if (theme.resolveAttribute(android.R.attr.actionBarSize, tv, true)) {
+            size = TypedValue.complexToDimensionPixelSize(tv.data, resources.displayMetrics)
+        }
+        return size
+    }
 
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
 }
