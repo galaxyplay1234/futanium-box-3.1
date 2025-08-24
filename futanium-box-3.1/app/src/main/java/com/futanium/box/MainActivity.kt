@@ -81,18 +81,15 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Define o texto do chip: "Jogos de Hoje - dd/MM"
-val hoje = java.text.SimpleDateFormat("dd/MM", java.util.Locale.getDefault())
-    .format(java.util.Date())
-vb.todayChipText.text = "Jogos de Hoje - $hoje"
+        // Texto "Jogos de Hoje - dd/MM" no chip
+val df = java.text.SimpleDateFormat("dd/MM", java.util.Locale.getDefault())
+vb.todayChipText.text = "Jogos de Hoje - ${df.format(java.util.Date())}"
 
-// Faz a lista “passar por baixo” da faixa.
-// Calcula a altura real do rail e adiciona um espaço extra para respiro.
+// Garante que o rail fica por cima e a lista passa por baixo
+vb.todayRail.bringToFront()
 vb.root.post {
-    // garante que o rail/chip está na frente
-    vb.todayRail.bringToFront()
-
-    val topSpace = vb.todayRail.height + dp(4)
+    // altura do rail + um espacinho
+    val topSpace = vb.todayRail.bottom + dp(8)
     vb.rvGames.setPadding(
         vb.rvGames.paddingLeft,
         topSpace,
