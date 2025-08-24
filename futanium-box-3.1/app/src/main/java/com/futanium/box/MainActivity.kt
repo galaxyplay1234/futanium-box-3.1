@@ -1,6 +1,7 @@
 package com.futanium.box
 
 import android.animation.ObjectAnimator
+import android.animation.ValueAnimator
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
@@ -24,19 +25,21 @@ import com.futanium.box.ui.GameAdapter
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONArray
+import kotlin.math.max
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var vb: ActivityMainBinding
     private val client = OkHttpClient()
     private val adapter = GameAdapter()
-    private val games = ArrayList<Game>()
 
     private val API_URL = "http://91.108.124.236:8080/games/api"
 
-    // refresh button / anim
+    // refresh button + animação
     private var refreshBtn: AppCompatImageButton? = null
     private var spinAnim: ObjectAnimator? = null
+    private var spinStartedAt: Long = 0L
+    private val MIN_SPIN_MS = 900L   // garante pelo menos 1 volta
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -51,8 +54,10 @@ class MainActivity : AppCompatActivity() {
         // Sombra leve na toolbar
         vb.toolbar.elevation = 6f
 
-        // Afastar actions da borda direita (evita “colar” no canto/corte)
-        vb.toolbar.contentInsetEndWithActions = dp(16)
+        // Afastar os actions da borda (bem visível)
+        vb.toolbar.contentInsetEndWithActions = dp(32)
+        // Também aumenta os insets base
+        vb.toolbar.setContentInsetsRelative(dp(16), dp(32))
 
         // Título menor e bold
         vb.toolbar.post {
@@ -73,12 +78,17 @@ class MainActivity : AppCompatActivity() {
             LinkHelper.openLinkSmart(this, url, title, referer, ua)
         }
 
-        vb.swipe.setOnRefreshListener { fetchGames() }
+        vb.swipe.setOnRefreshListener {
+            startSpin()
+            fetchGames(onFinally = { stopSpin() })
+        }
 
-        fetchGames()
+        // 1º carregamento
+        startSpin()
+        fetchGames(onFinally = { stopSpin() })
     }
 
-    // ================= Toolbar Menu =================
+    // ---------------- Toolbar Menu ----------------
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.main_menu, menu)
@@ -89,7 +99,6 @@ class MainActivity : AppCompatActivity() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             R.id.action_refresh -> {
-                if (refreshBtn == null) setupRefreshButton(item)
                 startSpin()
                 fetchGames(onFinally = { stopSpin() })
                 true
@@ -98,30 +107,31 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** Cria uma actionView estável com ripple CLARO e menor e margem da borda. */
+    /** ActionView com margem grande, ripple CLARO e mais contido. */
     private fun setupRefreshButton(item: MenuItem) {
         val btn = AppCompatImageButton(this).apply {
-            // Ripple borderless padrão, mas com cor mais clara
+            // Ripple BOUNDED (menor) e claro
             val tv = TypedValue()
-            theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, tv, true)
+            theme.resolveAttribute(android.R.attr.selectableItemBackground, tv, true)
             background = getDrawable(tv.resourceId)?.mutate()
-            // clareia o ripple
-            foregroundTintList = ColorStateList.valueOf(Color.parseColor("#66FFFFFF"))
+            // deixa o efeito de clique bem claro
+            foregroundTintList = ColorStateList.valueOf(Color.parseColor("#99FFFFFF"))
 
+            // Ícone + tint branco
             setImageDrawable(item.icon)
             ImageViewCompat.setImageTintList(this, ColorStateList.valueOf(Color.WHITE))
 
+            // Tamanho & margens (afasta bem da borda)
+            val size = dp(40) // botão um pouco menor para ripple ficar mais “curto”
             layoutParams = androidx.appcompat.widget.Toolbar.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
+                size,
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 Gravity.END
             ).apply {
-                // margem para NÃO encostar no canto direito
-                marginEnd = dp(12)
+                marginEnd = dp(16)  // margem adicional
             }
-
-            // botão “menorzinho”: menos padding = ripple menor
-            setPadding(dp(6), 0, dp(6), 0)
+            // padding reduzido = ripple visualmente menor
+            setPadding(dp(4), 0, dp(4), 0)
             scaleType = android.widget.ImageView.ScaleType.CENTER
             contentDescription = item.title
 
@@ -136,34 +146,46 @@ class MainActivity : AppCompatActivity() {
         refreshBtn = btn
     }
 
-    /** Inicia rotação contínua (pivot central, sem “ir e voltar”). */
+    /** Inicia rotação contínua (sempre no mesmo sentido). */
     private fun startSpin() {
         val v = refreshBtn ?: return
-        // garante pivô no centro e view medida
+        // se já está girando, não recria
+        if (spinAnim?.isRunning == true) return
+
         v.post {
             v.pivotX = v.width / 2f
-            v.pivotY = v.height / 2f
-            spinAnim?.cancel()
-            // começa do ângulo atual, gira sempre no mesmo sentido
-            spinAnim = ObjectAnimator.ofFloat(v, View.ROTATION, (v.rotation % 360f), (v.rotation % 360f) + 360f).apply {
+            v.pivotY = max(1, v.height / 2) * 1f
+            val startAngle = v.rotation % 360f
+            spinAnim = ObjectAnimator.ofFloat(v, View.ROTATION, startAngle, startAngle + 360f).apply {
                 duration = 700
                 interpolator = LinearInterpolator()
-                repeatCount = ObjectAnimator.INFINITE
-                repeatMode = ObjectAnimator.RESTART
+                repeatCount = ValueAnimator.INFINITE
+                repeatMode = ValueAnimator.RESTART
             }
+            spinStartedAt = System.currentTimeMillis()
             spinAnim?.start()
         }
     }
 
+    /** Para rotação, mas respeita um tempo mínimo para completar 1 volta. */
     private fun stopSpin() {
+        val needDelay = (spinStartedAt + MIN_SPIN_MS) - System.currentTimeMillis()
+        if (needDelay > 0) {
+            refreshBtn?.postDelayed({ reallyStopSpin() }, needDelay)
+        } else {
+            reallyStopSpin()
+        }
+    }
+
+    private fun reallyStopSpin() {
         spinAnim?.cancel()
+        spinAnim = null
         refreshBtn?.rotation = 0f
     }
 
-    // ================= Dados =================
+    // ---------------- Dados ----------------
 
     private fun fetchGames(onFinally: (() -> Unit)? = null) {
-        vb.swipe.isRefreshing = true
         Thread {
             try {
                 val req = Request.Builder().url(API_URL).build()
@@ -182,15 +204,11 @@ class MainActivity : AppCompatActivity() {
                     Toast.makeText(this, "Erro ao carregar: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             } finally {
-                runOnUiThread {
-                    vb.swipe.isRefreshing = false
-                    onFinally?.invoke()
-                }
+                runOnUiThread { onFinally?.invoke() }
             }
         }.start()
     }
 
-    /** Converte o JSON da API -> lista de Game. Ignora itens com "header". */
     private fun parseGames(json: String): List<Game> {
         val arr = JSONArray(json)
         val list = ArrayList<Game>(arr.length())
@@ -231,7 +249,6 @@ class MainActivity : AppCompatActivity() {
         return list
     }
 
-    // ================= Utils =================
-
+    // ---------------- Utils ----------------
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
 }
