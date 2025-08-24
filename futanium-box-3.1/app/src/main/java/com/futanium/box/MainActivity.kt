@@ -7,11 +7,10 @@ import android.os.Bundle
 import android.util.TypedValue
 import android.view.Menu
 import android.view.MenuItem
-import android.widget.ImageView
+import android.view.View
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.MenuItemCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.futanium.box.databinding.ActivityMainBinding
 import com.futanium.box.model.Game
@@ -28,6 +27,11 @@ class MainActivity : AppCompatActivity() {
     private val games = ArrayList<Game>()
 
     private val API_URL = "http://91.108.124.236:8080/games/api"
+
+    // ---- animação do botão "Atualizar" sem trocar a view do Toolbar ----
+    private var refreshView: View? = null
+    private var refreshSpin: ObjectAnimator? = null
+    // --------------------------------------------------------------------
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -47,7 +51,7 @@ class MainActivity : AppCompatActivity() {
             for (i in 0 until vb.toolbar.childCount) {
                 val child = vb.toolbar.getChildAt(i)
                 if (child is TextView) {
-                    child.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+                    child.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
                     child.typeface = Typeface.DEFAULT_BOLD
                     break
                 }
@@ -56,22 +60,17 @@ class MainActivity : AppCompatActivity() {
 
         vb.rvGames.layoutManager = LinearLayoutManager(this)
         vb.rvGames.adapter = adapter
-        // Decide se abre WebView ou Player Exo conforme o link
-adapter.onOpenLink = { url, title, referer, ua ->
-    com.futanium.box.LinkHelper.openLinkSmart(this, url, title, referer, ua)
-}
 
-        // >>> ADIÇÃO: quando o adapter avisar um link, decide ExoPlayer x WebView
-        adapter.onOpenLink = { url, title, referer, userAgent ->
+        // Decide se abre WebView ou Player Exo conforme o link
+        adapter.onOpenLink = { url, title, referer, ua ->
             LinkHelper.openLinkSmart(
                 context = this,
                 url = url,
                 title = title,
                 referer = referer,
-                ua = userAgent
+                ua = ua
             )
         }
-        // <<< FIM DA ADIÇÃO
 
         vb.swipe.setOnRefreshListener { fetchGames() }
 
@@ -80,18 +79,40 @@ adapter.onOpenLink = { url, title, referer, ua ->
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.main_menu, menu)
+        // captura a view real do item de menu criado pelo Toolbar (mantém ripple)
+        vb.toolbar.post {
+            refreshView = vb.toolbar.findViewById(R.id.action_refresh)
+        }
         return true
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             R.id.action_refresh -> {
-                spinMenuItem(item)
-                fetchGames(onFinally = { stopSpin(item) })
+                startRefreshSpin()
+                fetchGames(onFinally = { stopRefreshSpin() })
                 true
             }
             else -> super.onOptionsItemSelected(item)
         }
+    }
+
+    private fun startRefreshSpin() {
+        val v = refreshView ?: vb.toolbar.findViewById(R.id.action_refresh)
+        if (v != null) {
+            refreshSpin?.cancel()
+            // gira a própria view do item (sem trocar por actionView)
+            refreshSpin = ObjectAnimator.ofFloat(v, "rotation", 0f, 360f).apply {
+                duration = 700
+                repeatCount = ObjectAnimator.INFINITE
+            }
+            refreshSpin?.start()
+        }
+    }
+
+    private fun stopRefreshSpin() {
+        refreshSpin?.cancel()
+        refreshView?.rotation = 0f
     }
 
     private fun fetchGames(onFinally: (() -> Unit)? = null) {
@@ -161,21 +182,5 @@ adapter.onOpenLink = { url, title, referer, ua ->
             )
         }
         return list
-    }
-
-    // --- animação do ícone "atualizar" (rotaciona enquanto carrega) ---
-    private fun spinMenuItem(item: MenuItem) {
-        val iv = ImageView(this).apply { setImageDrawable(item.icon) }
-        MenuItemCompat.setActionView(item, iv)
-        ObjectAnimator.ofFloat(iv, "rotation", 0f, 360f).apply {
-            duration = 700
-            repeatCount = ObjectAnimator.INFINITE
-        }.start()
-    }
-
-    private fun stopSpin(item: MenuItem) {
-        val v = MenuItemCompat.getActionView(item)
-        v?.animate()?.cancel()
-        MenuItemCompat.setActionView(item, null)
     }
 }
