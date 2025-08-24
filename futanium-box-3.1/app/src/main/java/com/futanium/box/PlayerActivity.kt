@@ -97,7 +97,7 @@ class PlayerActivity : AppCompatActivity() {
             }
             false
         }
-        // >>> FIX: especificar o tipo para evitar ambiguidade
+        // listener do controller (sem ambiguidade)
         playerView.setControllerVisibilityListener(
             PlayerView.ControllerVisibilityListener { visibility ->
                 if (visibility == View.VISIBLE) scheduleControllerAutoHide()
@@ -105,26 +105,20 @@ class PlayerActivity : AppCompatActivity() {
             }
         )
 
-        // padding anti-corte (minutos direitos e barra)
+        // === PADDING DO CONTROLLER: largura total do player, só recua pelos insets ===
+        // (Removemos o padding por view e aplicamos apenas no exo_controller)
         ViewCompat.setOnApplyWindowInsetsListener(playerView) { _, ins ->
-            val bars = ins.getInsets(WindowInsetsCompat.Type.systemBars())
-            val bottomInset = bars.bottom
-            listOf(
-                androidx.media3.ui.R.id.exo_progress,
-                androidx.media3.ui.R.id.exo_position,
-                androidx.media3.ui.R.id.exo_duration
-            ).forEach { id ->
-                playerView.findViewById<View>(id)?.let { v ->
-                    v.setPadding(
-                        v.paddingLeft,
-                        v.paddingTop,
-                        if (id == androidx.media3.ui.R.id.exo_duration) v.paddingRight + dp(10) else v.paddingRight,
-                        bottomInset + dp(16)
-                    )
-                }
-            }
+            val sys = ins.getInsets(WindowInsetsCompat.Type.systemBars())
+            val controller = playerView.findViewById<View?>(androidx.media3.ui.R.id.exo_controller)
+            controller?.setPadding(
+                sys.left,                      // respeita botões/gestos à esquerda
+                controller.paddingTop,
+                sys.right,                     // respeita botões/gestos à direita
+                sys.bottom + dp(8)             // encostado no rodapé
+            )
             ins
         }
+        // ============================================================================
 
         // Spinner (retry) branco
         findViewById<android.widget.ProgressBar>(androidx.media3.ui.R.id.exo_buffering)?.let { pb ->
