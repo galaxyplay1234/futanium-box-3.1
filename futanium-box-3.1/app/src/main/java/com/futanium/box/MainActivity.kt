@@ -65,15 +65,6 @@ class MainActivity : AppCompatActivity() {
         // Sombra leve na toolbar
         vb.toolbar.elevation = 6f
         
-        vb.root.post {
-    val topSpace = vb.todayRail.bottom + dp(8) // espaço extra
-    vb.rvGames.setPadding(
-        vb.rvGames.paddingLeft,
-        topSpace,
-        vb.rvGames.paddingRight,
-        vb.rvGames.paddingBottom
-    )
-}
 
         // Ícone da direita afastado da borda
         vb.toolbar.contentInsetEndWithActions = dp(44)
@@ -90,10 +81,25 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Atualiza o texto: "Jogos de Hoje - dd/MM"
-val sdf = java.text.SimpleDateFormat("dd/MM", java.util.Locale.getDefault())
-vb.todayBadge.text = "Jogos de Hoje - ${sdf.format(java.util.Date())}"
+        // Define o texto do chip: "Jogos de Hoje - dd/MM"
+val hoje = java.text.SimpleDateFormat("dd/MM", java.util.Locale.getDefault())
+    .format(java.util.Date())
+vb.todayChipText.text = "Jogos de Hoje - $hoje"
 
+// Faz a lista “passar por baixo” da faixa.
+// Calcula a altura real do rail e adiciona um espaço extra para respiro.
+vb.root.post {
+    // garante que o rail/chip está na frente
+    vb.todayRail.bringToFront()
+
+    val topSpace = vb.todayRail.height + dp(4)
+    vb.rvGames.setPadding(
+        vb.rvGames.paddingLeft,
+        topSpace,
+        vb.rvGames.paddingRight,
+        vb.rvGames.paddingBottom
+    )
+}
 
 
         vb.rvGames.layoutManager = LinearLayoutManager(this)
