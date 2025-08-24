@@ -1,8 +1,5 @@
 package com.futanium.box
 
-import android.animation.Animator
-import android.animation.AnimatorListenerAdapter
-import android.animation.ObjectAnimator
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
@@ -45,9 +42,8 @@ class MainActivity : AppCompatActivity() {
 
     // controle do giro
     private val SPIN_TAG_KEY = 0x13572468
-    private var spinPendingStop = false
     private var spinCompletedOne = false
-    private var spinAnimator: ObjectAnimator? = null
+    private var spinPendingStop = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -77,6 +73,9 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        // Desativa totalmente o swipe para este teste
+        runCatching { vb.swipe.isEnabled = false }
+
         vb.rvGames.layoutManager = LinearLayoutManager(this)
         vb.rvGames.adapter = adapter
 
@@ -84,21 +83,7 @@ class MainActivity : AppCompatActivity() {
             LinkHelper.openLinkSmart(this, url, title, referer, ua)
         }
 
-        // Swipe: fixa posição/cores do spinner pra reduzir re-layout na 1ª frame
-        vb.swipe.setProgressBackgroundColorSchemeColor(Color.parseColor("#10131C"))
-        vb.swipe.setColorSchemeColors(Color.WHITE)
-        // fixa o alvo do spinner (evita “pulos”)
-        vb.swipe.setProgressViewOffset(false, 0, dp(56))
-
-        vb.swipe.setOnRefreshListener {
-            // inicia o giro primeiro (próximo frame liga o swipe)
-            startRefreshSpin()
-            refreshView?.postOnAnimation {
-                if (!vb.swipe.isRefreshing) vb.swipe.isRefreshing = true
-            }
-            fetchGames(onFinally = { stopRefreshSpin() })
-        }
-
+        // Sem listener de pull-to-refresh (removido)
         fetchGames()
     }
 
@@ -129,7 +114,7 @@ class MainActivity : AppCompatActivity() {
         MenuItemCompat.setActionView(refreshItem, iv)
         refreshView = iv
 
-        // Pré-aquecer a hardware layer (tira micro travo da 1ª frame do botão)
+        // pré-aquece a hardware layer (tira micro travo da primeira frame do botão)
         refreshView?.apply {
             setLayerType(View.LAYER_TYPE_HARDWARE, null)
             postOnAnimation { setLayerType(View.LAYER_TYPE_NONE, null) }
@@ -141,13 +126,8 @@ class MainActivity : AppCompatActivity() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             R.id.action_refresh -> {
-                // 1) gira já no clique
+                // Só gira e busca — sem mexer no SwipeRefreshLayout
                 startRefreshSpin()
-                // 2) liga o swipe no próximo frame (evita disputar a 1ª frame)
-                refreshView?.postOnAnimation {
-                    if (!vb.swipe.isRefreshing) vb.swipe.isRefreshing = true
-                }
-                // 3) faz a requisição
                 fetchGames(onFinally = { stopRefreshSpin() })
                 true
             }
@@ -156,8 +136,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun fetchGames(onFinally: (() -> Unit)? = null) {
-        if (!vb.swipe.isRefreshing) vb.swipe.isRefreshing = true
-
         Thread {
             try {
                 val req = Request.Builder().url(API_URL).build()
@@ -177,7 +155,6 @@ class MainActivity : AppCompatActivity() {
                 }
             } finally {
                 runOnUiThread {
-                    vb.swipe.isRefreshing = false
                     onFinally?.invoke()
                 }
             }
@@ -230,42 +207,39 @@ class MainActivity : AppCompatActivity() {
         val v = refreshView ?: return
         if (v.getTag(SPIN_TAG_KEY) == true) return // já está girando
 
-        // limpa qualquer animação pendente para evitar “trancos”
         v.animate().cancel()
         v.clearAnimation()
-        spinAnimator?.cancel()
-        spinAnimator = null
 
-        spinPendingStop = false
         spinCompletedOne = false
+        spinPendingStop = false
 
         v.setTag(SPIN_TAG_KEY, true)
         v.setLayerType(View.LAYER_TYPE_HARDWARE, null)
 
-        // normaliza e garante pivot no centro
+        // micro-delay de 1 frame para estabilizar antes do giro
         v.postOnAnimation {
             v.pivotX = v.width / 2f
             v.pivotY = v.height / 2f
             v.rotation = (v.rotation % 360f + 360f) % 360f
 
-            val start = v.rotation
-            val infinite = ObjectAnimator.ofFloat(v, View.ROTATION, start, start + 360f).apply {
-                duration = 1100
-                interpolator = LinearInterpolator()
-                repeatCount = ObjectAnimator.INFINITE
-                addListener(object : AnimatorListenerAdapter() {
-                    override fun onAnimationRepeat(animation: Animator) {
-                        // completou pelo menos 1 volta
+            fun loop() {
+                v.animate()
+                    .rotationBy(360f)
+                    .setDuration(1100)
+                    .setInterpolator(LinearInterpolator())
+                    .withEndAction {
                         spinCompletedOne = true
-                        if (spinPendingStop) {
-                            // para no próximo ciclo do main (mais suave)
-                            v.post { finalizeStop(v) }
+                        if (v.getTag(SPIN_TAG_KEY) == true) {
+                            if (spinPendingStop) {
+                                finalizeStop(v)
+                            } else {
+                                loop()
+                            }
                         }
                     }
-                })
+                    .start()
             }
-            spinAnimator = infinite
-            infinite.start()
+            v.postOnAnimation { loop() }
         }
     }
 
@@ -274,7 +248,6 @@ class MainActivity : AppCompatActivity() {
         if (v.getTag(SPIN_TAG_KEY) != true) return
 
         if (!spinCompletedOne) {
-            // ainda não completou 1 volta → pede pra parar quando completar
             spinPendingStop = true
             return
         }
@@ -283,11 +256,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun finalizeStop(v: View) {
         v.setTag(SPIN_TAG_KEY, false)
-        // cancela o infinito
-        spinAnimator?.cancel()
-        spinAnimator = null
+        v.animate().cancel()
 
-        // completa a volta atual sem “voltar”
         val current = (v.rotation % 360f + 360f) % 360f
         val remaining = if (current == 0f) 0f else 360f - current
         if (remaining > 0f) {
