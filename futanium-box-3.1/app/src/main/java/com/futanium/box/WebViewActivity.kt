@@ -90,9 +90,17 @@ class WebViewActivity : AppCompatActivity() {
         web.setBackgroundColor(Color.BLACK)
         web.keepScreenOn = true
         
-        web.scrollBarStyle = View.SCROLLBARS_INSIDE_OVERLAY
-        web.setPadding(0, 0, 0, 0)
-        web.isHorizontalScrollBarEnabled = false
+        // Garantir centralização/sem deslocar para a direita
+web.scrollBarStyle = View.SCROLLBARS_INSIDE_OVERLAY   // barras não ocupam largura
+web.isHorizontalScrollBarEnabled = false              // sem barra horizontal
+web.setPadding(0, 0, 0, 0)                            // zera qualquer padding
+
+// Não aplicar insets laterais; só respeitar o bottom (gestures/nav bar)
+ViewCompat.setOnApplyWindowInsetsListener(web) { v, ins ->
+    val bottom = ins.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
+    v.setPadding(0, 0, 0, bottom) // nada de left/right; só bottom
+    ins
+}
 
         with(web.settings) {
             javaScriptEnabled = true
