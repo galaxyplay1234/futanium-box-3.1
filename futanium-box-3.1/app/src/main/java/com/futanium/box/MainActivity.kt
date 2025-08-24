@@ -81,9 +81,9 @@ class MainActivity : AppCompatActivity() {
         }
 
         vb.swipe.setOnRefreshListener {
-            // ➊ liga o swipe primeiro…
+            // já estava suave aqui, mas mantemos a lógica:
             if (!vb.swipe.isRefreshing) vb.swipe.isRefreshing = true
-            // ➋ …e inicia o giro no PRÓXIMO frame (evita disputar a 1ª frame)
+            // inicia o giro no próximo frame (evita disputar com o redraw do swipe)
             refreshView?.postOnAnimation { startRefreshSpin() }
             fetchGames(onFinally = { stopRefreshSpin() })
         }
@@ -118,7 +118,7 @@ class MainActivity : AppCompatActivity() {
         MenuItemCompat.setActionView(refreshItem, iv)
         refreshView = iv
 
-        // ➌ PRÉ-AQUECE a hardware layer do ícone (elimina engasgo da 1ª frame)
+        // pré-aquece a hardware layer (tira micro travo da primeira frame do botão)
         refreshView?.apply {
             setLayerType(View.LAYER_TYPE_HARDWARE, null)
             postOnAnimation { setLayerType(View.LAYER_TYPE_NONE, null) }
@@ -130,10 +130,14 @@ class MainActivity : AppCompatActivity() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             R.id.action_refresh -> {
-                // ➍ liga o swipe primeiro…
-                if (!vb.swipe.isRefreshing) vb.swipe.isRefreshing = true
-                // ➎ …e inicia o giro no próximo frame
-                refreshView?.postOnAnimation { startRefreshSpin() }
+                // >>> ordem nova para eliminar a travadinha <<<
+                // 1) gira já no clique
+                startRefreshSpin()
+                // 2) liga o swipe no próximo frame (evita disputar a 1ª frame)
+                refreshView?.postOnAnimation {
+                    if (!vb.swipe.isRefreshing) vb.swipe.isRefreshing = true
+                }
+                // 3) faz a requisição
                 fetchGames(onFinally = { stopRefreshSpin() })
                 true
             }
@@ -225,7 +229,7 @@ class MainActivity : AppCompatActivity() {
         v.setTag(SPIN_TAG_KEY, true)
         v.setLayerType(View.LAYER_TYPE_HARDWARE, null)
 
-        // ⚙️ micro-delay de 1 frame para estabilizar layout/layer antes do giro
+        // micro-delay de 1 frame para estabilizar antes do giro
         v.postOnAnimation {
             v.pivotX = v.width / 2f
             v.pivotY = v.height / 2f
@@ -248,8 +252,6 @@ class MainActivity : AppCompatActivity() {
                     }
                     .start()
             }
-
-            // inicia o loop no próximo frame (evita qualquer travadinha residual)
             v.postOnAnimation { loop() }
         }
     }
@@ -259,7 +261,6 @@ class MainActivity : AppCompatActivity() {
         if (v.getTag(SPIN_TAG_KEY) != true) return
 
         if (!spinCompletedOne) {
-            // ainda não completou 1 volta → pede pra parar quando completar
             spinPendingStop = true
             return
         }
@@ -267,14 +268,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun finalizeStop(v: View) {
-        // encerra a volta atual SEM girar para trás
         v.setTag(SPIN_TAG_KEY, false)
         v.animate().cancel()
 
         val current = (v.rotation % 360f + 360f) % 360f
         val remaining = if (current == 0f) 0f else 360f - current
         if (remaining > 0f) {
-            val dur = (remaining / 360f * 250).toLong().coerceAtLeast(100L) // 100–250ms
+            val dur = (remaining / 360f * 250).toLong().coerceAtLeast(100L)
             v.animate()
                 .rotationBy(remaining)
                 .setDuration(dur)
