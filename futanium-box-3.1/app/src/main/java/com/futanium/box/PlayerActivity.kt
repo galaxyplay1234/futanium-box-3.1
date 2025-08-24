@@ -56,7 +56,7 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
-    // === Auto-hide manual (timebar some junto com todo mundo) ===
+    // Auto-hide manual (timebar some junto com todo mundo)
     private val controllerHandler = Handler(Looper.getMainLooper())
     private val controllerAutoHide = Runnable { playerView.hideController() }
     private fun scheduleControllerAutoHide() {
@@ -71,7 +71,6 @@ class PlayerActivity : AppCompatActivity() {
         window.statusBarColor = Color.BLACK
         window.navigationBarColor = Color.BLACK
         insets = WindowInsetsControllerCompat(window, window.decorView).apply {
-            // barras só aparecem ao "puxar", não por toque
             systemBarsBehavior =
                 WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             isAppearanceLightStatusBars = false
@@ -83,6 +82,8 @@ class PlayerActivity : AppCompatActivity() {
 
         setContentView(R.layout.activity_player)
         playerView = findViewById(R.id.playerView)
+        playerView.setBackgroundColor(Color.BLACK)
+        playerView.clipToPadding = false
 
         // Desliga o timeout interno e controlamos manualmente
         playerView.setControllerShowTimeoutMs(0)
@@ -97,7 +98,6 @@ class PlayerActivity : AppCompatActivity() {
             }
             false
         }
-        // >>> FIX: especificar o tipo para evitar ambiguidade
         playerView.setControllerVisibilityListener(
             PlayerView.ControllerVisibilityListener { visibility ->
                 if (visibility == View.VISIBLE) scheduleControllerAutoHide()
@@ -105,26 +105,25 @@ class PlayerActivity : AppCompatActivity() {
             }
         )
 
-        // padding anti-corte (minutos direitos e barra)
+        // === LATERAIS IGUAIS (CENTRALIZAÇÃO REAL) ===============================
+        // Aplicamos padding no PRÓPRIO PlayerView: o maior inset lateral entra nos dois lados.
+        // Assim o vídeo fica centralizado e as barras pretas ficam do mesmo tamanho.
         ViewCompat.setOnApplyWindowInsetsListener(playerView) { _, ins ->
-            val bars = ins.getInsets(WindowInsetsCompat.Type.systemBars())
-            val bottomInset = bars.bottom
-            listOf(
-                androidx.media3.ui.R.id.exo_progress,
-                androidx.media3.ui.R.id.exo_position,
-                androidx.media3.ui.R.id.exo_duration
-            ).forEach { id ->
-                playerView.findViewById<View>(id)?.let { v ->
-                    v.setPadding(
-                        v.paddingLeft,
-                        v.paddingTop,
-                        if (id == androidx.media3.ui.R.id.exo_duration) v.paddingRight + dp(10) else v.paddingRight,
-                        bottomInset + dp(16)
-                    )
-                }
+            val sys = ins.getInsets(WindowInsetsCompat.Type.systemBars())
+            val side = maxOf(sys.left, sys.right)          // usa o maior (geralmente o da nav à direita)
+            playerView.setPadding(
+                side,                                      // esquerda
+                playerView.paddingTop,
+                side,                                      // direita (igual à esquerda)
+                sys.bottom                                 // respeita a barra inferior
+            )
+            // Controller só ganha um ajuste fino no bottom para “colar” no rodapé
+            playerView.findViewById<View?>(androidx.media3.ui.R.id.exo_controller)?.let { c ->
+                c.setPadding(c.paddingLeft, c.paddingTop, c.paddingRight, dp(8))
             }
             ins
         }
+        // =======================================================================
 
         // Spinner (retry) branco
         findViewById<android.widget.ProgressBar>(androidx.media3.ui.R.id.exo_buffering)?.let { pb ->
@@ -200,7 +199,7 @@ class PlayerActivity : AppCompatActivity() {
         }
         if (!subtitleUrl.isNullOrBlank()) {
             val sub = MediaItem.SubtitleConfiguration.Builder(Uri.parse(subtitleUrl))
-                .setMimeType("text/vtt") // para .srt use "application/x-subrip"
+                .setMimeType("text/vtt")
                 .setLanguage("pt")
                 .setSelectionFlags(0)
                 .build()
@@ -254,7 +253,3 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
 }
-
-
-
-Meu palyer ta assim, ajuste com a modificação 
