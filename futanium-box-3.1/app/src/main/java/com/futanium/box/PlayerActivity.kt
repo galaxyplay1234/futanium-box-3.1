@@ -17,6 +17,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
+import androidx.media3.common.VideoSize
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
@@ -56,13 +57,55 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
-    // === Auto-hide manual (timebar some junto com todo mundo) ===
+    // Auto-hide manual (timebar some junto com todo mundo)
     private val controllerHandler = Handler(Looper.getMainLooper())
     private val controllerAutoHide = Runnable { playerView.hideController() }
     private fun scheduleControllerAutoHide() {
         controllerHandler.removeCallbacks(controllerAutoHide)
         controllerHandler.postDelayed(controllerAutoHide, 3000)
     }
+
+    // ------- Centralização horizontal do controller (pillarbox) -------
+    private var videoAspect: Float = 0f          // largura/altura do vídeo efetivo
+    private var bottomInsetPx: Int = 0
+    private var sidePadPx: Int = 0
+
+    private fun computeSidePadding() {
+        val w = playerView.width
+        val h = playerView.height
+        val aspect = videoAspect
+        if (w <= 0 || h <= 0 || aspect <= 0f) {
+            sidePadPx = 0
+            applyControllerPadding()
+            return
+        }
+        // conteúdo “fit”: conteúdo em largura = h * aspect (se menor que w -> faixas laterais)
+        val contentWidth = (h * aspect)
+        val pad = ((w - contentWidth) / 2f).coerceAtLeast(0f)
+        sidePadPx = pad.toInt()
+        applyControllerPadding()
+    }
+
+    private fun applyControllerPadding() {
+        // aplica padding lateral ao container do controller
+        val controller = playerView.findViewById<View?>(androidx.media3.ui.R.id.exo_controller)
+        controller?.setPadding(
+            sidePadPx,
+            controller.paddingTop,
+            sidePadPx,
+            bottomInsetPx + dp(16)
+        )
+        // mantemos a barra e tempos sem paddings próprios extras (ficam dentro do container).
+        val progress = playerView.findViewById<View?>(androidx.media3.ui.R.id.exo_progress)
+        progress?.setPadding(progress.paddingLeft, progress.paddingTop, progress.paddingRight, 0)
+
+        val pos = playerView.findViewById<View?>(androidx.media3.ui.R.id.exo_position)
+        pos?.setPadding(pos.paddingLeft, pos.paddingTop, pos.paddingRight, 0)
+
+        val dur = playerView.findViewById<View?>(androidx.media3.ui.R.id.exo_duration)
+        dur?.setPadding(dur.paddingLeft, dur.paddingTop, dur.paddingRight, 0)
+    }
+    // ------------------------------------------------------------------
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -71,7 +114,7 @@ class PlayerActivity : AppCompatActivity() {
         window.statusBarColor = Color.BLACK
         window.navigationBarColor = Color.BLACK
         insets = WindowInsetsControllerCompat(window, window.decorView).apply {
-            // barras só aparecem ao "puxar", não por toque
+            // barras só aparecem ao “puxar”
             systemBarsBehavior =
                 WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             isAppearanceLightStatusBars = false
@@ -89,7 +132,7 @@ class PlayerActivity : AppCompatActivity() {
         playerView.setControllerHideOnTouch(true)
         playerView.setControllerAnimationEnabled(true)
 
-        // qualquer toque volta a ocultar as barras do sistema + reagenda auto-hide
+        // qualquer toque esconde status bar e reagenda o auto-hide do controller
         playerView.setOnTouchListener { _, ev ->
             if (ev.action == MotionEvent.ACTION_DOWN || ev.action == MotionEvent.ACTION_UP) {
                 hideStatusBar()
@@ -97,7 +140,6 @@ class PlayerActivity : AppCompatActivity() {
             }
             false
         }
-        // evitar ambiguidade do listener
         playerView.setControllerVisibilityListener(
             PlayerView.ControllerVisibilityListener { visibility ->
                 if (visibility == View.VISIBLE) scheduleControllerAutoHide()
@@ -105,49 +147,16 @@ class PlayerActivity : AppCompatActivity() {
             }
         )
 
-        // === Padding anti-corte (tudo acima da navigation bar e longe do canto direito) ===
+        // Inset inferior (não deixar nada por baixo dos botões)
         ViewCompat.setOnApplyWindowInsetsListener(playerView) { _, ins ->
             val bars = ins.getInsets(WindowInsetsCompat.Type.systemBars())
-            val bottomInset = bars.bottom
-            val rightInset = bars.right
-
-            // 1) Toda a área de controles (garante que o bloco inteiro sobe)
-            val controllerRootIds = listOf(
-                androidx.media3.ui.R.id.exo_controller,
-                androidx.media3.ui.R.id.exo_basic_controls,
-                androidx.media3.ui.R.id.exo_minimal_controls
-            )
-            controllerRootIds.forEach { id ->
-                playerView.findViewById<View>(id)?.let { v ->
-                    v.setPadding(
-                        v.paddingLeft,
-                        v.paddingTop,
-                        v.paddingRight,
-                        bottomInset + dp(16)
-                    )
-                }
-            }
-
-            // 2) Barra de progresso e tempos (esq/dir)
-            listOf(
-                androidx.media3.ui.R.id.exo_progress,
-                androidx.media3.ui.R.id.exo_position,  // tempo esquerdo
-                androidx.media3.ui.R.id.exo_duration  // tempo direito
-            ).forEach { id ->
-                playerView.findViewById<View>(id)?.let { v ->
-                    val extraRight =
-                        if (id == androidx.media3.ui.R.id.exo_duration) rightInset + dp(10) else v.paddingRight
-                    v.setPadding(
-                        v.paddingLeft,
-                        v.paddingTop,
-                        extraRight,
-                        bottomInset + dp(16)
-                    )
-                }
-            }
-
+            bottomInsetPx = bars.bottom
+            applyControllerPadding() // re-aplica com o novo inset
             ins
         }
+
+        // Recalcula padding quando o PlayerView muda de tamanho (rotação, etc.)
+        playerView.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> computeSidePadding() }
 
         // Spinner (retry) branco
         findViewById<android.widget.ProgressBar>(androidx.media3.ui.R.id.exo_buffering)?.let { pb ->
@@ -156,10 +165,15 @@ class PlayerActivity : AppCompatActivity() {
             pb.indeterminateTintMode = android.graphics.PorterDuff.Mode.SRC_IN
         }
 
-        // Oculta botões que não queremos
+        // Deixa só o play/pause (remove botões laterais)
         listOf(
+            androidx.media3.ui.R.id.exo_rew,
+            androidx.media3.ui.R.id.exo_ffwd,
             androidx.media3.ui.R.id.exo_prev,
             androidx.media3.ui.R.id.exo_next,
+            androidx.media3.ui.R.id.exo_repeat_toggle,
+            androidx.media3.ui.R.id.exo_shuffle,
+            androidx.media3.ui.R.id.exo_fullscreen,
             androidx.media3.ui.R.id.exo_settings
         ).forEach { id ->
             playerView.findViewById<View?>(id)?.visibility = View.GONE
@@ -250,6 +264,15 @@ class PlayerActivity : AppCompatActivity() {
                         p.playWhenReady = true
                     }
                 }
+            }
+
+            override fun onVideoSizeChanged(videoSize: VideoSize) {
+                // calcula aspect ratio efetivo (considerando pixelRatio)
+                val ratio = if (videoSize.height == 0) 0f
+                else (videoSize.width * (videoSize.pixelWidthHeightRatio.takeIf { it > 0f } ?: 1f)) /
+                        videoSize.height.toFloat()
+                videoAspect = ratio
+                computeSidePadding()
             }
         })
 
