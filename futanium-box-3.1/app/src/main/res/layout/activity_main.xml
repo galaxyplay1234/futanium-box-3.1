@@ -13,59 +13,56 @@
         android:background="#151723"
         android:elevation="6dp"
         app:title="Futanium Box 3.1"
-        app:titleTextColor="@android:color/white"
-        app:titleCentered="false" />
+        app:titleCentered="false"
+        app:titleTextColor="@android:color/white" />
 
-    <!-- Lista com swipe (fica abaixo da toolbar). A faixa “rail” é um overlay separado. -->
-    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-        android:id="@+id/swipe"
+    <!-- Conteúdo abaixo da toolbar -->
+    <FrameLayout
+        android:id="@+id/contentRoot"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_marginTop="?attr/actionBarSize">
 
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/rvGames"
+        <!-- Lista com swipe -->
+        <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+            android:id="@+id/swipe"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:paddingTop="4dp"
-            android:paddingBottom="4dp"
-            android:clipToPadding="false"/>
-    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+            android:layout_height="match_parent">
 
-    <!-- RAIL: de fora a fora, mesma cor do fundo, SEM sombra -->
-    <FrameLayout
-        android:id="@+id/todayRail"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="?attr/actionBarSize"
-        android:background="#F3F3F3"
-        android:elevation="0dp">
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvGames"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:clipToPadding="false"
+                android:paddingTop="0dp"
+                android:paddingBottom="4dp"/>
+        </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
-        <!-- “chip” com leve sombra como os cards -->
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/todayChipCard"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal"
-            android:layout_marginTop="8dp"
-            android:layout_marginBottom="8dp"
-            app:cardBackgroundColor="@android:color/white"
-            app:cardCornerRadius="14dp"
-            app:cardUseCompatPadding="true"
-            app:cardElevation="2dp">
+        <!-- Rail (barra) sem sombra, cor do fundo, de fora a fora -->
+        <LinearLayout
+            android:id="@+id/todayRail"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:orientation="vertical"
+            android:background="#F3F3F3"
+            android:elevation="0dp">
 
+            <!-- Chip branco com sombra leve -->
             <TextView
                 android:id="@+id/todayChipText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal|center_vertical"
+                android:background="@drawable/bg_today_chip"
                 android:paddingStart="14dp"
                 android:paddingEnd="14dp"
                 android:paddingTop="6dp"
                 android:paddingBottom="6dp"
                 android:text="Jogos de Hoje - 24/08"
                 android:textColor="#151723"
-                android:textSize="13sp"/>
-        </com.google.android.material.card.MaterialCardView>
+                android:textSize="13sp"
+                android:maxLines="1"
+                android:ellipsize="end"/>
+        </LinearLayout>
     </FrameLayout>
-
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
