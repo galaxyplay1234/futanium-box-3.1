@@ -5,10 +5,7 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
 import android.util.TypedValue
-import android.view.Menu
-import android.view.MenuItem
-import android.view.View
-import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import android.view.*
 import android.view.animation.LinearInterpolator
 import android.widget.TextView
 import android.widget.Toast
@@ -33,7 +30,7 @@ class MainActivity : AppCompatActivity() {
 
     private val API_URL = "http://91.108.124.236:8080/games/api"
 
-    // guarda o botão customizado e a animação
+    // refs do botão/anim
     private var refreshBtn: AppCompatImageButton? = null
     private var spinAnim: ObjectAnimator? = null
 
@@ -46,16 +43,14 @@ class MainActivity : AppCompatActivity() {
 
         // Status bar #10131C
         window.statusBarColor = Color.parseColor("#10131C")
-
-        // Sombra leve na toolbar
         vb.toolbar.elevation = 6f
 
-        // Título menor e em negrito
+        // Título menor e negrito
         vb.toolbar.post {
             for (i in 0 until vb.toolbar.childCount) {
                 val child = vb.toolbar.getChildAt(i)
                 if (child is TextView) {
-                    child.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+                    child.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
                     child.typeface = Typeface.DEFAULT_BOLD
                     break
                 }
@@ -65,60 +60,58 @@ class MainActivity : AppCompatActivity() {
         vb.rvGames.layoutManager = LinearLayoutManager(this)
         vb.rvGames.adapter = adapter
 
-        // Decide se abre WebView ou Player Exo conforme o link
         adapter.onOpenLink = { url, title, referer, ua ->
             LinkHelper.openLinkSmart(this, url, title, referer, ua)
         }
 
         vb.swipe.setOnRefreshListener { fetchGames() }
-
         fetchGames()
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.main_menu, menu)
 
-        // Substitui por um actionView com ripple “borderless”, mantendo layout e sem pular
         val item = menu.findItem(R.id.action_refresh)
-        refreshBtn = (item.actionView as? AppCompatImageButton) ?: run {
-            val btn = AppCompatImageButton(this)
 
-            // ripple padrão de itens do toolbar (borderless)
+        // Cria actionView com tamanho padrão de Toolbar (48dp), padding p/ ripple aparecer,
+        // e margenzinha à direita pra não “colar” na borda.
+        val btn = AppCompatImageButton(this).apply {
+            // ripple borderless
             val tv = TypedValue()
             theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, tv, true)
-            btn.setBackgroundResource(tv.resourceId)
+            setBackgroundResource(tv.resourceId)
 
-            // mesmo ícone e tint do menu
-            btn.setImageDrawable(item.icon)
-            ImageViewCompat.setImageTintList(btn, item.iconTintList)
+            // Ícone e tint do item
+            setImageDrawable(item.icon)
+            ImageViewCompat.setImageTintList(this, item.iconTintList)
 
-            // altura igual à do toolbar, largura wrap; centraliza verticalmente
-            btn.layoutParams = androidx.appcompat.widget.Toolbar.LayoutParams(
-                WRAP_CONTENT, androidx.appcompat.widget.Toolbar.LayoutParams.MATCH_PARENT
-            )
+            // Tamanho padrão toolbar (48dp x MATCH_PARENT) + margemEnd
+            layoutParams = androidx.appcompat.widget.Toolbar.LayoutParams(
+                dp(48), ViewGroup.LayoutParams.MATCH_PARENT, Gravity.END
+            ).apply {
+                marginEnd = dp(8)
+            }
 
-            // acessibilidade
-            btn.contentDescription = item.title
+            // padding interno para evidenciar ripple
+            setPadding(dp(12), 0, dp(12), 0)
+            scaleType = android.widget.ImageView.ScaleType.CENTER
+            contentDescription = item.title
 
-            // clique: ripple + animação + refresh
-            btn.setOnClickListener {
+            setOnClickListener {
                 startSpin()
                 fetchGames(onFinally = { stopSpin() })
             }
-
-            // coloca como actionView do item (sem mudar tamanho/posição)
-            MenuItemCompat.setActionView(item, btn)
-            btn
         }
 
+        MenuItemCompat.setActionView(item, btn)
+        refreshBtn = btn
         return true
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        // o clique principal agora é no próprio botão (actionView)
         return when (item.itemId) {
             R.id.action_refresh -> {
-                // fallback: se clicar pelo item (ex.: teclado/TV), dispara o botão
+                // fallback (ex.: teclado/TV)
                 refreshBtn?.performClick()
                 true
             }
@@ -129,11 +122,12 @@ class MainActivity : AppCompatActivity() {
     private fun startSpin() {
         val v = refreshBtn ?: return
         spinAnim?.cancel()
-        // gira continuamente mantendo o ripple
+        // rotação contínua, sem “voltar”
         spinAnim = ObjectAnimator.ofFloat(v, View.ROTATION, 0f, 360f).apply {
             duration = 700
             interpolator = LinearInterpolator()
             repeatCount = ObjectAnimator.INFINITE
+            repeatMode = ObjectAnimator.RESTART
         }
         spinAnim?.start()
     }
@@ -211,4 +205,6 @@ class MainActivity : AppCompatActivity() {
         }
         return list
     }
+
+    private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
 }
