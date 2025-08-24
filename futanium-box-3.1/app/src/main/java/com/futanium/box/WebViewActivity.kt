@@ -89,6 +89,10 @@ class WebViewActivity : AppCompatActivity() {
         web = findViewById(R.id.web)
         web.setBackgroundColor(Color.BLACK)
         web.keepScreenOn = true
+        
+        web.scrollBarStyle = View.SCROLLBARS_INSIDE_OVERLAY
+        web.setPadding(0, 0, 0, 0)
+        web.isHorizontalScrollBarEnabled = false
 
         with(web.settings) {
             javaScriptEnabled = true
