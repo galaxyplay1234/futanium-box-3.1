@@ -158,17 +158,16 @@ class PlayerActivity : AppCompatActivity() {
         val cookieHeader = intent.getStringExtra(EXTRA_COOKIE)
         // ===========================
 
-        // Se não for m3u8/ts, abre WebView em modo “extrair m3u8” e encerra o Player
-        if (!isSupported(url)) {
-            startActivity(Intent(this, WebViewActivity::class.java).apply {
-                putExtra(WebViewActivity.EXTRA_URL, url)
-                // flags genéricas (evita dependência de constantes novas na WebView)
-                putExtra("extract_m3u8", true)
-                putExtra("player_title", title)
-            })
-            finish()
-            return
-        }
+        // Se não for m3u8/ts, abre WebView em modo sniffer e encerra o Player
+if (!isSupported(url)) {
+    startActivity(Intent(this, WebViewActivity::class.java).apply {
+        putExtra(WebViewActivity.EXTRA_URL, url)
+        putExtra("extract_m3u8", true)   // ativa captura automática
+        putExtra("player_title", title)  // aproveita o título vindo do intent
+    })
+    finish()
+    return
+}
 
         initPlayer(url, title, referer, ua, subtitleUrl, cookieHeader, sourcePageUrl)
     }
