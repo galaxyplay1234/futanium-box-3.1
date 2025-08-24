@@ -97,7 +97,7 @@ class PlayerActivity : AppCompatActivity() {
             }
             false
         }
-        // >>> FIX: especificar o tipo para evitar ambiguidade
+        // evitar ambiguidade do listener
         playerView.setControllerVisibilityListener(
             PlayerView.ControllerVisibilityListener { visibility ->
                 if (visibility == View.VISIBLE) scheduleControllerAutoHide()
@@ -105,24 +105,47 @@ class PlayerActivity : AppCompatActivity() {
             }
         )
 
-        // padding anti-corte (minutos direitos e barra)
+        // === Padding anti-corte (tudo acima da navigation bar e longe do canto direito) ===
         ViewCompat.setOnApplyWindowInsetsListener(playerView) { _, ins ->
             val bars = ins.getInsets(WindowInsetsCompat.Type.systemBars())
             val bottomInset = bars.bottom
-            listOf(
-                androidx.media3.ui.R.id.exo_progress,
-                androidx.media3.ui.R.id.exo_position,
-                androidx.media3.ui.R.id.exo_duration
-            ).forEach { id ->
+            val rightInset = bars.right
+
+            // 1) Toda a área de controles (garante que o bloco inteiro sobe)
+            val controllerRootIds = listOf(
+                androidx.media3.ui.R.id.exo_controller,
+                androidx.media3.ui.R.id.exo_basic_controls,
+                androidx.media3.ui.R.id.exo_minimal_controls
+            )
+            controllerRootIds.forEach { id ->
                 playerView.findViewById<View>(id)?.let { v ->
                     v.setPadding(
                         v.paddingLeft,
                         v.paddingTop,
-                        if (id == androidx.media3.ui.R.id.exo_duration) v.paddingRight + dp(10) else v.paddingRight,
+                        v.paddingRight,
                         bottomInset + dp(16)
                     )
                 }
             }
+
+            // 2) Barra de progresso e tempos (esq/dir)
+            listOf(
+                androidx.media3.ui.R.id.exo_progress,
+                androidx.media3.ui.R.id.exo_position,  // tempo esquerdo
+                androidx.media3.ui.R.id.exo_duration  // tempo direito
+            ).forEach { id ->
+                playerView.findViewById<View>(id)?.let { v ->
+                    val extraRight =
+                        if (id == androidx.media3.ui.R.id.exo_duration) rightInset + dp(10) else v.paddingRight
+                    v.setPadding(
+                        v.paddingLeft,
+                        v.paddingTop,
+                        extraRight,
+                        bottomInset + dp(16)
+                    )
+                }
+            }
+
             ins
         }
 
