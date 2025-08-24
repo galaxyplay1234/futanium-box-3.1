@@ -16,7 +16,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.AppCompatImageButton
-import androidx.core.widget.ImageViewCompat // <- import correto
+import androidx.core.widget.ImageViewCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.futanium.box.databinding.ActivityMainBinding
 import com.futanium.box.model.Game
@@ -34,7 +34,7 @@ class MainActivity : AppCompatActivity() {
 
     private val API_URL = "http://91.108.124.236:8080/games/api"
 
-    // --- views/anim do botão refresh ---
+    // refresh button / anim
     private var refreshBtn: AppCompatImageButton? = null
     private var spinAnim: ObjectAnimator? = null
 
@@ -51,12 +51,15 @@ class MainActivity : AppCompatActivity() {
         // Sombra leve na toolbar
         vb.toolbar.elevation = 6f
 
-        // Título menor e em negrito, alinhado à esquerda
+        // Afastar actions da borda direita (evita “colar” no canto/corte)
+        vb.toolbar.contentInsetEndWithActions = dp(16)
+
+        // Título menor e bold
         vb.toolbar.post {
             for (i in 0 until vb.toolbar.childCount) {
                 val child = vb.toolbar.getChildAt(i)
                 if (child is TextView) {
-                    child.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+                    child.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
                     child.typeface = Typeface.DEFAULT_BOLD
                     break
                 }
@@ -66,7 +69,6 @@ class MainActivity : AppCompatActivity() {
         vb.rvGames.layoutManager = LinearLayoutManager(this)
         vb.rvGames.adapter = adapter
 
-        // Abrir WebView ou Player conforme link
         adapter.onOpenLink = { url, title, referer, ua ->
             LinkHelper.openLinkSmart(this, url, title, referer, ua)
         }
@@ -76,7 +78,7 @@ class MainActivity : AppCompatActivity() {
         fetchGames()
     }
 
-    // ===== Toolbar Menu =====
+    // ================= Toolbar Menu =================
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.main_menu, menu)
@@ -96,23 +98,30 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Cria uma actionView estável com ripple menor e claro
+    /** Cria uma actionView estável com ripple CLARO e menor e margem da borda. */
     private fun setupRefreshButton(item: MenuItem) {
         val btn = AppCompatImageButton(this).apply {
+            // Ripple borderless padrão, mas com cor mais clara
             val tv = TypedValue()
             theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, tv, true)
-            background = getDrawable(tv.resourceId)?.mutate()?.apply {
-                setTint(Color.parseColor("#55FFFFFF")) // clique mais visível
-            }
+            background = getDrawable(tv.resourceId)?.mutate()
+            // clareia o ripple
+            foregroundTintList = ColorStateList.valueOf(Color.parseColor("#66FFFFFF"))
 
             setImageDrawable(item.icon)
-            ImageViewCompat.setImageTintList(this, item.iconTintList ?: ColorStateList.valueOf(Color.WHITE))
+            ImageViewCompat.setImageTintList(this, ColorStateList.valueOf(Color.WHITE))
 
             layoutParams = androidx.appcompat.widget.Toolbar.LayoutParams(
-                dp(40), ViewGroup.LayoutParams.MATCH_PARENT, Gravity.END
-            ).apply { marginEnd = dp(8) }
-            setPadding(dp(6), 0, dp(6), 0)
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                Gravity.END
+            ).apply {
+                // margem para NÃO encostar no canto direito
+                marginEnd = dp(12)
+            }
 
+            // botão “menorzinho”: menos padding = ripple menor
+            setPadding(dp(6), 0, dp(6), 0)
             scaleType = android.widget.ImageView.ScaleType.CENTER
             contentDescription = item.title
 
@@ -127,16 +136,23 @@ class MainActivity : AppCompatActivity() {
         refreshBtn = btn
     }
 
+    /** Inicia rotação contínua (pivot central, sem “ir e voltar”). */
     private fun startSpin() {
         val v = refreshBtn ?: return
-        spinAnim?.cancel()
-        spinAnim = ObjectAnimator.ofFloat(v, View.ROTATION, v.rotation, v.rotation + 360f).apply {
-            duration = 700
-            interpolator = LinearInterpolator()
-            repeatCount = ObjectAnimator.INFINITE
-            repeatMode = ObjectAnimator.RESTART
+        // garante pivô no centro e view medida
+        v.post {
+            v.pivotX = v.width / 2f
+            v.pivotY = v.height / 2f
+            spinAnim?.cancel()
+            // começa do ângulo atual, gira sempre no mesmo sentido
+            spinAnim = ObjectAnimator.ofFloat(v, View.ROTATION, (v.rotation % 360f), (v.rotation % 360f) + 360f).apply {
+                duration = 700
+                interpolator = LinearInterpolator()
+                repeatCount = ObjectAnimator.INFINITE
+                repeatMode = ObjectAnimator.RESTART
+            }
+            spinAnim?.start()
         }
-        spinAnim?.start()
     }
 
     private fun stopSpin() {
@@ -144,7 +160,7 @@ class MainActivity : AppCompatActivity() {
         refreshBtn?.rotation = 0f
     }
 
-    // ===== Dados =====
+    // ================= Dados =================
 
     private fun fetchGames(onFinally: (() -> Unit)? = null) {
         vb.swipe.isRefreshing = true
@@ -215,7 +231,7 @@ class MainActivity : AppCompatActivity() {
         return list
     }
 
-    // ===== Utils =====
+    // ================= Utils =================
 
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
 }
