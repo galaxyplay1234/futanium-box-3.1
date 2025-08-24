@@ -97,7 +97,7 @@ class PlayerActivity : AppCompatActivity() {
             }
             false
         }
-        // >>> FIX: especificar o tipo para evitar ambiguidade
+        // Listener tipado (evita ambiguidade)
         playerView.setControllerVisibilityListener(
             PlayerView.ControllerVisibilityListener { visibility ->
                 if (visibility == View.VISIBLE) scheduleControllerAutoHide()
@@ -105,20 +105,24 @@ class PlayerActivity : AppCompatActivity() {
             }
         )
 
-        // padding anti-corte (minutos direitos e barra)
+        // padding anti-corte (minutos direitos e barra) — agora considera também o inset da direita
         ViewCompat.setOnApplyWindowInsetsListener(playerView) { _, ins ->
             val bars = ins.getInsets(WindowInsetsCompat.Type.systemBars())
             val bottomInset = bars.bottom
+            val rightInset = bars.right
+
             listOf(
                 androidx.media3.ui.R.id.exo_progress,
                 androidx.media3.ui.R.id.exo_position,
                 androidx.media3.ui.R.id.exo_duration
             ).forEach { id ->
                 playerView.findViewById<View>(id)?.let { v ->
+                    val extraRight =
+                        if (id == androidx.media3.ui.R.id.exo_duration) dp(10) else 0
                     v.setPadding(
                         v.paddingLeft,
                         v.paddingTop,
-                        if (id == androidx.media3.ui.R.id.exo_duration) v.paddingRight + dp(10) else v.paddingRight,
+                        v.paddingRight + rightInset + extraRight,
                         bottomInset + dp(16)
                     )
                 }
