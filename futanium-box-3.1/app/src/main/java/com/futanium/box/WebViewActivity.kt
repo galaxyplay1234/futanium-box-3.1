@@ -60,7 +60,7 @@ class WebViewActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
 
         // Status bar translúcida (aparece só ao puxar). Nav bar fica fixa e preta.
-        WindowCompat.setDecorFitsSystemWindows(window, false)
+        WindowCompat.setDecorFitsSystemWindows(window, true)
         window.statusBarColor = Color.BLACK
         window.navigationBarColor = Color.BLACK
         insets = WindowInsetsControllerCompat(window, window.decorView).apply {
