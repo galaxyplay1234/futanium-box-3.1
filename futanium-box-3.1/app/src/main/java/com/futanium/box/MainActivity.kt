@@ -16,7 +16,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.AppCompatImageButton
-import androidx.core.view.ImageViewCompat
+import androidx.core.widget.ImageViewCompat // <- import correto
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.futanium.box.databinding.ActivityMainBinding
 import com.futanium.box.model.Game
@@ -80,7 +80,6 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.main_menu, menu)
-        // Substitui o item por um botão customizado (mantendo o espaço, sem “pular”)
         menu.findItem(R.id.action_refresh)?.let { setupRefreshButton(it) }
         return true
     }
@@ -88,7 +87,6 @@ class MainActivity : AppCompatActivity() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             R.id.action_refresh -> {
-                // fallback se por algum motivo a actionView não estiver setada
                 if (refreshBtn == null) setupRefreshButton(item)
                 startSpin()
                 fetchGames(onFinally = { stopSpin() })
@@ -101,18 +99,15 @@ class MainActivity : AppCompatActivity() {
     // Cria uma actionView estável com ripple menor e claro
     private fun setupRefreshButton(item: MenuItem) {
         val btn = AppCompatImageButton(this).apply {
-            // ripple borderless com tint mais claro
             val tv = TypedValue()
             theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, tv, true)
             background = getDrawable(tv.resourceId)?.mutate()?.apply {
-                setTint(Color.parseColor("#55FFFFFF")) // mais visível no clique
+                setTint(Color.parseColor("#55FFFFFF")) // clique mais visível
             }
 
-            // Ícone + tint herdado do item
             setImageDrawable(item.icon)
             ImageViewCompat.setImageTintList(this, item.iconTintList ?: ColorStateList.valueOf(Color.WHITE))
 
-            // Tamanho levemente menor que 48dp e padding menor → ripple mais justo
             layoutParams = androidx.appcompat.widget.Toolbar.LayoutParams(
                 dp(40), ViewGroup.LayoutParams.MATCH_PARENT, Gravity.END
             ).apply { marginEnd = dp(8) }
@@ -127,7 +122,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Usa a actionView do item para evitar realocação visual
         item.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
         item.actionView = btn
         refreshBtn = btn
@@ -136,7 +130,6 @@ class MainActivity : AppCompatActivity() {
     private fun startSpin() {
         val v = refreshBtn ?: return
         spinAnim?.cancel()
-        // gira sempre +360 a partir da rotação atual, sem “voltar”
         spinAnim = ObjectAnimator.ofFloat(v, View.ROTATION, v.rotation, v.rotation + 360f).apply {
             duration = 700
             interpolator = LinearInterpolator()
