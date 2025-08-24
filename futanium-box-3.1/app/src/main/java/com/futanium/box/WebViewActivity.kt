@@ -55,6 +55,13 @@ class WebViewActivity : AppCompatActivity() {
     }
     // ==========================
 
+    // ===== MODO EXTRAÇÃO M3U8/TS =====
+    private var extractMode = false
+    private var playerTitleFromIntent: String? = null
+    private val extractedOnce = AtomicBoolean(false)
+    private var currentPageUrl: String? = null
+    // =================================
+
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -79,6 +86,11 @@ class WebViewActivity : AppCompatActivity() {
         val initialUrl = intent.getStringExtra(EXTRA_URL).orEmpty()
         val initHost = runCatching { Uri.parse(initialUrl).host?.lowercase(Locale.ROOT) }.getOrNull()
         allowHost = initHost
+        currentPageUrl = initialUrl
+
+        // Modo extração
+        extractMode = intent.getBooleanExtra("extract_m3u8", false)
+        playerTitleFromIntent = intent.getStringExtra("player_title")
 
         // ativa modo encurtador se a URL inicial já for encurtada
         if (isShortener(initialUrl, initHost)) shortenerActive = true
@@ -91,20 +103,17 @@ class WebViewActivity : AppCompatActivity() {
         web.keepScreenOn = true
 
         // === NÃO ficar atrás da navigation bar ===
-        // 1) Aplica padding bottom no root do conteúdo da Activity.
         val contentRoot = findViewById<ViewGroup>(android.R.id.content).getChildAt(0) ?: web
         ViewCompat.setOnApplyWindowInsetsListener(contentRoot) { v, ins ->
             val nav = ins.getInsets(WindowInsetsCompat.Type.navigationBars())
             v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, nav.bottom)
             ins
         }
-        // 2) Garante também na própria WebView (caso o layout seja diferente).
         ViewCompat.setOnApplyWindowInsetsListener(web) { v, ins ->
             val nav = ins.getInsets(WindowInsetsCompat.Type.navigationBars())
             v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, nav.bottom)
             ins
         }
-        // 3) Dispara a aplicação dos insets agora.
         ViewCompat.requestApplyInsets(contentRoot)
         ViewCompat.requestApplyInsets(web)
         // =========================================
@@ -144,6 +153,12 @@ class WebViewActivity : AppCompatActivity() {
                 val uri = request.url
                 val u = uri.toString()
                 val uLower = u.lowercase(Locale.ROOT)
+
+                // Se estamos em modo extração e a navegação principal é para m3u8/ts -> capturar
+                if (extractMode && (uLower.endsWith(".m3u8") || uLower.endsWith(".ts"))) {
+                    launchPlayerFrom(u)
+                    return true // consome para não navegar
+                }
 
                 // Sempre permite blobs/dados/mídia na própria guia
                 if (isMediaUrl(u) || u.startsWith("blob:") || u.startsWith("data:")) return false
@@ -216,6 +231,7 @@ class WebViewActivity : AppCompatActivity() {
             override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
                 url?.let {
+                    currentPageUrl = it
                     val h = runCatching { Uri.parse(it).host?.lowercase(Locale.ROOT) }.getOrNull()
                     // se ainda está no encurtador, mantém o modo; se não, desliga e fixa host
                     if (isShortener(it, h)) {
@@ -292,16 +308,28 @@ class WebViewActivity : AppCompatActivity() {
                 }
             }
 
-            // BLOQUEIO de recursos secundários (scripts, iframes, imgs) usando a blocklist
+            // BLOQUEIO + CAPTURA m3u8/ts em sub-recursos
             override fun shouldInterceptRequest(
                 view: WebView,
                 request: WebResourceRequest
             ): WebResourceResponse? {
-                // nunca bloquear o frame principal por aqui (deixa a navegação decidir)
+                val url = request.url.toString()
+                val lower = url.lowercase(Locale.ROOT)
+
+                // CAPTURA: se estamos em modo extração e é m3u8/ts (qualquer frame)
+                if (extractMode && (lower.endsWith(".m3u8") || lower.endsWith(".ts"))) {
+                    if (extractedOnce.compareAndSet(false, true)) {
+                        // lança o player no thread da UI
+                        view.post { launchPlayerFrom(url) }
+                    }
+                    // segue o carregamento normal (ou poderia retornar vazio se quiser "evitar tocar na página")
+                    return null
+                }
+
+                // BLOQUEIO: nunca bloquear o frame principal por aqui (deixa a navegação decidir)
                 if (request.isForMainFrame) return null
                 if (!blockReady.get()) return null
 
-                val url = request.url.toString()
                 val host = request.url.host?.lowercase(Locale.ROOT) ?: return null
 
                 // mídia/legendas nunca bloquear
@@ -313,7 +341,7 @@ class WebViewActivity : AppCompatActivity() {
                     return null
                 }
 
-                return if (isBlocked(host, url.lowercase(Locale.ROOT))) empty204() else null
+                return if (isBlocked(host, lower)) empty204() else null
             }
         }
 
@@ -330,6 +358,28 @@ class WebViewActivity : AppCompatActivity() {
         }
 
         if (initialUrl.isNotBlank()) web.loadUrl(initialUrl)
+    }
+
+    private fun launchPlayerFrom(mediaUrl: String) {
+        // Pega cookies do domínio do m3u8/ts
+        val cm = CookieManager.getInstance()
+        val cookie = try {
+            val host = runCatching { Uri.parse(mediaUrl).host }.getOrNull()
+            if (host.isNullOrBlank()) null else cm.getCookie("https://$host")
+        } catch (_: Exception) { null }
+
+        val i = android.content.Intent(this, PlayerActivity::class.java).apply {
+            putExtra(PlayerActivity.EXTRA_URL, mediaUrl)
+            putExtra(PlayerActivity.EXTRA_TITLE, playerTitleFromIntent ?: "Play")
+            putExtra(PlayerActivity.EXTRA_REFERER, currentPageUrl)
+            putExtra(PlayerActivity.EXTRA_USER_AGENT, web.settings.userAgentString)
+            putExtra(PlayerActivity.EXTRA_SOURCE_PAGE_URL, currentPageUrl)
+            if (!cookie.isNullOrBlank()) {
+                putExtra(PlayerActivity.EXTRA_COOKIE, cookie)
+            }
+        }
+        startActivity(i)
+        finish()
     }
 
     private fun hideStatusBar() {
