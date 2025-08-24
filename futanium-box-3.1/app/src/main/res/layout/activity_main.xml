@@ -32,7 +32,7 @@
     android:paddingEnd="14dp"
     android:paddingTop="6dp"
     android:paddingBottom="6dp"
-    android:text="Jogos de hoje"
+    android:text="Jogos de Hoje"
     android:textColor="@android:color/white"
     android:textSize="13sp"
     android:ellipsize="end"
