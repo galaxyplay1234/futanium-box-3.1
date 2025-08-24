@@ -36,6 +36,7 @@ class PlayerActivity : AppCompatActivity() {
     private var player: ExoPlayer? = null
     private lateinit var insets: WindowInsetsControllerCompat
 
+    // watchdog de buffering
     private val main = Handler(Looper.getMainLooper())
     private var bufferingStartAt: Long = 0L
     private val bufferingWatchdog = object : Runnable {
@@ -55,6 +56,7 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
+    // === Auto-hide manual (timebar some junto com todo mundo) ===
     private val controllerHandler = Handler(Looper.getMainLooper())
     private val controllerAutoHide = Runnable { playerView.hideController() }
     private fun scheduleControllerAutoHide() {
@@ -69,6 +71,7 @@ class PlayerActivity : AppCompatActivity() {
         window.statusBarColor = Color.BLACK
         window.navigationBarColor = Color.BLACK
         insets = WindowInsetsControllerCompat(window, window.decorView).apply {
+            // barras só aparecem ao "puxar", não por toque
             systemBarsBehavior =
                 WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             isAppearanceLightStatusBars = false
@@ -80,13 +83,13 @@ class PlayerActivity : AppCompatActivity() {
 
         setContentView(R.layout.activity_player)
         playerView = findViewById(R.id.playerView)
-        playerView.setBackgroundColor(Color.BLACK)
-        playerView.clipToPadding = false
 
+        // Desliga o timeout interno e controlamos manualmente
         playerView.setControllerShowTimeoutMs(0)
         playerView.setControllerHideOnTouch(true)
         playerView.setControllerAnimationEnabled(true)
 
+        // qualquer toque volta a ocultar as barras do sistema + reagenda auto-hide
         playerView.setOnTouchListener { _, ev ->
             if (ev.action == MotionEvent.ACTION_DOWN || ev.action == MotionEvent.ACTION_UP) {
                 hideStatusBar()
@@ -94,6 +97,7 @@ class PlayerActivity : AppCompatActivity() {
             }
             false
         }
+        // >>> FIX: especificar o tipo para evitar ambiguidade
         playerView.setControllerVisibilityListener(
             PlayerView.ControllerVisibilityListener { visibility ->
                 if (visibility == View.VISIBLE) scheduleControllerAutoHide()
@@ -101,36 +105,29 @@ class PlayerActivity : AppCompatActivity() {
             }
         )
 
-        // ====== CENTRALIZAÇÃO + RODAPÉ ======
-        ViewCompat.setOnApplyWindowInsetsListener(playerView) { _, ins ->
-            val sys = ins.getInsets(WindowInsetsCompat.Type.systemBars())
-            val side = maxOf(sys.left, sys.right)
-
-            // laterais iguais; SEM padding no bottom para o controller “colar” no rodapé
-            playerView.setPadding(side, playerView.paddingTop, side, 0)
-
-            // leve ajuste nos tempos para dentro (simétrico)
-            playerView.findViewById<View?>(androidx.media3.ui.R.id.exo_position)?.let { v ->
-                v.setPadding(v.paddingLeft + dp(6), v.paddingTop, v.paddingRight, v.paddingBottom)
-            }
-            playerView.findViewById<View?>(androidx.media3.ui.R.id.exo_duration)?.let { v ->
-                v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight + dp(6), v.paddingBottom)
-            }
-
-            // garante que o container do controller não ganhe “folga” extra embaixo
-            playerView.findViewById<View?>(androidx.media3.ui.R.id.exo_controller)?.let { c ->
-                c.setPadding(c.paddingLeft, c.paddingTop, c.paddingRight, 0)
-            }
+        // === NOVO: desconta a barra de navegação no quadro inteiro do player ===
+        // (assim o vídeo e todos os controles ficam acima dos botões do sistema)
+        ViewCompat.setOnApplyWindowInsetsListener(playerView) { v, ins ->
+            val bars = ins.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, bars.bottom)
             ins
         }
-        // ====================================
 
+        // Opcional: traz o minuto da esquerda um pouquinho pra dentro
+        playerView.post {
+            playerView.findViewById<View>(androidx.media3.ui.R.id.exo_position)?.apply {
+                setPadding(paddingLeft + dp(8), paddingTop, paddingRight, paddingBottom)
+            }
+        }
+
+        // Spinner (retry) branco
         findViewById<android.widget.ProgressBar>(androidx.media3.ui.R.id.exo_buffering)?.let { pb ->
             val white = android.content.res.ColorStateList.valueOf(Color.WHITE)
             pb.indeterminateTintList = white
             pb.indeterminateTintMode = android.graphics.PorterDuff.Mode.SRC_IN
         }
 
+        // Oculta botões que não queremos
         listOf(
             androidx.media3.ui.R.id.exo_prev,
             androidx.media3.ui.R.id.exo_next,
@@ -139,12 +136,14 @@ class PlayerActivity : AppCompatActivity() {
             playerView.findViewById<View?>(id)?.visibility = View.GONE
         }
 
+        // Prepara o player (só m3u8 e .ts)
         val url = intent.getStringExtra(EXTRA_URL).orEmpty()
         val title = intent.getStringExtra(EXTRA_TITLE).orEmpty()
         val referer = intent.getStringExtra(EXTRA_REFERER)
         val ua = intent.getStringExtra(EXTRA_USER_AGENT)
         val subtitleUrl = intent.getStringExtra(EXTRA_SUBTITLE)
 
+        // Se não for m3u8/ts, abre WebView e encerra o Player
         if (!isSupported(url)) {
             startActivity(Intent(this, WebViewActivity::class.java).apply {
                 putExtra(WebViewActivity.EXTRA_URL, url)
@@ -195,7 +194,7 @@ class PlayerActivity : AppCompatActivity() {
         }
         if (!subtitleUrl.isNullOrBlank()) {
             val sub = MediaItem.SubtitleConfiguration.Builder(Uri.parse(subtitleUrl))
-                .setMimeType("text/vtt")
+                .setMimeType("text/vtt") // para .srt use "application/x-subrip"
                 .setLanguage("pt")
                 .setSelectionFlags(0)
                 .build()
