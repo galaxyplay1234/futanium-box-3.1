@@ -34,39 +34,47 @@
                 android:layout_height="match_parent"
                 android:paddingTop="4dp"
                 android:paddingBottom="4dp"
-                android:clipToPadding="false" />
+                android:clipToPadding="false"/>
 
-            <!-- RAIL atrás do badge (cards passam por baixo) -->
+            <!-- RAIL em toda a largura, cor do fundo, sem borda -->
             <View
                 android:id="@+id/todayRail"
                 android:layout_width="match_parent"
-                android:layout_height="38dp"
+                android:layout_height="40dp"
                 android:layout_gravity="top|center_horizontal"
-                android:layout_marginStart="12dp"
-                android:layout_marginEnd="12dp"
                 android:layout_marginTop="10dp"
                 android:background="@drawable/bg_today_rail"
-                android:elevation="6dp" />
+                android:elevation="4dp"/>
 
-            <!-- BADGE branco centralizado -->
-            <TextView
-                android:id="@+id/todayBadge"
+            <!-- BADGE branco com sombra leve (card) -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/todayBadgeCard"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="top|center_horizontal"
                 android:layout_marginTop="10dp"
-                android:background="@drawable/bg_today_badge"
-                android:paddingStart="14dp"
-                android:paddingEnd="14dp"
-                android:paddingTop="6dp"
-                android:paddingBottom="6dp"
-                android:text="Jogos de Hoje - 24/08"
-                android:textColor="#1A1A1A"
-                android:textSize="13sp"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:gravity="center"
-                android:elevation="8dp" />
+                app:cardBackgroundColor="@android:color/white"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="3dp"
+                app:strokeWidth="0dp"
+                app:contentPaddingLeft="14dp"
+                app:contentPaddingRight="14dp"
+                app:contentPaddingTop="6dp"
+                app:contentPaddingBottom="6dp">
+
+                <!-- Mantém o mesmo id para não mudar o Kotlin -->
+                <TextView
+                    android:id="@+id/todayBadge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Jogos de Hoje - 24/08"
+                    android:textColor="#1A1A1A"
+                    android:textSize="13sp"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:gravity="center"/>
+            </com.google.android.material.card.MaterialCardView>
+
         </FrameLayout>
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
