@@ -16,42 +16,44 @@
         app:titleCentered="false"
         app:titleTextColor="@android:color/white" />
 
-    <!-- Badge "Jogos de hoje" FORA do SwipeRefreshLayout -->
-    <TextView
-        android:id="@+id/todayBadge"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:background="@drawable/bg_today_badge"
-        android:paddingStart="14dp"
-        android:paddingEnd="14dp"
-        android:paddingTop="6dp"
-        android:paddingBottom="6dp"
-        android:text="Jogos de Hoje"
-        android:textColor="@android:color/white"
-        android:textSize="13sp"
-        android:ellipsize="end"
-        android:maxLines="1"
-        android:gravity="center"
-        android:layout_gravity="top|center_horizontal"
-        android:layout_marginTop="?attr/actionBarSize"
-        android:translationY="10dp"   <!-- 10dp abaixo da toolbar -->
-        android:elevation="8dp"
-        android:translationZ="8dp"/>
-
     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
         android:id="@+id/swipe"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_marginTop="?attr/actionBarSize">
 
-        <!-- AGORA o Swipe tem APENAS um filho -->
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/rvGames"
+        <!-- ÚNICO filho do SwipeRefreshLayout -->
+        <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:paddingTop="4dp"
-            android:paddingBottom="4dp"
-            android:clipToPadding="false"/>
+            android:layout_height="match_parent">
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvGames"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:paddingTop="56dp"
+                android:paddingBottom="4dp"
+                android:clipToPadding="false"/>
+
+            <TextView
+                android:id="@+id/todayBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="top|center_horizontal"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/bg_today_badge"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:paddingTop="6dp"
+                android:paddingBottom="6dp"
+                android:text="Jogos de Hoje"
+                android:textColor="@android:color/white"
+                android:textSize="13sp"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:elevation="8dp"
+                android:translationZ="8dp"/>
+        </FrameLayout>
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
