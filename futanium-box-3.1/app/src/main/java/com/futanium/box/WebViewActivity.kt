@@ -15,6 +15,8 @@ import okhttp3.Request
 import java.io.ByteArrayInputStream
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
+import android.view.View
+import androidx.core.view.ViewCompat
 
 class WebViewActivity : AppCompatActivity() {
 
