@@ -64,6 +64,16 @@ class MainActivity : AppCompatActivity() {
 
         // Sombra leve na toolbar
         vb.toolbar.elevation = 6f
+        
+        vb.root.post {
+    val topSpace = vb.todayRail.bottom + dp(8) // espaço extra
+    vb.rvGames.setPadding(
+        vb.rvGames.paddingLeft,
+        topSpace,
+        vb.rvGames.paddingRight,
+        vb.rvGames.paddingBottom
+    )
+}
 
         // Ícone da direita afastado da borda
         vb.toolbar.contentInsetEndWithActions = dp(44)
