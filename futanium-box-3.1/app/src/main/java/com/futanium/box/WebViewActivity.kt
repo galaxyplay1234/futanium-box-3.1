@@ -15,8 +15,6 @@ import okhttp3.Request
 import java.io.ByteArrayInputStream
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
-import android.view.View
-import androidx.core.view.ViewCompat
 
 class WebViewActivity : AppCompatActivity() {
 
@@ -58,20 +56,19 @@ class WebViewActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // ====== (AJUSTE) Barras do sistema como no Player ======
-        // Conteúdo por trás das barras; status bar preta/translúcida sobre o conteúdo
+        // >>> STATUS/NAV BAR: desenhar por trás, preta e só aparece ao puxar
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = Color.BLACK
         window.navigationBarColor = Color.BLACK
         insets = WindowInsetsControllerCompat(window, window.decorView).apply {
-            // barras só aparecem ao "puxar" (swipe), não por toque na WebView
+            // só mostra as barras se o usuário arrastar; somem logo depois
             systemBarsBehavior =
                 WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             isAppearanceLightStatusBars = false
             isAppearanceLightNavigationBars = false
         }
         hideStatusBar()
-        // =======================================================
+        // <<<
 
         setContentView(R.layout.activity_webview)
 
@@ -91,18 +88,6 @@ class WebViewActivity : AppCompatActivity() {
         web = findViewById(R.id.web)
         web.setBackgroundColor(Color.BLACK)
         web.keepScreenOn = true
-        
-        // Garantir centralização/sem deslocar para a direita
-web.scrollBarStyle = View.SCROLLBARS_INSIDE_OVERLAY   // barras não ocupam largura
-web.isHorizontalScrollBarEnabled = false              // sem barra horizontal
-web.setPadding(0, 0, 0, 0)                            // zera qualquer padding
-
-// Não aplicar insets laterais; só respeitar o bottom (gestures/nav bar)
-ViewCompat.setOnApplyWindowInsetsListener(web) { v, ins ->
-    val bottom = ins.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
-    v.setPadding(0, 0, 0, bottom) // nada de left/right; só bottom
-    ins
-}
 
         with(web.settings) {
             javaScriptEnabled = true
@@ -244,6 +229,7 @@ ViewCompat.setOnApplyWindowInsetsListener(web) { v, ins ->
                         error.errorCode
                     } else 0
 
+                    // erros que indicam bloqueio/dns/timeout
                     val shouldProxy = code == ERROR_HOST_LOOKUP ||
                                       code == ERROR_CONNECT ||
                                       code == ERROR_TIMEOUT
@@ -251,17 +237,23 @@ ViewCompat.setOnApplyWindowInsetsListener(web) { v, ins ->
                     if (shouldProxy) {
                         val original = request.url.toString()
                         val lower = original.lowercase(Locale.ROOT)
-                        val proxyBase = PROXY_BASE
+                        val proxyBase = PROXY_BASE // já existe no seu código
 
                         if (!lower.startsWith(proxyBase)) {
+                            // 1) Para o carregamento e limpa a tela (nada de página de erro)
                             view?.stopLoading()
                             view?.loadUrl("about:blank")
-                            view?.post { view.loadUrl(proxyBase + Uri.encode(original)) }
+
+                            // 2) Na próxima volta do loop da UI, manda pro proxy
+                            view?.post {
+                                view.loadUrl(proxyBase + Uri.encode(original))
+                            }
                         }
                     }
                 }
             }
 
+            // Compat para Androids antigos (mesma lógica)
             @Suppress("deprecation")
             override fun onReceivedError(
                 view: WebView?,
@@ -283,25 +275,30 @@ ViewCompat.setOnApplyWindowInsetsListener(web) { v, ins ->
                         if (!lower.startsWith(proxyBase)) {
                             view?.stopLoading()
                             view?.loadUrl("about:blank")
-                            view?.post { view.loadUrl(proxyBase + Uri.encode(failingUrl)) }
+                            view?.post {
+                                view.loadUrl(proxyBase + Uri.encode(failingUrl))
+                            }
                         }
                     }
                 }
             }
 
-            // BLOQUEIO de recursos secundários
+            // BLOQUEIO de recursos secundários (scripts, iframes, imgs) usando a blocklist
             override fun shouldInterceptRequest(
                 view: WebView,
                 request: WebResourceRequest
             ): WebResourceResponse? {
+                // nunca bloquear o frame principal por aqui (deixa a navegação decidir)
                 if (request.isForMainFrame) return null
                 if (!blockReady.get()) return null
 
                 val url = request.url.toString()
                 val host = request.url.host?.lowercase(Locale.ROOT) ?: return null
 
+                // mídia/legendas nunca bloquear
                 if (isMediaUrl(url)) return null
 
+                // NÃO bloqueia sub-recursos do mesmo host do player (evita quebrar)
                 val allow = allowHost
                 if (allow != null && (host == allow || host.endsWith(".$allow"))) {
                     return null
@@ -342,6 +339,7 @@ ViewCompat.setOnApplyWindowInsetsListener(web) { v, ins ->
     }
 
     override fun onDestroy() {
+        // limpa o flag de manter a tela ligada (boa prática)
         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         super.onDestroy()
     }
@@ -410,12 +408,14 @@ ViewCompat.setOnApplyWindowInsetsListener(web) { v, ins ->
         return false
     }
 
+    // >>> checa se a URL/host está marcada para ir via proxy
     private fun mustProxy(host: String, fullUrlLower: String): Boolean {
         for (d in proxyDomainRules) if (host == d || host.endsWith(".$d")) return true
         for (p in proxySubstringRules) if (p.isNotEmpty() && fullUrlLower.contains(p)) return true
         return false
     }
 
+    // >>> checa se a URL/host está permitida pela allowlist (per:)
     private fun matchesAllowlist(host: String, fullUrlLower: String): Boolean {
         for (d in allowDomainRules) if (host == d || host.endsWith(".$d")) return true
         for (p in allowSubstringRules) if (p.isNotEmpty() && fullUrlLower.contains(p)) return true
