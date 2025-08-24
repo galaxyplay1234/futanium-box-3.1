@@ -30,11 +30,6 @@ class PlayerActivity : AppCompatActivity() {
         const val EXTRA_REFERER = "referer"
         const val EXTRA_USER_AGENT = "ua"
         const val EXTRA_SUBTITLE = "subtitle"
-
-        // opcionais (quando o .m3u8 veio de uma página)
-        // usados para revalidar token: reabrimos a página e recapturamos o .m3u8
-        const val EXTRA_SOURCE_PAGE_URL = "source_page_url"
-        const val EXTRA_COOKIE = "extra_cookie"
     }
 
     private lateinit var playerView: PlayerView
@@ -130,14 +125,12 @@ class PlayerActivity : AppCompatActivity() {
         }
         // ====================================
 
-        // Spinner (retry) branco
         findViewById<android.widget.ProgressBar>(androidx.media3.ui.R.id.exo_buffering)?.let { pb ->
             val white = android.content.res.ColorStateList.valueOf(Color.WHITE)
             pb.indeterminateTintList = white
             pb.indeterminateTintMode = android.graphics.PorterDuff.Mode.SRC_IN
         }
 
-        // Oculta botões que não queremos
         listOf(
             androidx.media3.ui.R.id.exo_prev,
             androidx.media3.ui.R.id.exo_next,
@@ -146,30 +139,21 @@ class PlayerActivity : AppCompatActivity() {
             playerView.findViewById<View?>(id)?.visibility = View.GONE
         }
 
-        // ====== INTENT EXTRAS ======
         val url = intent.getStringExtra(EXTRA_URL).orEmpty()
         val title = intent.getStringExtra(EXTRA_TITLE).orEmpty()
         val referer = intent.getStringExtra(EXTRA_REFERER)
         val ua = intent.getStringExtra(EXTRA_USER_AGENT)
         val subtitleUrl = intent.getStringExtra(EXTRA_SUBTITLE)
 
-        // usados para revalidar token (se expirou) e para enviar Cookie quando capturado pela WebView
-        val sourcePageUrl = intent.getStringExtra(EXTRA_SOURCE_PAGE_URL)
-        val cookieHeader = intent.getStringExtra(EXTRA_COOKIE)
-        // ===========================
+        if (!isSupported(url)) {
+            startActivity(Intent(this, WebViewActivity::class.java).apply {
+                putExtra(WebViewActivity.EXTRA_URL, url)
+            })
+            finish()
+            return
+        }
 
-        // Se não for m3u8/ts, abre WebView em modo sniffer e encerra o Player
-if (!isSupported(url)) {
-    startActivity(Intent(this, WebViewActivity::class.java).apply {
-        putExtra(WebViewActivity.EXTRA_URL, url)
-        putExtra("extract_m3u8", true)   // ativa captura automática
-        putExtra("player_title", title)  // aproveita o título vindo do intent
-    })
-    finish()
-    return
-}
-
-        initPlayer(url, title, referer, ua, subtitleUrl, cookieHeader, sourcePageUrl)
+        initPlayer(url, title, referer, ua, subtitleUrl)
     }
 
     private fun isSupported(u: String): Boolean {
@@ -187,29 +171,14 @@ if (!isSupported(url)) {
         title: String?,
         referer: String?,
         ua: String?,
-        subtitleUrl: String?,
-        cookieHeader: String?,
-        sourcePageUrl: String?
+        subtitleUrl: String?
     ) {
         val dsFactory = DefaultHttpDataSource.Factory().apply {
             setAllowCrossProtocolRedirects(true)
             ua?.let { setUserAgent(it) }
             setDefaultRequestProperties(buildMap {
-                // Preferimos usar Origin coerente com a referer; se não tiver, gera a partir da URL
-                if (!referer.isNullOrBlank()) {
-                    put("Referer", referer)
-                    runCatching { Uri.parse(referer) }.getOrNull()?.let { r ->
-                        if (!r.scheme.isNullOrEmpty() && !r.host.isNullOrEmpty()) {
-                            put("Origin", "${r.scheme}://${r.host}")
-                        }
-                    }
-                }
-                if (!containsKey("Origin")) {
-                    put("Origin", Uri.parse(url).scheme + "://" + (Uri.parse(url).host ?: ""))
-                }
-                if (!cookieHeader.isNullOrBlank()) {
-                    put("Cookie", cookieHeader)
-                }
+                if (!referer.isNullOrBlank()) put("Referer", referer)
+                put("Origin", Uri.parse(url).scheme + "://" + (Uri.parse(url).host ?: ""))
             })
         }
 
@@ -226,7 +195,7 @@ if (!isSupported(url)) {
         }
         if (!subtitleUrl.isNullOrBlank()) {
             val sub = MediaItem.SubtitleConfiguration.Builder(Uri.parse(subtitleUrl))
-                .setMimeType("text/vtt") // para .srt use "application/x-subrip"
+                .setMimeType("text/vtt")
                 .setLanguage("pt")
                 .setSelectionFlags(0)
                 .build()
@@ -252,18 +221,6 @@ if (!isSupported(url)) {
                         p.prepare()
                         p.playWhenReady = true
                     }
-                }
-            }
-
-            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                // Se o m3u8 expirou e sabemos a página de origem, reabra a WebView no modo EXTRACT
-                if (!sourcePageUrl.isNullOrBlank()) {
-                    startActivity(Intent(this@PlayerActivity, WebViewActivity::class.java).apply {
-                        putExtra(WebViewActivity.EXTRA_URL, sourcePageUrl)
-                        putExtra("extract_m3u8", true)
-                        putExtra("player_title", title ?: "Play")
-                    })
-                    finish()
                 }
             }
         })
