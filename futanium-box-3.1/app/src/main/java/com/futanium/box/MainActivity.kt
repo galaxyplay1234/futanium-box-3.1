@@ -84,14 +84,12 @@ class MainActivity : AppCompatActivity() {
 val todayStr = java.text.DateFormat
     .getDateInstance(java.text.DateFormat.SHORT)
     .format(java.util.Date())
-vb.todayBadge.text = "Jogos de hoje $todayStr"
+vb.todayBadge.text = "Jogos de Hoje $todayStr"
 
-// Deixar por cima e centralizado, 10dp abaixo da toolbar
+// Coloca 10dp abaixo da toolbar sem usar margin/cast
 vb.todayBadge.bringToFront()
 vb.toolbar.post {
-    val lp = vb.todayBadge.layoutParams as ViewGroup.MarginLayoutParams
-    lp.topMargin = vb.toolbar.height + dp(10)
-    vb.todayBadge.layoutParams = lp
+    vb.todayBadge.y = vb.toolbar.height + dp(10).toFloat()
 }
 
         vb.rvGames.layoutManager = LinearLayoutManager(this)
