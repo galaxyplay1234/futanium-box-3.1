@@ -22,19 +22,33 @@
         android:layout_height="match_parent"
         android:layout_marginTop="?attr/actionBarSize">
 
-        <!-- ÚNICO filho do SwipeRefreshLayout -->
+        <!-- Conteúdo com sobreposição -->
         <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent">
 
+            <!-- Lista -->
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/rvGames"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:paddingTop="56dp"
+                android:paddingTop="4dp"
                 android:paddingBottom="4dp"
-                android:clipToPadding="false"/>
+                android:clipToPadding="false" />
 
+            <!-- RAIL atrás do badge (cards passam por baixo) -->
+            <View
+                android:id="@+id/todayRail"
+                android:layout_width="match_parent"
+                android:layout_height="38dp"
+                android:layout_gravity="top|center_horizontal"
+                android:layout_marginStart="12dp"
+                android:layout_marginEnd="12dp"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/bg_today_rail"
+                android:elevation="6dp" />
+
+            <!-- BADGE branco centralizado -->
             <TextView
                 android:id="@+id/todayBadge"
                 android:layout_width="wrap_content"
@@ -46,13 +60,13 @@
                 android:paddingEnd="14dp"
                 android:paddingTop="6dp"
                 android:paddingBottom="6dp"
-                android:text="Jogos de Hoje"
-                android:textColor="@android:color/white"
+                android:text="Jogos de Hoje - 24/08"
+                android:textColor="#1A1A1A"
                 android:textSize="13sp"
                 android:ellipsize="end"
                 android:maxLines="1"
-                android:elevation="8dp"
-                android:translationZ="8dp"/>
+                android:gravity="center"
+                android:elevation="8dp" />
         </FrameLayout>
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
