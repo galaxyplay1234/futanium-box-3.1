@@ -1,18 +1,22 @@
 package com.futanium.box
 
 import android.animation.ObjectAnimator
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
 import android.util.TypedValue
-import android.view.*
+import android.view.Gravity
+import android.view.Menu
+import android.view.MenuItem
+import android.view.View
+import android.view.ViewGroup
 import android.view.animation.LinearInterpolator
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.AppCompatImageButton
-import androidx.core.view.MenuItemCompat
-import androidx.core.widget.ImageViewCompat
+import androidx.core.view.ImageViewCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.futanium.box.databinding.ActivityMainBinding
 import com.futanium.box.model.Game
@@ -30,7 +34,7 @@ class MainActivity : AppCompatActivity() {
 
     private val API_URL = "http://91.108.124.236:8080/games/api"
 
-    // refs do botão/anim
+    // --- views/anim do botão refresh ---
     private var refreshBtn: AppCompatImageButton? = null
     private var spinAnim: ObjectAnimator? = null
 
@@ -43,14 +47,16 @@ class MainActivity : AppCompatActivity() {
 
         // Status bar #10131C
         window.statusBarColor = Color.parseColor("#10131C")
+
+        // Sombra leve na toolbar
         vb.toolbar.elevation = 6f
 
-        // Título menor e negrito
+        // Título menor e em negrito, alinhado à esquerda
         vb.toolbar.post {
             for (i in 0 until vb.toolbar.childCount) {
                 val child = vb.toolbar.getChildAt(i)
                 if (child is TextView) {
-                    child.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
+                    child.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
                     child.typeface = Typeface.DEFAULT_BOLD
                     break
                 }
@@ -60,40 +66,58 @@ class MainActivity : AppCompatActivity() {
         vb.rvGames.layoutManager = LinearLayoutManager(this)
         vb.rvGames.adapter = adapter
 
+        // Abrir WebView ou Player conforme link
         adapter.onOpenLink = { url, title, referer, ua ->
             LinkHelper.openLinkSmart(this, url, title, referer, ua)
         }
 
         vb.swipe.setOnRefreshListener { fetchGames() }
+
         fetchGames()
     }
 
+    // ===== Toolbar Menu =====
+
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.main_menu, menu)
+        // Substitui o item por um botão customizado (mantendo o espaço, sem “pular”)
+        menu.findItem(R.id.action_refresh)?.let { setupRefreshButton(it) }
+        return true
+    }
 
-        val item = menu.findItem(R.id.action_refresh)
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.action_refresh -> {
+                // fallback se por algum motivo a actionView não estiver setada
+                if (refreshBtn == null) setupRefreshButton(item)
+                startSpin()
+                fetchGames(onFinally = { stopSpin() })
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
+    }
 
-        // Cria actionView com tamanho padrão de Toolbar (48dp), padding p/ ripple aparecer,
-        // e margenzinha à direita pra não “colar” na borda.
+    // Cria uma actionView estável com ripple menor e claro
+    private fun setupRefreshButton(item: MenuItem) {
         val btn = AppCompatImageButton(this).apply {
-            // ripple borderless
+            // ripple borderless com tint mais claro
             val tv = TypedValue()
             theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, tv, true)
-            setBackgroundResource(tv.resourceId)
-
-            // Ícone e tint do item
-            setImageDrawable(item.icon)
-            ImageViewCompat.setImageTintList(this, item.iconTintList)
-
-            // Tamanho padrão toolbar (48dp x MATCH_PARENT) + margemEnd
-            layoutParams = androidx.appcompat.widget.Toolbar.LayoutParams(
-                dp(48), ViewGroup.LayoutParams.MATCH_PARENT, Gravity.END
-            ).apply {
-                marginEnd = dp(8)
+            background = getDrawable(tv.resourceId)?.mutate()?.apply {
+                setTint(Color.parseColor("#55FFFFFF")) // mais visível no clique
             }
 
-            // padding interno para evidenciar ripple
-            setPadding(dp(12), 0, dp(12), 0)
+            // Ícone + tint herdado do item
+            setImageDrawable(item.icon)
+            ImageViewCompat.setImageTintList(this, item.iconTintList ?: ColorStateList.valueOf(Color.WHITE))
+
+            // Tamanho levemente menor que 48dp e padding menor → ripple mais justo
+            layoutParams = androidx.appcompat.widget.Toolbar.LayoutParams(
+                dp(40), ViewGroup.LayoutParams.MATCH_PARENT, Gravity.END
+            ).apply { marginEnd = dp(8) }
+            setPadding(dp(6), 0, dp(6), 0)
+
             scaleType = android.widget.ImageView.ScaleType.CENTER
             contentDescription = item.title
 
@@ -103,27 +127,17 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        MenuItemCompat.setActionView(item, btn)
+        // Usa a actionView do item para evitar realocação visual
+        item.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+        item.actionView = btn
         refreshBtn = btn
-        return true
-    }
-
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        return when (item.itemId) {
-            R.id.action_refresh -> {
-                // fallback (ex.: teclado/TV)
-                refreshBtn?.performClick()
-                true
-            }
-            else -> super.onOptionsItemSelected(item)
-        }
     }
 
     private fun startSpin() {
         val v = refreshBtn ?: return
         spinAnim?.cancel()
-        // rotação contínua, sem “voltar”
-        spinAnim = ObjectAnimator.ofFloat(v, View.ROTATION, 0f, 360f).apply {
+        // gira sempre +360 a partir da rotação atual, sem “voltar”
+        spinAnim = ObjectAnimator.ofFloat(v, View.ROTATION, v.rotation, v.rotation + 360f).apply {
             duration = 700
             interpolator = LinearInterpolator()
             repeatCount = ObjectAnimator.INFINITE
@@ -136,6 +150,8 @@ class MainActivity : AppCompatActivity() {
         spinAnim?.cancel()
         refreshBtn?.rotation = 0f
     }
+
+    // ===== Dados =====
 
     private fun fetchGames(onFinally: (() -> Unit)? = null) {
         vb.swipe.isRefreshing = true
@@ -205,6 +221,8 @@ class MainActivity : AppCompatActivity() {
         }
         return list
     }
+
+    // ===== Utils =====
 
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
 }
