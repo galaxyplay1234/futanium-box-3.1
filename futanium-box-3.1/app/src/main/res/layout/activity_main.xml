@@ -39,30 +39,33 @@
         </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
         <!-- Rail (barra) sem sombra, cor do fundo, de fora a fora -->
-        <LinearLayout
-            android:id="@+id/todayRail"
-            android:layout_width="match_parent"
-            android:layout_height="44dp"
-            android:orientation="vertical"
-            android:background="#F3F3F3"
-            android:elevation="0dp">
+        <!-- Rail (barra) sem sombra, cor do fundo, largura total -->
+<LinearLayout
+    android:id="@+id/todayRail"
+    android:layout_width="match_parent"
+    android:layout_height="52dp"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:background="#F3F3F3"
+    android:elevation="0dp">
 
-            <!-- Chip branco com sombra leve -->
-            <TextView
-                android:id="@+id/todayChipText"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center_horizontal|center_vertical"
-                android:background="@drawable/bg_today_chip"
-                android:paddingStart="14dp"
-                android:paddingEnd="14dp"
-                android:paddingTop="6dp"
-                android:paddingBottom="6dp"
-                android:text="Jogos de Hoje - 24/08"
-                android:textColor="#151723"
-                android:textSize="13sp"
-                android:maxLines="1"
-                android:ellipsize="end"/>
-        </LinearLayout>
+    <!-- Chip branco centralizado, com sombra leve -->
+    <TextView
+        android:id="@+id/todayChipText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="@drawable/bg_today_chip"
+        android:paddingStart="14dp"
+        android:paddingEnd="14dp"
+        android:paddingTop="6dp"
+        android:paddingBottom="6dp"
+        android:text="Jogos de Hoje - 24/08"
+        android:textColor="#151723"
+        android:textSize="13sp"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:elevation="3dp"
+        android:translationZ="3dp"/>
+</LinearLayout>
     </FrameLayout>
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
