@@ -48,7 +48,7 @@ class MainActivity : AppCompatActivity() {
     private var spinCompletedOne = false
     private var spinPendingStop = false
 
-    // novo: animator contínuo e contador de ciclos
+    // animator contínuo e contador de ciclos
     private var spinAnimator: ObjectAnimator? = null
     private var spinRepeats: Int = 0
 
@@ -64,7 +64,6 @@ class MainActivity : AppCompatActivity() {
 
         // Sombra leve na toolbar
         vb.toolbar.elevation = 6f
-        
 
         // Ícone da direita afastado da borda
         vb.toolbar.contentInsetEndWithActions = dp(44)
@@ -82,22 +81,27 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Texto "Jogos de Hoje - dd/MM" no chip
-val df = java.text.SimpleDateFormat("dd/MM", java.util.Locale.getDefault())
-vb.todayChipText.text = "Jogos de Hoje - ${df.format(java.util.Date())}"
+        val df = java.text.SimpleDateFormat("dd/MM", java.util.Locale.getDefault())
+        vb.todayChipText.text = "Jogos de Hoje - ${df.format(java.util.Date())}"
 
-// Garante que o rail fica por cima e a lista passa por baixo
-vb.todayRail.bringToFront()
-vb.root.post {
-    // altura do rail + um espacinho
-    val topSpace = vb.todayRail.bottom + dp(8)
-    vb.rvGames.setPadding(
-        vb.rvGames.paddingLeft,
-        topSpace,
-        vb.rvGames.paddingRight,
-        vb.rvGames.paddingBottom
-    )
-}
+        // Garante que o rail fica por cima e a lista passa por baixo
+        vb.todayRail.bringToFront()
+        vb.root.post {
+            // altura do rail + um espacinho
+            val topSpace = vb.todayRail.bottom + dp(8)
+            vb.rvGames.setPadding(
+                vb.rvGames.paddingLeft,
+                topSpace,
+                vb.rvGames.paddingRight,
+                vb.rvGames.paddingBottom
+            )
 
+            // >>> spinner do Swipe abaixo do rail (sem ficar por baixo do chip)
+            val start = vb.todayRail.bottom + dp(6) // onde começa a desenhar
+            val end   = start + dp(44)              // até onde pode chegar
+            vb.swipe.setProgressViewOffset(true, start, end)
+            // <<<
+        }
 
         vb.rvGames.layoutManager = LinearLayoutManager(this)
         vb.rvGames.adapter = adapter
@@ -262,7 +266,6 @@ vb.root.post {
                 override fun onAnimationRepeat(animation: android.animation.Animator) {
                     spinRepeats++
                     spinCompletedOne = true
-                    // se pediram pra parar antes de completar a 1ª, cancela aqui (fim do ciclo)
                     if (spinPendingStop && spinRepeats >= 1) {
                         animation.cancel()
                         finishToSnap(v)
@@ -317,7 +320,7 @@ vb.root.post {
         spinPendingStop = false
     }
 
-    // -------------------------------------------
+    // -----------------------------------
 
     private fun obtainActionBarSize(): Int {
         val tv = TypedValue()
