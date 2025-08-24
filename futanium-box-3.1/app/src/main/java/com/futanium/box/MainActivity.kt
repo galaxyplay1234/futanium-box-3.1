@@ -40,8 +40,10 @@ class MainActivity : AppCompatActivity() {
     private var refreshItem: MenuItem? = null
     private var refreshView: AppCompatImageView? = null
 
-    // flag da animação (evitar múltiplos loops)
+    // controle do giro
     private val SPIN_TAG_KEY = 0x13572468
+    private var spinCompletedOne = false
+    private var spinPendingStop = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,8 +58,8 @@ class MainActivity : AppCompatActivity() {
         // Sombra leve na toolbar
         vb.toolbar.elevation = 6f
 
-        // Ícone da direita “mais pra dentro”
-        vb.toolbar.contentInsetEndWithActions = dp(44) // ajuste fino da posição
+        // Ícone da direita afastado da borda
+        vb.toolbar.contentInsetEndWithActions = dp(44)
 
         // Título menor e em negrito
         vb.toolbar.post {
@@ -80,7 +82,7 @@ class MainActivity : AppCompatActivity() {
 
         vb.swipe.setOnRefreshListener {
             if (!vb.swipe.isRefreshing) vb.swipe.isRefreshing = true
-            startRefreshSpin() // sincroniza com o botão
+            startRefreshSpin() // garante giro imediato
             fetchGames(onFinally = { stopRefreshSpin() })
         }
 
@@ -98,16 +100,12 @@ class MainActivity : AppCompatActivity() {
             setImageDrawable(refreshItem!!.icon)
             scaleType = ImageView.ScaleType.CENTER
 
-            // --- Ripple menor/claro ---
-            // cor do efeito (mais claro → "#22FFFFFF"; mais forte → "#44FFFFFF")
+            // Ripple menor/claro
             val rippleColor = ColorStateList.valueOf(Color.parseColor("#33FFFFFF"))
-            // máscara oval com margem interna (↑ aumente inset para efeito MENOR)
-            val inset = dp(8) // experimente 8–12
+            val inset = dp(6) // ↑ aumenta para diminuir ainda mais a área do efeito
             val mask = InsetDrawable(ShapeDrawable(OvalShape()), inset, inset, inset, inset)
-            background = RippleDrawable(rippleColor, /*content*/ null, /*mask*/ mask)
-            // padding leve para centralizar o toque visualmente
+            background = RippleDrawable(rippleColor, null, mask)
             setPadding(dp(8), dp(8), dp(8), dp(8))
-            // ---------------------------
 
             contentDescription = refreshItem!!.title
             isClickable = true
@@ -202,15 +200,19 @@ class MainActivity : AppCompatActivity() {
         return list
     }
 
-    // -------- animação suave do refresh --------
+    // -------- animação suave do refresh (mín. 1 volta) --------
 
     private fun startRefreshSpin() {
         val v = refreshView ?: return
         if (v.getTag(SPIN_TAG_KEY) == true) return // já está girando
 
-        // limpa qualquer animação pendente para evitar "trancos"
+        // limpa qualquer animação pendente para evitar “trancos”
         v.animate().cancel()
         v.clearAnimation()
+
+        // estado inicial
+        spinCompletedOne = false
+        spinPendingStop = false
 
         v.setTag(SPIN_TAG_KEY, true)
         v.setLayerType(View.LAYER_TYPE_HARDWARE, null)
@@ -223,10 +225,18 @@ class MainActivity : AppCompatActivity() {
             fun loop() {
                 v.animate()
                     .rotationBy(360f)
-                    .setDuration(1000)               // 1.2s por volta (deixe 1000–1400 ao seu gosto)
+                    .setDuration(1000) // ajuste fino 1000–1400ms
                     .setInterpolator(LinearInterpolator())
                     .withEndAction {
-                        if (v.getTag(SPIN_TAG_KEY) == true) loop()
+                        spinCompletedOne = true
+                        if (v.getTag(SPIN_TAG_KEY) == true) {
+                            if (spinPendingStop) {
+                                // parar agora que já completou 1 volta
+                                finalizeStop(v)
+                            } else {
+                                loop()
+                            }
+                        }
                     }
                     .start()
             }
@@ -236,6 +246,17 @@ class MainActivity : AppCompatActivity() {
 
     private fun stopRefreshSpin() {
         val v = refreshView ?: return
+        if (v.getTag(SPIN_TAG_KEY) != true) return
+
+        // se ainda não completou 1 volta, marca para parar no fim da primeira
+        if (!spinCompletedOne) {
+            spinPendingStop = true
+            return
+        }
+        finalizeStop(v)
+    }
+
+    private fun finalizeStop(v: View) {
         v.setTag(SPIN_TAG_KEY, false)
         v.animate().cancel()
         v.animate()
