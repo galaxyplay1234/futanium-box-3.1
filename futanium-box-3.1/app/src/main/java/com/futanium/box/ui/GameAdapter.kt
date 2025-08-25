@@ -87,17 +87,47 @@ class GameAdapter(
             error(android.R.drawable.ic_menu_report_image)
         }
 
-        h.gameStatus.visibility = View.GONE
+        // ----- STATUS (texto abaixo da hora; sem badge) -----
+h.gameStatus.clearAnimation()
+h.gameStatus.visibility = View.GONE
+
 when {
     g.isLive == true -> {
         h.gameStatus.text = "ao vivo"
-        h.gameStatus.setBackgroundResource(R.drawable.bg_live)
+        h.gameStatus.setTextColor(android.graphics.Color.parseColor("#FF3B30")) // vermelho
         h.gameStatus.visibility = View.VISIBLE
+
+        // piscar (alpha 1.0 -> 0.3 -> 1.0)
+        h.gameStatus.animate().cancel()
+        h.gameStatus.alpha = 1f
+        h.gameStatus.animate()
+            .alpha(0.3f)
+            .setDuration(500)
+            .setInterpolator(android.view.animation.LinearInterpolator())
+            .setListener(null)
+            .withEndAction(object : Runnable {
+                override fun run() {
+                    h.gameStatus.animate()
+                        .alpha(1f)
+                        .setDuration(500)
+                        .setInterpolator(android.view.animation.LinearInterpolator())
+                        .withEndAction(this)
+                        .start()
+                }
+            })
+            .start()
     }
     g.isFinished == true -> {
         h.gameStatus.text = "encerrado"
-        h.gameStatus.setBackgroundResource(R.drawable.bg_finished)
+        h.gameStatus.setTextColor(android.graphics.Color.parseColor("#888888")) // cinza
         h.gameStatus.visibility = View.VISIBLE
+        h.gameStatus.animate().cancel()
+        h.gameStatus.alpha = 1f
+    }
+    else -> {
+        h.gameStatus.visibility = View.GONE
+        h.gameStatus.animate().cancel()
+        h.gameStatus.alpha = 1f
     }
 }
 
