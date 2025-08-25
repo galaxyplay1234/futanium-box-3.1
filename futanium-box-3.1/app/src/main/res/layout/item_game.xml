@@ -99,7 +99,7 @@
             app:layout_constraintStart_toStartOf="@id/tvTime"
             app:layout_constraintEnd_toEndOf="@id/tvTime"
             app:layout_constraintTop_toBottomOf="@id/tvTime"
-            app:layout_constraintBottom_toBottomOf="@id/imgHome"
+            app:layout_constraintBottom_toBottomOf="@id/imgHome" />
             
 
         <ImageView
