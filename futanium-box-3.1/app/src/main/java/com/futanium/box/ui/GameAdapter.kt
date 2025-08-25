@@ -87,22 +87,19 @@ class GameAdapter(
             error(android.R.drawable.ic_menu_report_image)
         }
 
-        // ---- badge "ao vivo" / "encerrado" embaixo da hora ----
-        when {
-            g.isLive -> {
-                h.gameStatus.visibility = View.VISIBLE
-                h.gameStatus.text = "ao vivo"
-                h.gameStatus.setBackgroundResource(R.drawable.bg_live)
-            }
-            g.isFinished -> {
-                h.gameStatus.visibility = View.VISIBLE
-                h.gameStatus.text = "encerrado"
-                h.gameStatus.setBackgroundResource(R.drawable.bg_finished)
-            }
-            else -> {
-                h.gameStatus.visibility = View.GONE
-            }
-        }
+        h.gameStatus.visibility = View.GONE
+when {
+    g.isLive == true -> {
+        h.gameStatus.text = "ao vivo"
+        h.gameStatus.setBackgroundResource(R.drawable.bg_live)
+        h.gameStatus.visibility = View.VISIBLE
+    }
+    g.isFinished == true -> {
+        h.gameStatus.text = "encerrado"
+        h.gameStatus.setBackgroundResource(R.drawable.bg_finished)
+        h.gameStatus.visibility = View.VISIBLE
+    }
+}
 
         // ----- BOTÕES -----
         val btns: List<Any> = (g.buttons as? List<*>)?.filterNotNull() ?: emptyList()
