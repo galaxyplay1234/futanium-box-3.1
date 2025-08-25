@@ -43,7 +43,7 @@ class GameAdapter(
         val ivAway: ImageView = v.findViewById(R.id.imgAway)
         val tvAway: TextView  = v.findViewById(R.id.tvAwayName)
 
-        val gameStatus: TextView = v.findViewById(R.id.gameStatus) // ⬅️ badge abaixo da hora
+        val gameStatus: TextView = v.findViewById(R.id.gameStatus) // ⬅️ texto abaixo da hora
         val btnContainer: LinearLayout = v.findViewById(R.id.btnContainer)
     }
 
@@ -88,48 +88,43 @@ class GameAdapter(
         }
 
         // ----- STATUS (texto abaixo da hora; sem badge) -----
-h.gameStatus.clearAnimation()
-h.gameStatus.visibility = View.GONE
-
-when {
-    g.isLive == true -> {
-        h.gameStatus.text = "ao vivo"
-        h.gameStatus.setTextColor(android.graphics.Color.parseColor("#FF3B30")) // vermelho
-        h.gameStatus.visibility = View.VISIBLE
-
-        // piscar (alpha 1.0 -> 0.3 -> 1.0)
+        // cancela qualquer "piscar" antigo preso na célula reciclada
+        (h.gameStatus.getTag(R.id.tag_blink_anim) as? android.animation.ObjectAnimator)?.let {
+            it.cancel()
+            h.gameStatus.setTag(R.id.tag_blink_anim, null)
+        }
         h.gameStatus.animate().cancel()
         h.gameStatus.alpha = 1f
-        h.gameStatus.animate()
-            .alpha(0.3f)
-            .setDuration(500)
-            .setInterpolator(android.view.animation.LinearInterpolator())
-            .setListener(null)
-            .withEndAction(object : Runnable {
-                override fun run() {
-                    h.gameStatus.animate()
-                        .alpha(1f)
-                        .setDuration(500)
-                        .setInterpolator(android.view.animation.LinearInterpolator())
-                        .withEndAction(this)
-                        .start()
-                }
-            })
-            .start()
-    }
-    g.isFinished == true -> {
-        h.gameStatus.text = "encerrado"
-        h.gameStatus.setTextColor(android.graphics.Color.parseColor("#888888")) // cinza
-        h.gameStatus.visibility = View.VISIBLE
-        h.gameStatus.animate().cancel()
-        h.gameStatus.alpha = 1f
-    }
-    else -> {
         h.gameStatus.visibility = View.GONE
-        h.gameStatus.animate().cancel()
-        h.gameStatus.alpha = 1f
-    }
-}
+
+        when {
+            g.isLive == true -> {
+                h.gameStatus.text = "ao vivo"
+                h.gameStatus.setTextColor(android.graphics.Color.parseColor("#FF3B30")) // vermelho
+                h.gameStatus.visibility = View.VISIBLE
+
+                val anim = android.animation.ObjectAnimator
+                    .ofFloat(h.gameStatus, View.ALPHA, 1f, 0.3f)
+                    .apply {
+                        duration = 500
+                        repeatMode = android.animation.ValueAnimator.REVERSE
+                        repeatCount = android.animation.ValueAnimator.INFINITE
+                        interpolator = android.view.animation.LinearInterpolator()
+                    }
+                h.gameStatus.setTag(R.id.tag_blink_anim, anim)
+                anim.start()
+            }
+            g.isFinished == true -> {
+                h.gameStatus.text = "encerrado"
+                h.gameStatus.setTextColor(android.graphics.Color.parseColor("#888888")) // cinza
+                h.gameStatus.visibility = View.VISIBLE
+                h.gameStatus.alpha = 1f
+            }
+            else -> {
+                h.gameStatus.visibility = View.GONE
+                h.gameStatus.alpha = 1f
+            }
+        }
 
         // ----- BOTÕES -----
         val btns: List<Any> = (g.buttons as? List<*>)?.filterNotNull() ?: emptyList()
