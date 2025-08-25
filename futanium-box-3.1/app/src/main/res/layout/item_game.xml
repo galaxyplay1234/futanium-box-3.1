@@ -91,16 +91,16 @@
             android:layout_marginEnd="12dp"/>
 
             <TextView
-    android:id="@+id/gameStatus"
-    android:layout_width="wrap_content"
-    android:layout_height="wrap_content"
-    android:layout_marginStart="6dp"
-    android:text="ao vivo"
-    android:textColor="@android:color/white"
-    android:textSize="11sp"
-    android:textStyle="bold"
-    android:background="@drawable/bg_live"
-    android:visibility="gone"/>
+        android:id="@+id/gameStatus"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:text="ao vivo"
+        android:textColor="@android:color/white"
+        android:textSize="11sp"
+        android:textStyle="bold"
+        android:background="@drawable/bg_live"
+        android:visibility="gone"/>
 
       
         <ImageView
