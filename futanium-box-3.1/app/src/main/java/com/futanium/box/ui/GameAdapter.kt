@@ -116,7 +116,7 @@ class GameAdapter(
             }
             g.isFinished == true -> {
                 h.gameStatus.text = "encerrado"
-                h.gameStatus.setTextColor(android.graphics.Color.parseColor("#888888")) // cinza
+                h.gameStatus.setTextColor(android.graphics.Color.parseColor("#A5A5A5")) // cinza
                 h.gameStatus.visibility = View.VISIBLE
                 h.gameStatus.alpha = 1f
             }
