@@ -84,22 +84,22 @@
             app:layout_constraintStart_toEndOf="@id/imgHome"
             app:layout_constraintEnd_toStartOf="@id/imgAway"/>
 
-        <!-- status abaixo da hora, sem badge e sem expandir o card -->
-<TextView
-    android:id="@+id/gameStatus"
-    android:layout_width="wrap_content"
-    android:layout_height="wrap_content"
-    android:text="ao vivo"
-    android:textSize="11sp"
-    android:textStyle="bold"
-    android:textColor="#FF3B30"     <!-- só para preview; o adapter define de verdade -->
-    android:includeFontPadding="false"
-    android:visibility="gone"
-    app:layout_constraintStart_toStartOf="@id/tvTime"
-    app:layout_constraintEnd_toEndOf="@id/tvTime"
-    app:layout_constraintTop_toBottomOf="@id/tvTime"
-    app:layout_constraintBottom_toBottomOf="@id/imgHome"
-    android:translationY="-1dp"/>
+        <!-- ✅ Texto de status (ao vivo/encerrado), sem badge -->
+        <TextView
+            android:id="@+id/gameStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="ao vivo"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:textColor="#FF3B30"
+            android:includeFontPadding="false"
+            android:visibility="gone"
+            app:layout_constraintStart_toStartOf="@id/tvTime"
+            app:layout_constraintEnd_toEndOf="@id/tvTime"
+            app:layout_constraintTop_toBottomOf="@id/tvTime"
+            app:layout_constraintBottom_toBottomOf="@id/imgHome"
+            android:translationY="-1dp"/>
 
         <ImageView
             android:id="@+id/imgAway"
@@ -131,15 +131,16 @@
             app:layout_constraintHorizontal_weight="1"/>
 
         <LinearLayout
-    android:id="@+id/btnContainer"
-    android:layout_width="0dp"
-    android:layout_height="wrap_content"
-    android:orientation="horizontal"
-    android:gravity="center"
-    android:layout_marginTop="10dp"
-    android:visibility="gone"
-    app:layout_constraintTop_toBottomOf="@id/gameStatus"
-    app:layout_constraintStart_toStartOf="parent"
-    app:layout_constraintEnd_toEndOf="parent" />
+            android:id="@+id/btnContainer"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginTop="10dp"
+            android:visibility="gone"
+            app:layout_constraintTop_toBottomOf="@id/gameStatus"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
     </androidx.constraintlayout.widget.ConstraintLayout>
 </com.google.android.material.card.MaterialCardView>
