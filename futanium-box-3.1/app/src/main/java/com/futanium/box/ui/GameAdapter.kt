@@ -86,6 +86,23 @@ class GameAdapter(
             error(android.R.drawable.ic_menu_report_image)
         }
 
+        when {
+    game.isLive -> {
+        gameStatus.visibility = View.VISIBLE
+        gameStatus.text = "ao vivo"
+        gameStatus.setBackgroundResource(R.drawable.bg_live)
+    }
+    game.isFinished -> {
+        gameStatus.visibility = View.VISIBLE
+        gameStatus.text = "encerrado"
+        gameStatus.setBackgroundResource(R.drawable.bg_finished)
+    }
+    else -> {
+        gameStatus.visibility = View.GONE
+    }
+}
+
+
         // ----- BOTÕES -----
         val btns: List<Any> = (g.buttons as? List<*>)?.filterNotNull() ?: emptyList()
         val hasButtons = btns.isNotEmpty()
