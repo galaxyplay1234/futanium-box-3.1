@@ -38,6 +38,18 @@
                 android:paddingBottom="4dp"/>
         </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
+
+       <TextView
+    android:id="@+id/emptyView"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:text="Nenhum jogo disponível no momento, estamos atualizando..."
+    android:textSize="16sp"
+    android:textColor="#777777"
+    android:gravity="center"
+    android:visibility="gone"
+    android:padding="24dp"/>
+
         <!-- Rail (barra) sem sombra, cor do fundo, de fora a fora -->
         <!-- Rail (barra) sem sombra, cor do fundo, largura total -->
 <LinearLayout
