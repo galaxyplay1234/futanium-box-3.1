@@ -44,8 +44,9 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:text="Nenhum jogo disponível no momento, estamos atualizando..."
-    android:textSize="16sp"
+    android:textSize="18sp"
     android:textColor="#777777"
+    android:textStyle="bold"
     android:gravity="center"
     android:visibility="gone"
     android:padding="24dp"/>
