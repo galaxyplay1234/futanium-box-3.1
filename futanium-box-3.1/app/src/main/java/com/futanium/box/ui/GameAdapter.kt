@@ -43,6 +43,7 @@ class GameAdapter(
         val ivAway: ImageView = v.findViewById(R.id.imgAway)
         val tvAway: TextView  = v.findViewById(R.id.tvAwayName)
 
+        val gameStatus: TextView = v.findViewById(R.id.gameStatus) // ⬅️ badge abaixo da hora
         val btnContainer: LinearLayout = v.findViewById(R.id.btnContainer)
     }
 
@@ -86,22 +87,22 @@ class GameAdapter(
             error(android.R.drawable.ic_menu_report_image)
         }
 
+        // ---- badge "ao vivo" / "encerrado" embaixo da hora ----
         when {
-    game.isLive -> {
-        gameStatus.visibility = View.VISIBLE
-        gameStatus.text = "ao vivo"
-        gameStatus.setBackgroundResource(R.drawable.bg_live)
-    }
-    game.isFinished -> {
-        gameStatus.visibility = View.VISIBLE
-        gameStatus.text = "encerrado"
-        gameStatus.setBackgroundResource(R.drawable.bg_finished)
-    }
-    else -> {
-        gameStatus.visibility = View.GONE
-    }
-}
-
+            g.isLive -> {
+                h.gameStatus.visibility = View.VISIBLE
+                h.gameStatus.text = "ao vivo"
+                h.gameStatus.setBackgroundResource(R.drawable.bg_live)
+            }
+            g.isFinished -> {
+                h.gameStatus.visibility = View.VISIBLE
+                h.gameStatus.text = "encerrado"
+                h.gameStatus.setBackgroundResource(R.drawable.bg_finished)
+            }
+            else -> {
+                h.gameStatus.visibility = View.GONE
+            }
+        }
 
         // ----- BOTÕES -----
         val btns: List<Any> = (g.buttons as? List<*>)?.filterNotNull() ?: emptyList()
@@ -161,17 +162,15 @@ class GameAdapter(
         val ctx = view.context
         val u = link.trim()
         try {
-            // Se o host chamar o callback, ele decide entre WebView/ExoPlayer
             onOpenLink?.invoke(u, title, null, null)
                 ?: run {
-                    // Fallback (sem callback): comportamento antigo
                     if (u.startsWith("http", ignoreCase = true)) {
                         val it = Intent(ctx, com.futanium.box.WebViewActivity::class.java)
                         it.putExtra(com.futanium.box.WebViewActivity.EXTRA_URL, u)
-                        ctx.startActivity(it)  // <-- use o contexto
+                        ctx.startActivity(it)
                     } else {
                         val it = Intent(Intent.ACTION_VIEW, Uri.parse(u))
-                        ctx.startActivity(it)  // <-- use o contexto
+                        ctx.startActivity(it)
                     }
                 }
         } catch (e: Exception) {
