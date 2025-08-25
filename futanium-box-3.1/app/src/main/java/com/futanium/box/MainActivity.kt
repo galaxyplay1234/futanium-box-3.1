@@ -179,9 +179,14 @@ class MainActivity : AppCompatActivity() {
                 val games = parseGames(body)
                 runOnUiThread {
                     (vb.rvGames.adapter as GameAdapter).submit(games)
-                    if (games.isEmpty()) {
-                        Toast.makeText(this, "Nenhum jogo encontrado.", Toast.LENGTH_SHORT).show()
-                    }
+
+if (games.isEmpty()) {
+    vb.rvGames.visibility = View.GONE
+    vb.emptyView.visibility = View.VISIBLE
+} else {
+    vb.rvGames.visibility = View.VISIBLE
+    vb.emptyView.visibility = View.GONE
+}
                 }
             } catch (e: Exception) {
                 runOnUiThread {
