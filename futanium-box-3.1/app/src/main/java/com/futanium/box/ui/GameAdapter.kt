@@ -134,15 +134,15 @@ class GameAdapter(
         h.btnContainer.visibility = if (isExpanded) View.VISIBLE else View.GONE
         h.btnContainer.removeAllViews()
         if (isExpanded) {
-    val d   = h.itemView.resources.displayMetrics.density
-    val ctx = h.itemView.context
-
     btns.forEachIndexed { idx, anyBtn ->
         val (title, link) = extractTitleAndLink(anyBtn, idx)
 
-        // Ripple sobre o fundo flat
+        val ctx = h.itemView.context
+        val d   = h.itemView.resources.displayMetrics.density
+
+        // ripple sobre o fundo flat
         val rippleColor = android.content.res.ColorStateList.valueOf(
-            android.graphics.Color.parseColor("#22000000") // ripple sutil
+            android.graphics.Color.parseColor("#22000000")
         )
         val content = androidx.appcompat.content.res.AppCompatResources.getDrawable(
             ctx, R.drawable.bg_channel_button
@@ -150,11 +150,11 @@ class GameAdapter(
         val mask = android.graphics.drawable.GradientDrawable().apply {
             shape = android.graphics.drawable.GradientDrawable.RECTANGLE
             cornerRadius = 12f * d
-            setColor(android.graphics.Color.WHITE) // máscara só pra limitar o ripple
+            setColor(android.graphics.Color.WHITE) // só limita a área do ripple
         }
         val ripple = android.graphics.drawable.RippleDrawable(rippleColor, content, mask)
 
-        val b = android.widget.Button(ctx).apply {
+        val b = Button(ctx).apply {
             text = title
             setAllCaps(false)
             setTextColor(android.graphics.Color.parseColor("#222222"))
@@ -171,40 +171,40 @@ class GameAdapter(
             minWidth  = 0; minimumWidth  = 0
             includeFontPadding = false
 
-            // padding de chip
+            // padding estilo chip
             setPadding((14 * d).toInt(), (8 * d).toInt(), (14 * d).toInt(), (8 * d).toInt())
 
-            // margens entre chips (alinhado à esquerda no container)
-            layoutParams = android.widget.LinearLayout.LayoutParams(
-                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
-                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+            // margens entre chips (alinhado à esquerda pelo container)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply {
                 marginEnd = (8 * d).toInt()
                 topMargin = (6 * d).toInt()
             }
 
+            // feedback visível antes de abrir a outra tela
             setOnClickListener { v ->
-    // feedback tátil rápido (opcional)
-    v.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
+                v.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
+                v.isPressed = true
+                v.refreshDrawableState()
 
-    // força estado "pressed" pro ripple já aparecer
-    v.isPressed = true
-    v.refreshDrawableState()
+                v.animate().cancel()
+                v.animate()
+                    .scaleX(0.98f).scaleY(0.98f)
+                    .setDuration(90)
+                    .withEndAction {
+                        v.animate().scaleX(1f).scaleY(1f).setDuration(140).start()
+                    }
+                    .start()
 
-    // mini animação de pressão
-    v.animate().cancel()
-    v.animate()
-        .scaleX(0.98f).scaleY(0.98f)
-        .setDuration(90)
-        .withEndAction {
-            v.animate().scaleX(1f).scaleY(1f).setDuration(140).start()
+                // pequeno atraso pro ripple aparecer
+                v.postDelayed({
+                    openLink(h.itemView, title, link)
+                }, 130)
+            }
         }
-        .start()
 
-    // dá ~130 ms pro ripple/press aparecer antes de navegar
-    v.postDelayed({
-        openLink(h.itemView, title, link)
-    }, 130)
         h.btnContainer.addView(b)
     }
 }
