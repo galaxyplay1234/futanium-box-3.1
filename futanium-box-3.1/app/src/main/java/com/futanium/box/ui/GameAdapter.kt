@@ -144,14 +144,27 @@ class GameAdapter(
             }
         }
 
-        // Expansão por clique (só se houver botões)
-        h.itemView.setOnClickListener {
+        // Expansão por clique
+h.itemView.setOnClickListener {
+    when {
+        g.isLive == true || g.isFinished == true -> {
+            // só expande se houver botões
             if (!hasButtons) return@setOnClickListener
             val old = expandedPos
             expandedPos = if (position == expandedPos) -1 else position
             if (old != -1) notifyItemChanged(old)
             notifyItemChanged(position)
         }
+        else -> {
+            // jogo ainda não começou
+            Toast.makeText(
+                h.itemView.context,
+                "A transmissão do jogo estará disponível 15 minutos antes do jogo começar.",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+}
     }
 
     /** Extrai (título, link) de um item de botão vindo da API */
