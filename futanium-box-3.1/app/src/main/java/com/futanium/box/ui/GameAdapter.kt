@@ -134,43 +134,61 @@ class GameAdapter(
         h.btnContainer.visibility = if (isExpanded) View.VISIBLE else View.GONE
         h.btnContainer.removeAllViews()
         if (isExpanded) {
-            btns.forEachIndexed { idx, anyBtn ->
-                val (title, link) = extractTitleAndLink(anyBtn, idx)
-                val d = h.itemView.resources.displayMetrics.density
-val d = h.itemView.resources.displayMetrics.density
-val b = Button(h.itemView.context).apply {
-    text = title
-    setAllCaps(false)
-    setTextColor(android.graphics.Color.parseColor("#222222"))
-    textSize = 14f
+    btns.forEachIndexed { idx, anyBtn ->
+        val (title, link) = extractTitleAndLink(anyBtn, idx)
 
-    // fundo flat do drawable (sem sombra)
-    setBackgroundResource(R.drawable.bg_channel_button)
-    stateListAnimator = null   // garante zero elevação/anim
-    elevation = 0f
-    backgroundTintList = null  // evita qualquer tint/material
+        val d   = h.itemView.resources.displayMetrics.density
+        val ctx = h.itemView.context
 
-    // tira o mínimo grandão do Button padrão
-    minHeight = 0; minimumHeight = 0
-    minWidth = 0;  minimumWidth = 0
-    includeFontPadding = false
+        // Ripple sobre o fundo flat
+        val rippleColor = android.content.res.ColorStateList.valueOf(
+            android.graphics.Color.parseColor("#22000000") // ripple sutil
+        )
+        val content = androidx.appcompat.content.res.AppCompatResources.getDrawable(
+            ctx, R.drawable.bg_channel_button
+        )
+        val mask = android.graphics.drawable.GradientDrawable().apply {
+            shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+            cornerRadius = 12f * d
+            setColor(android.graphics.Color.WHITE) // máscara só pra limitar o ripple
+        }
+        val ripple = android.graphics.drawable.RippleDrawable(rippleColor, content, mask)
 
-    // padding do chip (ajuste se quiser)
-    setPadding((14 * d).toInt(), (8 * d).toInt(), (14 * d).toInt(), (8 * d).toInt())
+        val b = Button(ctx).apply {
+            text = title
+            setAllCaps(false)
+            setTextColor(android.graphics.Color.parseColor("#222222"))
+            textSize = 14f
 
-    // margens entre os chips
-    layoutParams = LinearLayout.LayoutParams(
-        LinearLayout.LayoutParams.WRAP_CONTENT,
-        LinearLayout.LayoutParams.WRAP_CONTENT
-    ).apply {
-        marginEnd = (8 * d).toInt()
-        topMargin = (6 * d).toInt()
-    }
+            // fundo flat + ripple, sem elevação/sombra
+            background = ripple
+            stateListAnimator = null
+            elevation = 0f
+            backgroundTintList = null
 
-    setOnClickListener { openLink(h.itemView, title, link) }
-}
-                h.btnContainer.addView(b)
+            // tira mínimos do Button padrão
+            minHeight = 0; minimumHeight = 0
+            minWidth  = 0; minimumWidth  = 0
+            includeFontPadding = false
+
+            // padding de chip
+            setPadding((14 * d).toInt(), (8 * d).toInt(), (14 * d).toInt(), (8 * d).toInt())
+
+            // margens entre chips (alinhado à esquerda no container)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                marginEnd = (8 * d).toInt()
+                topMargin = (6 * d).toInt()
             }
+
+            setOnClickListener { openLink(h.itemView, title, link) }
+        }
+
+        h.btnContainer.addView(b)
+    }
+}
         }
 
         // Expansão por clique (só se houver botões)
