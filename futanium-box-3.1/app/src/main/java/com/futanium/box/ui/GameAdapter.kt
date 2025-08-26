@@ -183,32 +183,28 @@ class GameAdapter(
                 topMargin = (6 * d).toInt()
             }
 
-            // animação para “prolongar” a sensação do clique
-            setOnTouchListener { v, ev ->
-                when (ev.actionMasked) {
-                    android.view.MotionEvent.ACTION_DOWN -> {
-                        v.animate()
-                            .scaleX(0.98f).scaleY(0.98f)
-                            .setDuration(140)
-                            .setInterpolator(android.view.animation.DecelerateInterpolator())
-                            .start()
-                    }
-                    android.view.MotionEvent.ACTION_UP,
-                    android.view.MotionEvent.ACTION_CANCEL -> {
-                        v.animate()
-                            .scaleX(1f).scaleY(1f)
-                            .setDuration(220)
-                            .setInterpolator(android.view.animation.OvershootInterpolator(1.02f))
-                            .start()
-                    }
-                }
-                // mantém ripple e o onClick funcionando
-                false
-            }
+            setOnClickListener { v ->
+    // feedback tátil rápido (opcional)
+    v.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
 
-            setOnClickListener { openLink(h.itemView, title, link) }
+    // força estado "pressed" pro ripple já aparecer
+    v.isPressed = true
+    v.refreshDrawableState()
+
+    // mini animação de pressão
+    v.animate().cancel()
+    v.animate()
+        .scaleX(0.98f).scaleY(0.98f)
+        .setDuration(90)
+        .withEndAction {
+            v.animate().scaleX(1f).scaleY(1f).setDuration(140).start()
         }
+        .start()
 
+    // dá ~130 ms pro ripple/press aparecer antes de navegar
+    v.postDelayed({
+        openLink(h.itemView, title, link)
+    }, 130)
         h.btnContainer.addView(b)
     }
 }
