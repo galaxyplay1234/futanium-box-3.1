@@ -137,9 +137,29 @@ class GameAdapter(
             btns.forEachIndexed { idx, anyBtn ->
                 val (title, link) = extractTitleAndLink(anyBtn, idx)
                 val b = Button(h.itemView.context).apply {
-                    text = title
-                    setOnClickListener { openLink(h.itemView, title, link) }
-                }
+    text = title
+    setAllCaps(false) // deixa o texto normal (sem maiúsculas automáticas)
+    setTextColor(android.graphics.Color.parseColor("#222222")) // cinza escuro
+    textSize = 14f
+
+    // remove background padrão e aplica estilo de chip
+    background = android.graphics.drawable.GradientDrawable().apply {
+        shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+        cornerRadius = (12 * resources.displayMetrics.density) // bordas arredondadas
+        setColor(android.graphics.Color.parseColor("#F2F2F2")) // fundo cinza claro
+    }
+
+    // margens entre botões
+    val lp = LinearLayout.LayoutParams(
+        LinearLayout.LayoutParams.WRAP_CONTENT,
+        LinearLayout.LayoutParams.WRAP_CONTENT
+    )
+    lp.marginEnd = (8 * resources.displayMetrics.density).toInt()
+    lp.topMargin = (6 * resources.displayMetrics.density).toInt()
+    layoutParams = lp
+
+    setOnClickListener { openLink(h.itemView, title, link) }
+}
                 h.btnContainer.addView(b)
             }
         }
