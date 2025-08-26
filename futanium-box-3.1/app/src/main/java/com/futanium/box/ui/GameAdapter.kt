@@ -146,7 +146,7 @@ val b = Button(h.itemView.context).apply {
     // fundo tipo chip (cinza claro, cantos arredondados)
     background = android.graphics.drawable.GradientDrawable().apply {
         shape = android.graphics.drawable.GradientDrawable.RECTANGLE
-        cornerRadius = 12f * d
+        cornerRadius = 10f * d
         setColor(android.graphics.Color.parseColor("#F2F2F2"))
     }
 
