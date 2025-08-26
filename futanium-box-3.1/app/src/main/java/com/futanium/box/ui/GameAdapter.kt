@@ -155,39 +155,62 @@ class GameAdapter(
         val ripple = android.graphics.drawable.RippleDrawable(rippleColor, content, mask)
 
         val b = Button(ctx).apply {
-            text = title
-            setAllCaps(false)
-            setTextColor(android.graphics.Color.parseColor("#222222"))
-            textSize = 14f
+    text = title
+    setAllCaps(false)
+    setTextColor(android.graphics.Color.parseColor("#222222"))
+    textSize = 14f
 
-            // fundo flat + ripple, sem elevação/sombra
-            background = ripple
-            stateListAnimator = null
-            elevation = 0f
-            backgroundTintList = null
+    // fundo flat + ripple, sem elevação/sombra
+    background = ripple
+    stateListAnimator = null
+    elevation = 0f
+    backgroundTintList = null
 
-            // tira mínimos do Button padrão
-            minHeight = 0; minimumHeight = 0
-            minWidth  = 0; minimumWidth  = 0
-            includeFontPadding = false
+    // tira mínimos do Button padrão
+    minHeight = 0; minimumHeight = 0
+    minWidth  = 0; minimumWidth  = 0
+    includeFontPadding = false
 
-            // padding de chip
-            setPadding((14 * d).toInt(), (8 * d).toInt(), (14 * d).toInt(), (8 * d).toInt())
+    // padding de chip
+    setPadding((14 * d).toInt(), (8 * d).toInt(), (14 * d).toInt(), (8 * d).toInt())
 
-            // margens entre chips (alinhado à esquerda no container)
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                marginEnd = (8 * d).toInt()
-                topMargin = (6 * d).toInt()
-            }
-
-            setOnClickListener { openLink(h.itemView, title, link) }
-        }
-
-        h.btnContainer.addView(b)
+    // margens entre chips (alinhado à esquerda no container)
+    layoutParams = LinearLayout.LayoutParams(
+        LinearLayout.LayoutParams.WRAP_CONTENT,
+        LinearLayout.LayoutParams.WRAP_CONTENT
+    ).apply {
+        marginEnd = (8 * d).toInt()
+        topMargin = (6 * d).toInt()
     }
+
+    // animação para “prolongar” a sensação do clique
+    setOnTouchListener { v, ev ->
+        when (ev.actionMasked) {
+            android.view.MotionEvent.ACTION_DOWN -> {
+                v.animate()
+                    .scaleX(0.98f).scaleY(0.98f)
+                    .setDuration(140)
+                    .setInterpolator(android.view.animation.DecelerateInterpolator())
+                    .start()
+            }
+            android.view.MotionEvent.ACTION_UP,
+            android.view.MotionEvent.ACTION_CANCEL -> {
+                v.animate()
+                    .scaleX(1f).scaleY(1f)
+                    .setDuration(220)
+                    .setInterpolator(android.view.animation.OvershootInterpolator(1.02f))
+                    .start()
+            }
+        }
+        // mantém ripple e o onClick funcionando
+        false
+    }
+
+    setOnClickListener { openLink(h.itemView, title, link) }
+}
+
+h.btnContainer.addView(b)
+   
 
         }
 
