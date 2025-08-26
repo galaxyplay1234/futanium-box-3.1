@@ -137,27 +137,25 @@ class GameAdapter(
             btns.forEachIndexed { idx, anyBtn ->
                 val (title, link) = extractTitleAndLink(anyBtn, idx)
                 val d = h.itemView.resources.displayMetrics.density
+val d = h.itemView.resources.displayMetrics.density
 val b = Button(h.itemView.context).apply {
     text = title
     setAllCaps(false)
     setTextColor(android.graphics.Color.parseColor("#222222"))
     textSize = 14f
 
-    // fundo tipo chip (cinza claro, cantos arredondados)
-    background = android.graphics.drawable.GradientDrawable().apply {
-        shape = android.graphics.drawable.GradientDrawable.RECTANGLE
-        cornerRadius = 10f * d
-        setColor(android.graphics.Color.parseColor("#F2F2F2"))
-    }
+    // fundo flat do drawable (sem sombra)
+    setBackgroundResource(R.drawable.bg_channel_button)
+    stateListAnimator = null   // garante zero elevação/anim
+    elevation = 0f
+    backgroundTintList = null  // evita qualquer tint/material
 
-    // tira o tamanho mínimo grandão do Button padrão
-    minHeight = 0
-    minimumHeight = 0
-    minWidth = 0
-    minimumWidth = 0
+    // tira o mínimo grandão do Button padrão
+    minHeight = 0; minimumHeight = 0
+    minWidth = 0;  minimumWidth = 0
     includeFontPadding = false
 
-    // padding menor (chip)
+    // padding do chip (ajuste se quiser)
     setPadding((14 * d).toInt(), (8 * d).toInt(), (14 * d).toInt(), (8 * d).toInt())
 
     // margens entre os chips
