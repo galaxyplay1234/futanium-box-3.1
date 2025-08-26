@@ -136,27 +136,38 @@ class GameAdapter(
         if (isExpanded) {
             btns.forEachIndexed { idx, anyBtn ->
                 val (title, link) = extractTitleAndLink(anyBtn, idx)
-                val b = Button(h.itemView.context).apply {
+                val d = h.itemView.resources.displayMetrics.density
+val b = Button(h.itemView.context).apply {
     text = title
-    setAllCaps(false) // deixa o texto normal (sem maiúsculas automáticas)
-    setTextColor(android.graphics.Color.parseColor("#222222")) // cinza escuro
+    setAllCaps(false)
+    setTextColor(android.graphics.Color.parseColor("#222222"))
     textSize = 14f
 
-    // remove background padrão e aplica estilo de chip
+    // fundo tipo chip (cinza claro, cantos arredondados)
     background = android.graphics.drawable.GradientDrawable().apply {
         shape = android.graphics.drawable.GradientDrawable.RECTANGLE
-        cornerRadius = (12 * resources.displayMetrics.density) // bordas arredondadas
-        setColor(android.graphics.Color.parseColor("#F2F2F2")) // fundo cinza claro
+        cornerRadius = 12f * d
+        setColor(android.graphics.Color.parseColor("#F2F2F2"))
     }
 
-    // margens entre botões
-    val lp = LinearLayout.LayoutParams(
+    // tira o tamanho mínimo grandão do Button padrão
+    minHeight = 0
+    minimumHeight = 0
+    minWidth = 0
+    minimumWidth = 0
+    includeFontPadding = false
+
+    // padding menor (chip)
+    setPadding((14 * d).toInt(), (8 * d).toInt(), (14 * d).toInt(), (8 * d).toInt())
+
+    // margens entre os chips
+    layoutParams = LinearLayout.LayoutParams(
         LinearLayout.LayoutParams.WRAP_CONTENT,
         LinearLayout.LayoutParams.WRAP_CONTENT
-    )
-    lp.marginEnd = (8 * resources.displayMetrics.density).toInt()
-    lp.topMargin = (6 * resources.displayMetrics.density).toInt()
-    layoutParams = lp
+    ).apply {
+        marginEnd = (8 * d).toInt()
+        topMargin = (6 * d).toInt()
+    }
 
     setOnClickListener { openLink(h.itemView, title, link) }
 }
