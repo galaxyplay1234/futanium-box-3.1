@@ -188,7 +188,7 @@ class GameAdapter(
 
         h.btnContainer.addView(b)
     }
-}
+
         }
 
         // Expansão por clique (só se houver botões)
