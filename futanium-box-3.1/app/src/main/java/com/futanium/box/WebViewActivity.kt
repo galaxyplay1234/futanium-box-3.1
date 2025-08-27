@@ -23,6 +23,8 @@ class WebViewActivity : AppCompatActivity() {
 
     private lateinit var web: WebView
     private lateinit var insets: WindowInsetsControllerCompat
+    // Loader central (igual ao do player)
+    private lateinit var webLoader: android.widget.ProgressBar
 
     // --- BLOQUEIO (lista remota) ---
     private val client = OkHttpClient()
@@ -39,7 +41,7 @@ class WebViewActivity : AppCompatActivity() {
     // >>> PROXY (linhas iniciadas com "proxy:")
     private val proxyDomainRules = HashSet<String>()      // domínios que devem ir via proxy
     private val proxySubstringRules = ArrayList<String>() // trechos que devem ir via proxy
-    private val PROXY_BASE = "https://controledeestoque.rf.gd/proxy.php?url="
+    private val PROXY_BASE = "https://controledeestoque.rf.gd/proxy.php?url=""
 
     private var allowHost: String? = null            // host/eTLD+1 do player atual
     private val blockReady = AtomicBoolean(false)
@@ -72,6 +74,9 @@ class WebViewActivity : AppCompatActivity() {
         hideStatusBar()
 
         setContentView(R.layout.activity_webview)
+
+        // 👇 encontra o loader
+        webLoader = findViewById(R.id.webLoader)
 
         // Mantém a tela ligada (reforço além do keepScreenOn da WebView)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -215,6 +220,9 @@ class WebViewActivity : AppCompatActivity() {
 
             override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
+                // mostra loader
+                webLoader.visibility = View.VISIBLE
+
                 url?.let {
                     val h = runCatching { Uri.parse(it).host?.lowercase(Locale.ROOT) }.getOrNull()
                     // se ainda está no encurtador, mantém o modo; se não, desliga e fixa host
@@ -229,6 +237,9 @@ class WebViewActivity : AppCompatActivity() {
 
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
+                // esconde loader
+                webLoader.visibility = View.GONE
+
                 if (blockReady.get()) {
                     injectAdShieldJS()
                 } else {
@@ -245,6 +256,9 @@ class WebViewActivity : AppCompatActivity() {
                 super.onReceivedError(view, request, error)
 
                 if (request.isForMainFrame) {
+                    // esconde loader para não travar visível
+                    webLoader.visibility = View.GONE
+
                     val code = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
                         error.errorCode
                     } else 0
@@ -275,6 +289,8 @@ class WebViewActivity : AppCompatActivity() {
                 failingUrl: String?
             ) {
                 super.onReceivedError(view, errorCode, description, failingUrl)
+                // esconde loader em erro
+                webLoader.visibility = View.GONE
 
                 if (failingUrl != null) {
                     val shouldProxy = errorCode == ERROR_HOST_LOOKUP ||
