@@ -34,6 +34,15 @@ import androidx.core.content.FileProvider
 import android.provider.Settings
 import android.content.ActivityNotFoundException
 import androidx.activity.result.contract.ActivityResultContracts
+import android.net.Uri
+import android.content.Intent
+import android.os.Build
+import android.content.ActivityNotFoundException
+
+import org.json.JSONObject
+import java.io.File
+
+import com.futanium.box.BuildConfig
 
 class MainActivity : AppCompatActivity() {
 
