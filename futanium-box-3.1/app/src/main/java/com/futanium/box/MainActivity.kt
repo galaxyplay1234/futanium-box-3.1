@@ -235,35 +235,60 @@ class MainActivity : AppCompatActivity() {
     }
 
     /** Verifica JSON remoto e, se houver versão maior, baixa e abre instalador */
-    private fun checkAppUpdateExternal(metaUrl: String, showNoUpdateToast: Boolean = false) {
-        Thread {
-            try {
-                val req = Request.Builder().url(metaUrl).build()
-                val res = OkHttpClient().newCall(req).execute()
-                val body = res.body?.string().orEmpty()
-                if (body.isBlank()) return@Thread
+    /** Verifica JSON remoto e, se houver versão maior, baixa e abre instalador */
+private fun checkAppUpdateExternal(metaUrl: String, showNoUpdateToast: Boolean = false) {
+    Thread {
+        try {
+            val req = Request.Builder()
+                .url(metaUrl)
+                .header("Accept", "application/json")
+                .build()
 
-                val obj = JSONObject(body)
-                val remoteCode = obj.optInt("versionCode", -1)
-                val apkUrl = obj.optString("apkUrl", "")
-                if (remoteCode <= 0 || apkUrl.isBlank()) return@Thread
+            val client = OkHttpClient()
+            val res = client.newCall(req).execute()
 
-                if (remoteCode > currentVersionCode()) {
-                    runOnUiThread { downloadAndPromptInstall(apkUrl) }
-                } else if (showNoUpdateToast) {
-                    runOnUiThread {
-                        Toast.makeText(this, "Você já está na última versão.", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            } catch (_: Exception) {
-                if (showNoUpdateToast) {
-                    runOnUiThread {
-                        Toast.makeText(this, "Falha ao checar atualização.", Toast.LENGTH_SHORT).show()
-                    }
+            // >>> DEBUG: mostra o HTTP status e alguns bytes da resposta
+            val code = res.code
+            val bodyStr = res.body?.string().orEmpty()
+            runOnUiThread {
+                Toast.makeText(this, "update.json HTTP $code", Toast.LENGTH_SHORT).show()
+            }
+            if (code !in 200..299) return@Thread
+            if (bodyStr.isBlank()) return@Thread
+
+            val obj = org.json.JSONObject(bodyStr)
+            val remoteCode = obj.optInt("versionCode", -1)
+            val apkUrl = obj.optString("apkUrl", "")
+            // >>> DEBUG opcional: ver os números comparados
+            runOnUiThread {
+                Toast.makeText(
+                    this,
+                    "remoto=$remoteCode | atual=${BuildConfig.VERSION_CODE}",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+
+            if (remoteCode <= 0 || apkUrl.isBlank()) return@Thread
+
+            if (remoteCode > BuildConfig.VERSION_CODE) {
+                runOnUiThread { downloadAndPromptInstall(apkUrl) }
+            } else if (showNoUpdateToast) {
+                runOnUiThread {
+                    Toast.makeText(this, "Você já está na última versão.", Toast.LENGTH_SHORT).show()
                 }
             }
-        }.start()
-    }
+        } catch (e: Exception) {
+            // >>> MOSTRA O MOTIVO REAL
+            runOnUiThread {
+                Toast.makeText(
+                    this,
+                    "Falha ao checar: ${e.javaClass.simpleName} ${e.message ?: ""}",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }.start()
+}
 
     private fun downloadAndPromptInstall(apkUrl: String) {
         Toast.makeText(this, "Baixando atualização…", Toast.LENGTH_SHORT).show()
