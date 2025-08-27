@@ -30,6 +30,10 @@ import com.futanium.box.ui.GameAdapter
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONArray
+import androidx.core.content.FileProvider
+import android.provider.Settings
+import android.content.ActivityNotFoundException
+import androidx.activity.result.contract.ActivityResultContracts
 
 class MainActivity : AppCompatActivity() {
 
