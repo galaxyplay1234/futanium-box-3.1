@@ -148,7 +148,7 @@ class MainActivity : AppCompatActivity() {
         // Verifica se há update disponível (fora da Play)
         checkAppUpdateExternal(
             metaUrl = "https://controledeestoque.rf.gd/futaniumbox/update.json",  // << troque pelo seu endpoint
-            showNoUpdateToast = true                       // true para depurar
+            showNoUpdateToast = false                         // true para depurar
         )
     }
 
@@ -235,60 +235,35 @@ class MainActivity : AppCompatActivity() {
     }
 
     /** Verifica JSON remoto e, se houver versão maior, baixa e abre instalador */
-    /** Verifica JSON remoto e, se houver versão maior, baixa e abre instalador */
-private fun checkAppUpdateExternal(metaUrl: String, showNoUpdateToast: Boolean = false) {
-    Thread {
-        try {
-            val req = Request.Builder()
-                .url(metaUrl)
-                .header("Accept", "application/json")
-                .build()
+    private fun checkAppUpdateExternal(metaUrl: String, showNoUpdateToast: Boolean = false) {
+        Thread {
+            try {
+                val req = Request.Builder().url(metaUrl).build()
+                val res = OkHttpClient().newCall(req).execute()
+                val body = res.body?.string().orEmpty()
+                if (body.isBlank()) return@Thread
 
-            val client = OkHttpClient()
-            val res = client.newCall(req).execute()
+                val obj = JSONObject(body)
+                val remoteCode = obj.optInt("versionCode", -1)
+                val apkUrl = obj.optString("apkUrl", "")
+                if (remoteCode <= 0 || apkUrl.isBlank()) return@Thread
 
-            // >>> DEBUG: mostra o HTTP status e alguns bytes da resposta
-            val code = res.code
-            val bodyStr = res.body?.string().orEmpty()
-            runOnUiThread {
-                Toast.makeText(this, "update.json HTTP $code", Toast.LENGTH_SHORT).show()
-            }
-            if (code !in 200..299) return@Thread
-            if (bodyStr.isBlank()) return@Thread
-
-            val obj = org.json.JSONObject(bodyStr)
-            val remoteCode = obj.optInt("versionCode", -1)
-            val apkUrl = obj.optString("apkUrl", "")
-            // >>> DEBUG opcional: ver os números comparados
-            runOnUiThread {
-                Toast.makeText(
-                    this,
-                    "remoto=$remoteCode | atual=${BuildConfig.VERSION_CODE}",
-                    Toast.LENGTH_LONG
-                ).show()
-            }
-
-            if (remoteCode <= 0 || apkUrl.isBlank()) return@Thread
-
-            if (remoteCode > BuildConfig.VERSION_CODE) {
-                runOnUiThread { downloadAndPromptInstall(apkUrl) }
-            } else if (showNoUpdateToast) {
-                runOnUiThread {
-                    Toast.makeText(this, "Você já está na última versão.", Toast.LENGTH_SHORT).show()
+                if (remoteCode > currentVersionCode()) {
+                    runOnUiThread { downloadAndPromptInstall(apkUrl) }
+                } else if (showNoUpdateToast) {
+                    runOnUiThread {
+                        Toast.makeText(this, "Você já está na última versão.", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } catch (_: Exception) {
+                if (showNoUpdateToast) {
+                    runOnUiThread {
+                        Toast.makeText(this, "Falha ao checar atualização.", Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
-        } catch (e: Exception) {
-            // >>> MOSTRA O MOTIVO REAL
-            runOnUiThread {
-                Toast.makeText(
-                    this,
-                    "Falha ao checar: ${e.javaClass.simpleName} ${e.message ?: ""}",
-                    Toast.LENGTH_LONG
-                ).show()
-            }
-        }
-    }.start()
-}
+        }.start()
+    }
 
     private fun downloadAndPromptInstall(apkUrl: String) {
         Toast.makeText(this, "Baixando atualização…", Toast.LENGTH_SHORT).show()
