@@ -56,6 +56,24 @@ class MainActivity : AppCompatActivity() {
     private var spinAnimator: ObjectAnimator? = null
     private var spinRepeats: Int = 0
 
+
+   // --- Auto-update (fora da Play) ---
+private var pendingApkUri: Uri? = null
+
+// Resultado da tela de permitir “Apps desconhecidos”
+private val unknownSourcesLauncher = registerForActivityResult(
+    ActivityResultContracts.StartActivityForResult()
+) { _ ->
+    // tentar de novo a instalação se o usuário voltou das Configs
+    pendingApkUri?.let { uri ->
+        if (canInstallUnknownSources()) {
+            startApkInstall(uri)
+        } else {
+            Toast.makeText(this, "Permita instalar apps deste fonte para atualizar.", Toast.LENGTH_LONG).show()
+        }
+    }
+}
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         vb = ActivityMainBinding.inflate(layoutInflater)
