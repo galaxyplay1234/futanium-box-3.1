@@ -1,1 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Futanium" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/bluePrimary</item>
+        <item name="colorPrimaryContainer">@color/blueDark</item>
+        <item name="colorOnPrimary">@color/white</item>
 
+        <item name="android:windowBackground">@color/startup_bg</item>
+        <item name="android:statusBarColor">@color/startup_bg</item>
+        <item name="android:navigationBarColor">@color/startup_bg</item>
+
+        <item name="android:windowLightStatusBar">false</item>
+
+        <!-- Evita que o Android 12+ mude contraste das barras -->
+        <item name="android:enforceStatusBarContrast">false</item>
+        <item name="android:enforceNavigationBarContrast">false</item>
+    </style>
+</resources>
