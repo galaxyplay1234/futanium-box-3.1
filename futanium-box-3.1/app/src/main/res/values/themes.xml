@@ -1,22 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.Futanium" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Cores do app -->
         <item name="colorPrimary">@color/bluePrimary</item>
         <item name="colorPrimaryContainer">@color/blueDark</item>
         <item name="colorOnPrimary">@color/white</item>
 
-        <!-- Status/Nav coerentes e sempre escuros -->
-        <item name="android:statusBarColor">@color/startup_bg</item>
-        <item name="statusBarColor">@color/startup_bg</item>
-        <item name="android:navigationBarColor">@color/startup_bg</item>
-        <item name="navigationBarColor">@color/startup_bg</item>
-        <item name="android:windowLightStatusBar">false</item>
-        <item name="android:windowLightNavigationBar">false</item>
-
-        <!-- Evita tela branca enquanto a Activity ainda infla -->
+        <!-- Fundo inicial e barras (sem flash branco/roxo) -->
         <item name="android:windowBackground">@color/startup_bg</item>
-        <item name="windowBackground">@color/startup_bg</item>
+        <item name="android:statusBarColor">@color/startup_bg</item>
+        <item name="android:navigationBarColor">@color/startup_bg</item>
 
+        <!-- Opcional: força status bar não clara (texto claro) -->
+        <item name="android:windowLightStatusBar">false</item>
+        <!-- Opcional: tamanho da action bar, embora NoActionBar não use -->
         <item name="actionBarSize">48dp</item>
     </style>
 </resources>
