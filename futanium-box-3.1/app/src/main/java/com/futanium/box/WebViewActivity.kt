@@ -41,7 +41,7 @@ class WebViewActivity : AppCompatActivity() {
     // >>> PROXY (linhas iniciadas com "proxy:")
     private val proxyDomainRules = HashSet<String>()      // domínios que devem ir via proxy
     private val proxySubstringRules = ArrayList<String>() // trechos que devem ir via proxy
-    private val PROXY_BASE = "https://controledeestoque.rf.gd/proxy.php?url=""
+    private val PROXY_BASE = "https://controledeestoque.rf.gd/proxy.php?url="
 
     private var allowHost: String? = null            // host/eTLD+1 do player atual
     private val blockReady = AtomicBoolean(false)
