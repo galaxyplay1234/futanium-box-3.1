@@ -8,11 +8,13 @@
         <item name="android:windowBackground">@color/startup_bg</item>
         <item name="android:statusBarColor">@color/startup_bg</item>
         <item name="android:navigationBarColor">@color/startup_bg</item>
-
         <item name="android:windowLightStatusBar">false</item>
-
-        <!-- Evita que o Android 12+ mude contraste das barras -->
         <item name="android:enforceStatusBarContrast">false</item>
         <item name="android:enforceNavigationBarContrast">false</item>
+
+        <!-- Splash do sistema “transparente” e com mesmo fundo do app -->
+        <item name="android:windowSplashScreenBackground">@color/startup_bg</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@android:color/transparent</item>
+        <item name="android:windowSplashScreenBrandingImage">@null</item>
     </style>
 </resources>
