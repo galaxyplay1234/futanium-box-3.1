@@ -147,7 +147,7 @@ class MainActivity : AppCompatActivity() {
 
         // Verifica se há update disponível (fora da Play)
         checkAppUpdateExternal(
-            metaUrl = "https://controledeestoque.rf.gd/futaniumbox/update.json",  // << troque pelo seu endpoint
+            metaUrl = "https://raw.githubusercontent.com/galaxyplay1234/futanium-box-3.1/refs/heads/main/update.json",  // << troque pelo seu endpoint
             showNoUpdateToast = false                         // true para depurar
         )
     }
