@@ -4,9 +4,19 @@
         <item name="colorPrimary">@color/bluePrimary</item>
         <item name="colorPrimaryContainer">@color/blueDark</item>
         <item name="colorOnPrimary">@color/white</item>
-        <!-- opcional: deixa o status bar coerente -->
-        <item name="android:statusBarColor">@color/blueDark</item>
-        <item name="android:navigationBarColor">@color/blueDark</item>
+
+        <!-- Status/Nav coerentes e sempre escuros -->
+        <item name="android:statusBarColor">@color/startup_bg</item>
+        <item name="statusBarColor">@color/startup_bg</item>
+        <item name="android:navigationBarColor">@color/startup_bg</item>
+        <item name="navigationBarColor">@color/startup_bg</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+
+        <!-- Evita tela branca enquanto a Activity ainda infla -->
+        <item name="android:windowBackground">@color/startup_bg</item>
+        <item name="windowBackground">@color/startup_bg</item>
+
         <item name="actionBarSize">48dp</item>
     </style>
 </resources>
