@@ -4,4 +4,7 @@
     <color name="blueDark">#0D47A1</color>
     <color name="white">#FFFFFF</color>
     <color name="futaniumBlue">#1976D2</color>
+
+    <!-- cor de fundo inicial (sem flash branco/roxo) -->
+    <color name="startup_bg">#10131C</color>
 </resources>
