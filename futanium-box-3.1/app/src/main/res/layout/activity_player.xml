@@ -10,7 +10,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:keepScreenOn="true"
-        app:use_controller="true"
+        app:use_controller="false"
         app:controller_layout_id="@layout/exo_player_controller_minimal"
         app:show_buffering="when_playing"
         app:resize_mode="fit"
