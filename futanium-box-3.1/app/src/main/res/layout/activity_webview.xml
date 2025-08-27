@@ -8,6 +8,18 @@
         android:id="@+id/web"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:overScrollMode="never" />
+        android:overScrollMode="never"
         android:keepScreenOn="true" />
+
+    <!-- Loader branco sobreposto (fica por cima do WebView) -->
+    <ProgressBar
+        android:id="@+id/webLoader"
+        style="?android:attr/progressBarStyleLarge"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:indeterminate="true"
+        android:indeterminateTint="#FFFFFFFF"
+        android:layout_gravity="center"
+        android:visibility="gone" />
+
 </FrameLayout>
