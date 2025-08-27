@@ -3,6 +3,11 @@ package com.futanium.box
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.animation.AnimatorListenerAdapter
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
@@ -10,7 +15,6 @@ import android.graphics.drawable.InsetDrawable
 import android.graphics.drawable.RippleDrawable
 import android.graphics.drawable.ShapeDrawable
 import android.graphics.drawable.shapes.OvalShape
-import android.os.Bundle
 import android.util.TypedValue
 import android.view.Menu
 import android.view.MenuItem
@@ -20,29 +24,21 @@ import android.view.animation.LinearInterpolator
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.AppCompatImageView
+import androidx.core.content.FileProvider
 import androidx.core.view.MenuItemCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.futanium.box.databinding.ActivityMainBinding
 import com.futanium.box.model.Game
 import com.futanium.box.ui.GameAdapter
+import com.futanium.box.BuildConfig
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONArray
-import androidx.core.content.FileProvider
-import android.provider.Settings
-import android.content.ActivityNotFoundException
-import androidx.activity.result.contract.ActivityResultContracts
-import android.net.Uri
-import android.content.Intent
-import android.os.Build
-import android.content.ActivityNotFoundException
-
 import org.json.JSONObject
 import java.io.File
-
-import com.futanium.box.BuildConfig
 
 class MainActivity : AppCompatActivity() {
 
