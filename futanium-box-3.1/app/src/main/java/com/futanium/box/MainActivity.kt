@@ -142,7 +142,7 @@ private val unknownSourcesLauncher = registerForActivityResult(
 
        // Verifica se há update disponível (fora da Play)
 checkAppUpdateExternal(
-    metaUrl = "https://seu.dominio.com/update.json",  // << troque pelo seu endpoint
+    metaUrl = "https://controledeestoque.rf.gd/futaniumbox/update.json",  // << troque pelo seu endpoint
     showNoUpdateToast = false                         // true para depurar
 )
 
