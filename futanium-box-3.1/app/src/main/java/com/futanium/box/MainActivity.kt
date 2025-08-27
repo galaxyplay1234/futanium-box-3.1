@@ -332,10 +332,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun canInstallUnknownSources(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        try {
             packageManager.canRequestPackageInstalls()
-        } else true
+        } catch (_: SecurityException) {
+            false
+        }
+    } else {
+        true
     }
+}
 
     private fun parseGames(json: String): List<Game> {
         val arr = JSONArray(json)
