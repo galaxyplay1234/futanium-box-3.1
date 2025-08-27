@@ -5,6 +5,9 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
 
+    <!-- Necessária para instalar APKs fora da Play (Android 8+) -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
+
     <application
         android:label="Futanium Box"
         android:icon="@android:drawable/sym_def_app_icon"
@@ -15,42 +18,45 @@
         android:networkSecurityConfig="@xml/network_security_config"
         android:theme="@style/Theme.Material3.DayNight.NoActionBar">
 
-      <provider
-    android:name="androidx.core.content.FileProvider"
-    android:authorities="${applicationId}.fileprovider"
-    android:exported="false"
-    android:grantUriPermissions="true">
-    <meta-data
-        android:name="android.support.FILE_PROVIDER_PATHS"
-        android:resource="@xml/provider_paths" />
-</provider>
-        
-<uses-library android:name="org.apache.http.legacy" android:required="false"/>
+        <!-- FileProvider para entregar o APK ao instalador -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/provider_paths" />
+        </provider>
 
-<activity
-    android:name=".WebViewActivity"
-    android:screenOrientation="landscape"
-    android:theme="@style/Theme.Futanium.Fullscreen"
-    android:exported="false" />
+        <!-- (Opcional) legado; pode manter se já estava usando -->
+        <uses-library
+            android:name="org.apache.http.legacy"
+            android:required="false" />
+
+        <activity
+            android:name=".WebViewActivity"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.Futanium.Fullscreen"
+            android:exported="false" />
 
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:windowDisablePreview="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
 
-
-<activity
-    android:name=".PlayerActivity"
-    android:exported="false"
-    android:screenOrientation="landscape"
-    android:resizeableActivity="false"
-    android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|uiMode"
-    android:theme="@style/Theme.Material3.DayNight.NoActionBar" />
+        <activity
+            android:name=".PlayerActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:resizeableActivity="false"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|uiMode"
+            android:theme="@style/Theme.Material3.DayNight.NoActionBar" />
 
     </application>
-
 </manifest>
