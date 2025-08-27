@@ -231,6 +231,110 @@ if (games.isEmpty()) {
         }.start()
     }
 
+
+   /** Verifica JSON remoto e, se houver versão maior, baixa e abre instalador */
+private fun checkAppUpdateExternal(metaUrl: String, showNoUpdateToast: Boolean = false) {
+    Thread {
+        try {
+            val req = Request.Builder().url(metaUrl).build()
+            val res = OkHttpClient().newCall(req).execute()
+            val body = res.body?.string().orEmpty()
+            if (body.isBlank()) return@Thread
+
+            val obj = JSONObject(body)
+            val remoteCode = obj.optInt("versionCode", -1)
+            val apkUrl = obj.optString("apkUrl", "")
+            if (remoteCode <= 0 || apkUrl.isBlank()) return@Thread
+
+            if (remoteCode > BuildConfig.VERSION_CODE) {
+                runOnUiThread { downloadAndPromptInstall(apkUrl) }
+            } else if (showNoUpdateToast) {
+                runOnUiThread {
+                    Toast.makeText(this, "Você já está na última versão.", Toast.LENGTH_SHORT).show()
+                }
+            }
+        } catch (_: Exception) {
+            if (showNoUpdateToast) {
+                runOnUiThread {
+                    Toast.makeText(this, "Falha ao checar atualização.", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }.start()
+}
+
+private fun downloadAndPromptInstall(apkUrl: String) {
+    Toast.makeText(this, "Baixando atualização…", Toast.LENGTH_SHORT).show()
+
+    Thread {
+        try {
+            val client = OkHttpClient()
+            val res = client.newCall(Request.Builder().url(apkUrl).build()).execute()
+            val body = res.body ?: throw IllegalStateException("Sem corpo na resposta")
+
+            // salva em cache/apks/update.apk
+            val dir = File(cacheDir, "apks").apply { mkdirs() }
+            val file = File(dir, "update.apk")
+            body.byteStream().use { input ->
+                file.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            }
+
+            val uri = FileProvider.getUriForFile(
+                this, "${BuildConfig.APPLICATION_ID}.fileprovider", file
+            )
+            runOnUiThread { prepareInstall(uri) }
+        } catch (e: Exception) {
+            runOnUiThread {
+                Toast.makeText(this, "Erro ao baixar atualização.", Toast.LENGTH_LONG).show()
+            }
+        }
+    }.start()
+}
+
+private fun prepareInstall(uri: Uri) {
+    pendingApkUri = uri
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        if (!canInstallUnknownSources()) {
+            // Abre a tela para o usuário permitir “Instalar apps desconhecidos” para ESTE app
+            try {
+                val intent = Intent(
+                    Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    Uri.parse("package:$packageName")
+                )
+                unknownSourcesLauncher.launch(intent)
+            } catch (e: ActivityNotFoundException) {
+                // Fallback: abre configs do app
+                val i = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                i.data = Uri.parse("package:$packageName")
+                startActivity(i)
+                Toast.makeText(this, "Habilite 'Apps desconhecidos' para atualizar.", Toast.LENGTH_LONG).show()
+            }
+            return
+        }
+    }
+    startApkInstall(uri)
+}
+
+private fun startApkInstall(uri: Uri) {
+    val intent = Intent(Intent.ACTION_VIEW).apply {
+        setDataAndType(uri, "application/vnd.android.package-archive")
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+    try {
+        startActivity(intent)
+    } catch (e: Exception) {
+        Toast.makeText(this, "Não foi possível iniciar a instalação.", Toast.LENGTH_LONG).show()
+    }
+}
+
+private fun canInstallUnknownSources(): Boolean {
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        packageManager.canRequestPackageInstalls()
+    } else true
+}
+
     private fun parseGames(json: String): List<Game> {
         val arr = JSONArray(json)
         val list = ArrayList<Game>(arr.length())
