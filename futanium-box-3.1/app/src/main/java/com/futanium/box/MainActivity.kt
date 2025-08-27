@@ -139,6 +139,14 @@ private val unknownSourcesLauncher = registerForActivityResult(
         }
 
         fetchGames()
+
+       // Verifica se há update disponível (fora da Play)
+checkAppUpdateExternal(
+    metaUrl = "https://seu.dominio.com/update.json",  // << troque pelo seu endpoint
+    showNoUpdateToast = false                         // true para depurar
+)
+
+
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
