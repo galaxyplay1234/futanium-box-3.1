@@ -1,14 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.Futanium" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="colorPrimary">@color/bluePrimary</item>
-        <item name="colorPrimaryContainer">@color/blueDark</item>
+        <item name="colorPrimary">@color/menuColor</item>
+        <item name="colorPrimaryContainer">@color/menuColor</item>
         <item name="colorOnPrimary">@color/white</item>
 
-        <!-- Tudo já com a cor do app pra não piscar -->
+        <!-- Fundo inicial -->
         <item name="android:windowBackground">@color/startup_bg</item>
         <item name="android:statusBarColor">@color/startup_bg</item>
         <item name="android:navigationBarColor">@color/startup_bg</item>
         <item name="android:windowLightStatusBar">false</item>
+
+        <!-- Força os diálogos a usarem o overlay custom -->
+        <item name="alertDialogTheme">@style/FutaniumAlertDialog</item>
+    </style>
+
+    <!-- Overlay para diálogos -->
+    <style name="FutaniumAlertDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="colorPrimary">@color/menuColor</item>
+        <item name="colorSecondary">@color/menuColor</item>
+        <item name="textButtonStyle">@style/FutaniumTextButton</item>
+    </style>
+
+    <!-- Estilo dos botões de texto (Cancelar / Baixar) -->
+    <style name="FutaniumTextButton" parent="Widget.Material3.Button.TextButton">
+        <item name="android:textColor">@color/menuColor</item>
+        <item name="rippleColor">@color/menuColor</item>
     </style>
 </resources>
