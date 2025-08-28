@@ -264,17 +264,25 @@ class MainActivity : AppCompatActivity() {
     }
 
     // --- POPUP "Nova versão disponível" ---
-    private fun showUpdateAvailableDialog(changelog: String, apkUrl: String) {
-        val msg = if (changelog.isNotBlank()) changelog else "Há uma nova versão disponível."
-        AlertDialog.Builder(this)
-            .setTitle("Nova versão disponível")
-            .setMessage(msg)
-            .setNegativeButton("Cancelar", null)
-            .setPositiveButton("Baixar") { _, _ ->
-                downloadAndPromptInstall(apkUrl)
-            }
-            .show()
+private fun showUpdateAvailableDialog(changelog: String, apkUrl: String) {
+    val msg = if (changelog.isNotBlank()) changelog else "Há uma nova versão disponível."
+
+    val dialog = AlertDialog.Builder(this)
+        .setTitle("Nova versão disponível")
+        .setMessage(msg)
+        .setNegativeButton("CANCELAR", null)
+        .setPositiveButton("BAIXAR") { _, _ ->
+            downloadAndPromptInstall(apkUrl)
+        }
+        .show()
+
+    // 🔹 Força cor personalizada nos botões
+    dialog.setOnShowListener {
+        val customColor = Color.parseColor("#10131C") // sua identidade visual
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(customColor)
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(customColor)
     }
+}
 
     // --- Diálogo indeterminado "Baixando..." ---
     private fun showDownloadingDialog(): AlertDialog {
