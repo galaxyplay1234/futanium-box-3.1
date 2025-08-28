@@ -263,21 +263,29 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
-    // --- POPUP "Nova versão disponível" ---
-private fun showUpdateAvailableDialog(changelog: String, apkUrl: String) {
+    private fun showUpdateAvailableDialog(changelog: String, apkUrl: String) {
     val msg = if (changelog.isNotBlank()) changelog else "Há uma nova versão disponível."
 
-    val dialog = androidx.appcompat.app.AlertDialog.Builder(this)
+    val dialog = AlertDialog.Builder(this)
         .setTitle("Nova versão disponível")
         .setMessage(msg)
         .setNegativeButton("Cancelar", null)
-        .setPositiveButton("Baixar") { _, _ -> downloadAndPromptInstall(apkUrl) }
+        .setPositiveButton("Baixar") { _, _ ->
+            downloadAndPromptInstall(apkUrl)
+        }
         .create()
 
     dialog.setOnShowListener {
-        val c = try { getColor(R.color.menuColor) } catch (_: Exception) { Color.parseColor("#10131C") }
-        dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE)?.setTextColor(c)
-        dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_NEGATIVE)?.setTextColor(c)
+        val c = getColor(R.color.menuColor)
+
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.apply {
+            setTextColor(c)
+            backgroundTintList = ColorStateList.valueOf(c) // ripple usa essa cor
+        }
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.apply {
+            setTextColor(c)
+            backgroundTintList = ColorStateList.valueOf(c)
+        }
     }
 
     dialog.show()
