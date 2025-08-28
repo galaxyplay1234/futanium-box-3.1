@@ -269,8 +269,8 @@ class MainActivity : AppCompatActivity() {
     val dialog = AlertDialog.Builder(this)
         .setTitle("Nova versão disponível")
         .setMessage(msg)
-        .setNegativeButton("Cancelar", null)
-        .setPositiveButton("Baixar") { _, _ ->
+        .setNegativeButton("CANCELAR", null)
+        .setPositiveButton("BAIXAR") { _, _ ->
             downloadAndPromptInstall(apkUrl)
         }
         .create()
