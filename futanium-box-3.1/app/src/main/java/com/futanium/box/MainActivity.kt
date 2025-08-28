@@ -40,6 +40,8 @@ import org.json.JSONObject
 import java.io.File
 import android.os.Bundle
 import android.content.pm.PackageManager
+import androidx.appcompat.app.AlertDialog
+import android.widget.ProgressBar
 
 class MainActivity : AppCompatActivity() {
 
