@@ -276,17 +276,15 @@ class MainActivity : AppCompatActivity() {
         .create()
 
     dialog.setOnShowListener {
-        val c = getColor(R.color.menuColor)
+    val c = getColor(R.color.menuColor)
 
-        dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.apply {
-            setTextColor(c)
-            backgroundTintList = ColorStateList.valueOf(c) // ripple usa essa cor
-        }
-        dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.apply {
-            setTextColor(c)
-            backgroundTintList = ColorStateList.valueOf(c)
-        }
+    dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.apply {
+        setTextColor(c) // só muda a cor do texto
     }
+    dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.apply {
+        setTextColor(c)
+    }
+}
 
     dialog.show()
 }
