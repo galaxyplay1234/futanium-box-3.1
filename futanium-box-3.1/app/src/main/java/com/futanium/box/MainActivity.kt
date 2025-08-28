@@ -42,6 +42,7 @@ import android.os.Bundle
 import android.content.pm.PackageManager
 import androidx.appcompat.app.AlertDialog
 import android.widget.ProgressBar
+import android.widget.LinearLayout
 
 class MainActivity : AppCompatActivity() {
 
@@ -66,12 +67,12 @@ class MainActivity : AppCompatActivity() {
 
     // --- Auto-update (fora da Play) ---
     private var pendingApkUri: Uri? = null
+    private var downloadingDialog: AlertDialog? = null
 
     // Resultado da tela de permitir “Apps desconhecidos”
     private val unknownSourcesLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { _ ->
-        // tentar de novo a instalação se o usuário voltou das Configs
         pendingApkUri?.let { uri ->
             if (canInstallUnknownSources()) {
                 startApkInstall(uri)
@@ -116,7 +117,6 @@ class MainActivity : AppCompatActivity() {
         // Garante que o rail fica por cima e a lista passa por baixo
         vb.todayRail.bringToFront()
         vb.root.post {
-            // altura do rail + um espacinho
             val topSpace = vb.todayRail.bottom + dp(4)
             vb.rvGames.setPadding(
                 vb.rvGames.paddingLeft,
@@ -125,11 +125,9 @@ class MainActivity : AppCompatActivity() {
                 vb.rvGames.paddingBottom
             )
 
-            // >>> spinner do Swipe abaixo do rail (sem ficar por baixo do chip)
-            val start = vb.todayRail.bottom + dp(6) // onde começa a desenhar
-            val end   = start + dp(44)              // até onde pode chegar
+            val start = vb.todayRail.bottom + dp(6)
+            val end   = start + dp(44)
             vb.swipe.setProgressViewOffset(true, start, end)
-            // <<<
         }
 
         vb.rvGames.layoutManager = LinearLayoutManager(this)
@@ -141,7 +139,7 @@ class MainActivity : AppCompatActivity() {
 
         vb.swipe.setOnRefreshListener {
             if (!vb.swipe.isRefreshing) vb.swipe.isRefreshing = true
-            startRefreshSpin() // garante giro imediato
+            startRefreshSpin()
             fetchGames(onFinally = { stopRefreshSpin() })
         }
 
@@ -149,8 +147,8 @@ class MainActivity : AppCompatActivity() {
 
         // Verifica se há update disponível (fora da Play)
         checkAppUpdateExternal(
-            metaUrl = "https://raw.githubusercontent.com/galaxyplay1234/futanium-box-3.1/refs/heads/main/update.json",  // << troque pelo seu endpoint
-            showNoUpdateToast = false                         // true para depurar
+            metaUrl = "https://raw.githubusercontent.com/galaxyplay1234/futanium-box-3.1/refs/heads/main/update.json",
+            showNoUpdateToast = false
         )
     }
 
@@ -158,14 +156,12 @@ class MainActivity : AppCompatActivity() {
         menuInflater.inflate(R.menu.main_menu, menu)
         refreshItem = menu.findItem(R.id.action_refresh)
 
-        // ActionView fixa com ripple custom (menor e claro) e sem "pulo"
         val size = obtainActionBarSize()
         val iv = AppCompatImageView(this).apply {
             layoutParams = ViewGroup.LayoutParams(size, size)
             setImageDrawable(refreshItem!!.icon)
             scaleType = ImageView.ScaleType.CENTER
 
-            // Ripple menor/claro
             val rippleColor = ColorStateList.valueOf(Color.parseColor("#33FFFFFF"))
             val inset = dp(5)
             val mask = InsetDrawable(ShapeDrawable(OvalShape()), inset, inset, inset, inset)
@@ -181,7 +177,6 @@ class MainActivity : AppCompatActivity() {
         MenuItemCompat.setActionView(refreshItem, iv)
         refreshView = iv
 
-        // pré-aquece a hardware layer (tira micro travo da primeira frame do botão)
         refreshView?.apply {
             setLayerType(View.LAYER_TYPE_HARDWARE, null)
             postOnAnimation { setLayerType(View.LAYER_TYPE_NONE, null) }
@@ -236,7 +231,7 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
-    /** Verifica JSON remoto e, se houver versão maior, baixa e abre instalador */
+    /** Verifica JSON remoto e, se houver versão maior, mostra popup e permite baixar */
     private fun checkAppUpdateExternal(metaUrl: String, showNoUpdateToast: Boolean = false) {
         Thread {
             try {
@@ -248,10 +243,11 @@ class MainActivity : AppCompatActivity() {
                 val obj = JSONObject(body)
                 val remoteCode = obj.optInt("versionCode", -1)
                 val apkUrl = obj.optString("apkUrl", "")
+                val changelog = obj.optString("changelog", "").trim()
                 if (remoteCode <= 0 || apkUrl.isBlank()) return@Thread
 
                 if (remoteCode > currentVersionCode()) {
-                    runOnUiThread { downloadAndPromptInstall(apkUrl) }
+                    runOnUiThread { showUpdateAvailableDialog(changelog, apkUrl) }
                 } else if (showNoUpdateToast) {
                     runOnUiThread {
                         Toast.makeText(this, "Você já está na última versão.", Toast.LENGTH_SHORT).show()
@@ -267,8 +263,45 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
+    // --- POPUP "Nova versão disponível" ---
+    private fun showUpdateAvailableDialog(changelog: String, apkUrl: String) {
+        val msg = if (changelog.isNotBlank()) changelog else "Há uma nova versão disponível."
+        AlertDialog.Builder(this)
+            .setTitle("Nova versão disponível")
+            .setMessage(msg)
+            .setNegativeButton("Cancelar", null)
+            .setPositiveButton("Baixar") { _, _ ->
+                downloadAndPromptInstall(apkUrl)
+            }
+            .show()
+    }
+
+    // --- Diálogo indeterminado "Baixando..." ---
+    private fun showDownloadingDialog(): AlertDialog {
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(24), dp(20), dp(24), dp(8))
+        }
+        val pb = ProgressBar(this).apply { isIndeterminate = true }
+        val tv = TextView(this).apply {
+            text = "Baixando atualização…"
+            setPadding(0, dp(12), 0, 0)
+        }
+        container.addView(pb)
+        container.addView(tv)
+
+        return AlertDialog.Builder(this)
+            .setTitle("Atualizando")
+            .setView(container)
+            .setCancelable(false)
+            .create()
+            .also { it.show() }
+    }
+
     private fun downloadAndPromptInstall(apkUrl: String) {
-        Toast.makeText(this, "Baixando atualização…", Toast.LENGTH_SHORT).show()
+        // Mostra diálogo "Baixando..."
+        downloadingDialog?.dismiss()
+        downloadingDialog = showDownloadingDialog()
 
         Thread {
             try {
@@ -276,7 +309,6 @@ class MainActivity : AppCompatActivity() {
                 val res = client.newCall(Request.Builder().url(apkUrl).build()).execute()
                 val body = res.body ?: throw IllegalStateException("Sem corpo na resposta")
 
-                // salva em cache/apks/update.apk
                 val dir = File(cacheDir, "apks").apply { mkdirs() }
                 val file = File(dir, "update.apk")
                 body.byteStream().use { input ->
@@ -288,9 +320,15 @@ class MainActivity : AppCompatActivity() {
                 val uri = FileProvider.getUriForFile(
                     this, "$packageName.fileprovider", file
                 )
-                runOnUiThread { prepareInstall(uri) }
+                runOnUiThread {
+                    downloadingDialog?.dismiss()
+                    downloadingDialog = null
+                    prepareInstall(uri)
+                }
             } catch (e: Exception) {
                 runOnUiThread {
+                    downloadingDialog?.dismiss()
+                    downloadingDialog = null
                     Toast.makeText(this, "Erro ao baixar atualização.", Toast.LENGTH_LONG).show()
                 }
             }
@@ -301,7 +339,6 @@ class MainActivity : AppCompatActivity() {
         pendingApkUri = uri
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (!canInstallUnknownSources()) {
-                // Abre a tela para o usuário permitir “Instalar apps desconhecidos” para ESTE app
                 try {
                     val intent = Intent(
                         Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
@@ -309,7 +346,6 @@ class MainActivity : AppCompatActivity() {
                     )
                     unknownSourcesLauncher.launch(intent)
                 } catch (e: ActivityNotFoundException) {
-                    // Fallback: abre configs do app
                     val i = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
                     i.data = Uri.parse("package:$packageName")
                     startActivity(i)
@@ -334,16 +370,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun canInstallUnknownSources(): Boolean {
-    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        try {
-            packageManager.canRequestPackageInstalls()
-        } catch (_: SecurityException) {
-            false
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                packageManager.canRequestPackageInstalls()
+            } catch (_: SecurityException) {
+                false
+            }
+        } else {
+            true
         }
-    } else {
-        true
     }
-}
 
     private fun parseGames(json: String): List<Game> {
         val arr = JSONArray(json)
@@ -389,9 +425,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun startRefreshSpin() {
         val v = refreshView ?: return
-        if (v.getTag(SPIN_TAG_KEY) == true) return // já está girando
+        if (v.getTag(SPIN_TAG_KEY) == true) return
 
-        // limpa/zera estados
         v.animate().cancel()
         spinAnimator?.cancel()
         spinAnimator = null
@@ -405,7 +440,6 @@ class MainActivity : AppCompatActivity() {
         val base = ((v.rotation % 360f) + 360f) % 360f
         v.rotation = base
 
-        // animação contínua com repeat, super linear
         spinAnimator = ObjectAnimator.ofFloat(v, View.ROTATION, base, base + 360f).apply {
             duration = 1100
             interpolator = LinearInterpolator()
@@ -430,12 +464,10 @@ class MainActivity : AppCompatActivity() {
         if (v.getTag(SPIN_TAG_KEY) != true) return
 
         if (!spinCompletedOne) {
-            // pede para parar quando completar a primeira volta
             spinPendingStop = true
             return
         }
 
-        // já completou ao menos 1 ciclo — cancela contínuo e finaliza “pra frente”
         spinAnimator?.cancel()
         spinAnimator = null
         finishToSnap(v)
@@ -444,7 +476,6 @@ class MainActivity : AppCompatActivity() {
     private fun finishToSnap(v: View) {
         v.setTag(SPIN_TAG_KEY, false)
 
-        // completa até o próximo múltiplo de 360° SEM voltar
         val current = ((v.rotation % 360f) + 360f) % 360f
         val remaining = if (current == 0f) 0f else 360f - current
         if (remaining > 0f) {
@@ -463,7 +494,6 @@ class MainActivity : AppCompatActivity() {
             v.setLayerType(View.LAYER_TYPE_NONE, null)
         }
 
-        // reset flags
         spinRepeats = 0
         spinCompletedOne = false
         spinPendingStop = false
@@ -473,7 +503,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun obtainActionBarSize(): Int {
         val tv = TypedValue()
-        var size = dp(48) // fallback
+        var size = dp(48)
         if (theme.resolveAttribute(android.R.attr.actionBarSize, tv, true)) {
             size = TypedValue.complexToDimensionPixelSize(tv.data, resources.displayMetrics)
         }
