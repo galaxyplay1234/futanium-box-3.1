@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.Futanium" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="colorPrimary">@color/bluePrimary</item>
-        <item name="colorPrimaryContainer">@color/blueDark</item>
+        <!-- Usa a mesma cor do menu/toolbar -->
+        <item name="colorPrimary">@color/menuColor</item>
+        <item name="colorPrimaryContainer">@color/menuColor</item>
         <item name="colorOnPrimary">@color/white</item>
 
+        <!-- Fundo e barras já na cor do app (sem flash roxo/branco) -->
         <item name="android:windowBackground">@color/startup_bg</item>
         <item name="android:statusBarColor">@color/startup_bg</item>
         <item name="android:navigationBarColor">@color/startup_bg</item>
@@ -12,7 +14,7 @@
         <item name="android:enforceStatusBarContrast">false</item>
         <item name="android:enforceNavigationBarContrast">false</item>
 
-        <!-- Splash do sistema “transparente” e com mesmo fundo do app -->
+        <!-- Splash nativo “transparente” e alinhado ao fundo -->
         <item name="android:windowSplashScreenBackground">@color/startup_bg</item>
         <item name="android:windowSplashScreenAnimatedIcon">@android:color/transparent</item>
         <item name="android:windowSplashScreenBrandingImage">@null</item>
