@@ -143,22 +143,24 @@ class MainActivity : AppCompatActivity() {
             fetchGames(onFinally = { stopRefreshSpin() })
         }
 
+        // ✅ Checagem de internet no primeiro carregamento
         if (isOnline()) {
-    fetchGames()
-    checkAppUpdateExternal(
-        metaUrl = "https://raw.githubusercontent.com/galaxyplay1234/futanium-box-3.1/refs/heads/main/update.json",
-        showNoUpdateToast = false
-    )
-} else {
-    showOfflineDialog {
-        vb.swipe.isRefreshing = true
-        fetchGames()
-        checkAppUpdateExternal(
-            metaUrl = "https://raw.githubusercontent.com/galaxyplay1234/futanium-box-3.1/refs/heads/main/update.json",
-            showNoUpdateToast = false
-        )
-    }
-}
+            fetchGames()
+            checkAppUpdateExternal(
+                metaUrl = "https://raw.githubusercontent.com/galaxyplay1234/futanium-box-3.1/refs/heads/main/update.json",
+                showNoUpdateToast = false
+            )
+        } else {
+            showOfflineDialog {
+                vb.swipe.isRefreshing = true
+                fetchGames()
+                checkAppUpdateExternal(
+                    metaUrl = "https://raw.githubusercontent.com/galaxyplay1234/futanium-box-3.1/refs/heads/main/update.json",
+                    showNoUpdateToast = false
+                )
+            }
+        }
+    } // <<< FECHA onCreate CORRETAMENTE
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.main_menu, menu)
@@ -205,14 +207,17 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    if (!isOnline()) {
-    vb.swipe.isRefreshing = false
-    showOfflineDialog { 
-        vb.swipe.isRefreshing = true
-        fetchGames(onFinally)
-    }
-    return
-}
+    // ✅ fetchGames reintroduzida no lugar certo (inclui checagem offline antes de baixar)
+    private fun fetchGames(onFinally: (() -> Unit)? = null) {
+        if (!isOnline()) {
+            vb.swipe.isRefreshing = false
+            showOfflineDialog {
+                vb.swipe.isRefreshing = true
+                fetchGames(onFinally)
+            }
+            return
+        }
+
         if (!vb.swipe.isRefreshing) vb.swipe.isRefreshing = true
 
         Thread {
@@ -256,18 +261,18 @@ class MainActivity : AppCompatActivity() {
                 if (body.isBlank()) return@Thread
 
                 val obj = JSONObject(body)
-val remoteCode = obj.optInt("versionCode", -1)
-val apkUrl     = obj.optString("apkUrl", "")
-val title      = obj.optString("title", "Nova versão disponível")
-val changelog  = obj.optString("changelog", "")
+                val remoteCode = obj.optInt("versionCode", -1)
+                val apkUrl     = obj.optString("apkUrl", "")
+                val title      = obj.optString("title", "Nova versão disponível")
+                val changelog  = obj.optString("changelog", "")
 
-if (remoteCode > currentVersionCode()) {
-    runOnUiThread { showUpdateAvailableDialog(title, changelog, apkUrl) }
-} else if (showNoUpdateToast) {
-    runOnUiThread {
-        Toast.makeText(this, "Você já está na última versão.", Toast.LENGTH_SHORT).show()
-    }
-}
+                if (remoteCode > currentVersionCode()) {
+                    runOnUiThread { showUpdateAvailableDialog(title, changelog, apkUrl) }
+                } else if (showNoUpdateToast) {
+                    runOnUiThread {
+                        Toast.makeText(this, "Você já está na última versão.", Toast.LENGTH_SHORT).show()
+                    }
+                }
             } catch (_: Exception) {
                 if (showNoUpdateToast) {
                     runOnUiThread {
@@ -279,27 +284,26 @@ if (remoteCode > currentVersionCode()) {
     }
 
     private fun showUpdateAvailableDialog(title: String, changelog: String, apkUrl: String) {
-    val msg = if (changelog.isNotBlank()) changelog else "Há uma nova versão disponível."
+        val msg = if (changelog.isNotBlank()) changelog else "Há uma nova versão disponível."
 
-    val dialog = AlertDialog.Builder(this)
-        .setTitle(title.ifBlank { "Nova versão disponível" })
-        .setMessage(msg)
-        .setIcon(applicationInfo.icon) // <<< ícone do app
-        .setNegativeButton("CANCELAR", null)
-        .setPositiveButton("BAIXAR") { _, _ ->
-            downloadAndPromptInstall(apkUrl)
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(title.ifBlank { "Nova versão disponível" })
+            .setMessage(msg)
+            .setIcon(applicationInfo.icon) // ícone do app
+            .setNegativeButton("CANCELAR", null)
+            .setPositiveButton("BAIXAR") { _, _ ->
+                downloadAndPromptInstall(apkUrl)
+            }
+            .create()
+
+        dialog.setOnShowListener {
+            val c = getColor(R.color.menuColor)
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(c)
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(c)
         }
-        .create()
 
-    dialog.setOnShowListener {
-        val c = getColor(R.color.menuColor)
-
-        dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(c)
-        dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(c)
+        dialog.show()
     }
-
-    dialog.show()
-}
 
     // --- Diálogo indeterminado "Baixando..." ---
     private fun showDownloadingDialog(): AlertDialog {
@@ -407,33 +411,33 @@ if (remoteCode > currentVersionCode()) {
     }
 
     private fun isOnline(): Boolean {
-    val cm = getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
-    val net = cm.activeNetwork ?: return false
-    val caps = cm.getNetworkCapabilities(net) ?: return false
-    return caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI)
-            || caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR)
-            || caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET)
-}
-
-private fun showOfflineDialog(onRetry: (() -> Unit)? = null) {
-    val d = androidx.appcompat.app.AlertDialog.Builder(this)
-        .setTitle("Sem conexão")
-        .setMessage("Verifique sua internet e tente novamente.")
-        .setNegativeButton("Configurar Wi-Fi") { _, _ ->
-            startActivity(android.content.Intent(android.provider.Settings.ACTION_WIFI_SETTINGS))
-        }
-        .setPositiveButton("Tentar novamente") { _, _ ->
-            if (isOnline()) onRetry?.invoke() else showOfflineDialog(onRetry)
-        }
-        .create()
-
-    d.setOnShowListener {
-        val c = getColor(R.color.menuColor)
-        d.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE)?.setTextColor(c)
-        d.getButton(androidx.appcompat.app.AlertDialog.BUTTON_NEGATIVE)?.setTextColor(c)
+        val cm = getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+        val net = cm.activeNetwork ?: return false
+        val caps = cm.getNetworkCapabilities(net) ?: return false
+        return caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI)
+                || caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR)
+                || caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET)
     }
-    d.show()
-}
+
+    private fun showOfflineDialog(onRetry: (() -> Unit)? = null) {
+        val d = androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Sem conexão")
+            .setMessage("Verifique sua internet e tente novamente.")
+            .setNegativeButton("Configurar Wi-Fi") { _, _ ->
+                startActivity(android.content.Intent(android.provider.Settings.ACTION_WIFI_SETTINGS))
+            }
+            .setPositiveButton("Tentar novamente") { _, _ ->
+                if (isOnline()) onRetry?.invoke() else showOfflineDialog(onRetry)
+            }
+            .create()
+
+        d.setOnShowListener {
+            val c = getColor(R.color.menuColor)
+            d.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE)?.setTextColor(c)
+            d.getButton(androidx.appcompat.app.AlertDialog.BUTTON_NEGATIVE)?.setTextColor(c)
+        }
+        d.show()
+    }
 
     private fun parseGames(json: String): List<Game> {
         val arr = JSONArray(json)
