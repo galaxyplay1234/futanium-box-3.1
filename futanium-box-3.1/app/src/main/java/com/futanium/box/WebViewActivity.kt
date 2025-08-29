@@ -108,6 +108,11 @@ class WebViewActivity : AppCompatActivity() {
         web.setBackgroundColor(Color.BLACK)
         web.keepScreenOn = true
 
+        // 🔒 bloqueia long-press/seleção (não deixa copiar nada de telas de erro internas)
+        web.isLongClickable = false
+        web.setOnLongClickListener { true }
+        web.isHapticFeedbackEnabled = false
+
         // === NÃO ficar atrás da navigation bar ===
         // 1) Aplica padding bottom no root do conteúdo da Activity.
         val contentRoot = findViewById<ViewGroup>(android.R.id.content).getChildAt(0) ?: web
@@ -291,10 +296,8 @@ class WebViewActivity : AppCompatActivity() {
             // Mostrar overlay e popup para qualquer erro principal
             private fun showBlackShieldAndDialog(view: WebView?) {
                 webLoader.visibility = View.GONE
-                try {
-                    view?.stopLoading()
-                    view?.loadUrl("about:blank")
-                } catch (_: Exception) {}
+                // apaga totalmente qualquer tela interna (sem URL)
+                showBlank(view)
                 blackShield.visibility = View.VISIBLE
 
                 showOfflineDialog {
@@ -322,7 +325,7 @@ class WebViewActivity : AppCompatActivity() {
                 if (request.isForMainFrame) showBlackShieldAndDialog(view)
             }
 
-            // Se der erro de DNS/Conexão/Timeout no frame principal, evita tela de erro e (antes ia ao proxy)
+            // DNS/Conexão/Timeout no frame principal
             override fun onReceivedError(
                 view: WebView?,
                 request: WebResourceRequest,
@@ -332,7 +335,6 @@ class WebViewActivity : AppCompatActivity() {
                 if (request.isForMainFrame) showBlackShieldAndDialog(view)
             }
 
-            // Compat para Androids antigos (mesma lógica)
             @Suppress("deprecation")
             override fun onReceivedError(
                 view: WebView?,
@@ -354,22 +356,19 @@ class WebViewActivity : AppCompatActivity() {
                 showBlackShieldAndDialog(view)
             }
 
-            // BLOQUEIO de recursos secundários (scripts, iframes, imgs) usando a blocklist
+            // BLOQUEIO de recursos secundários
             override fun shouldInterceptRequest(
                 view: WebView,
                 request: WebResourceRequest
             ): WebResourceResponse? {
-                // nunca bloquear o frame principal por aqui (deixa a navegação decidir)
                 if (request.isForMainFrame) return null
                 if (!blockReady.get()) return null
 
                 val url = request.url.toString()
                 val host = request.url.host?.lowercase(Locale.ROOT) ?: return null
 
-                // mídia/legendas nunca bloquear
                 if (isMediaUrl(url)) return null
 
-                // NÃO bloqueia sub-recursos do mesmo host do player (evita quebrar)
                 val allow = allowHost
                 if (allow != null && (host == allow || host.endsWith(".$allow"))) {
                     return null
@@ -380,7 +379,6 @@ class WebViewActivity : AppCompatActivity() {
         }
 
         web.webChromeClient = object : WebChromeClient() {
-            // cancela qualquer window.open / target=_blank
             override fun onCreateWindow(
                 view: WebView?,
                 isDialog: Boolean,
@@ -407,13 +405,11 @@ class WebViewActivity : AppCompatActivity() {
         if (hasFocus) hideStatusBar()
     }
 
-    // Botão voltar: fecha a WebView (não fica em segundo plano / sem histórico)
     override fun onBackPressed() {
         finish()
     }
 
     override fun onDestroy() {
-        // limpa o flag de manter a tela ligada (boa prática)
         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         super.onDestroy()
     }
@@ -482,14 +478,12 @@ class WebViewActivity : AppCompatActivity() {
         return false
     }
 
-    // >>> checa se a URL/host está marcada para ir via proxy
     private fun mustProxy(host: String, fullUrlLower: String): Boolean {
         for (d in proxyDomainRules) if (host == d || host.endsWith(".$d")) return true
         for (p in proxySubstringRules) if (p.isNotEmpty() && fullUrlLower.contains(p)) return true
         return false
     }
 
-    // >>> checa se a URL/host está permitida pela allowlist (per:)
     private fun matchesAllowlist(host: String, fullUrlLower: String): Boolean {
         for (d in allowDomainRules) if (host == d || host.endsWith(".$d")) return true
         for (p in allowSubstringRules) if (p.isNotEmpty() && fullUrlLower.contains(p)) return true
@@ -590,6 +584,12 @@ class WebViewActivity : AppCompatActivity() {
             })();
         """.trimIndent()
         web.evaluateJavascript(js, null)
+    }
+
+    // === apaga totalmente a página atual (evita tela de erro com URL) ===
+    private fun showBlank(view: WebView?) {
+        try { view?.stopLoading() } catch (_: Exception) {}
+        try { view?.loadDataWithBaseURL("about:blank", "", "text/html", "utf-8", null) } catch (_: Exception) {}
     }
 
     // ===== Conectividade + popup "Sem conexão" (mesmo padrão do app) =====
