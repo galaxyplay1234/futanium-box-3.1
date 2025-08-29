@@ -391,6 +391,35 @@ if (remoteCode > currentVersionCode()) {
         }
     }
 
+    private fun isOnline(): Boolean {
+    val cm = getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+    val net = cm.activeNetwork ?: return false
+    val caps = cm.getNetworkCapabilities(net) ?: return false
+    return caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI)
+            || caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR)
+            || caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET)
+}
+
+private fun showOfflineDialog(onRetry: (() -> Unit)? = null) {
+    val d = androidx.appcompat.app.AlertDialog.Builder(this)
+        .setTitle("Sem conexão")
+        .setMessage("Verifique sua internet e tente novamente.")
+        .setNegativeButton("Configurar Wi-Fi") { _, _ ->
+            startActivity(android.content.Intent(android.provider.Settings.ACTION_WIFI_SETTINGS))
+        }
+        .setPositiveButton("Tentar novamente") { _, _ ->
+            if (isOnline()) onRetry?.invoke() else showOfflineDialog(onRetry)
+        }
+        .create()
+
+    d.setOnShowListener {
+        val c = getColor(R.color.menuColor)
+        d.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE)?.setTextColor(c)
+        d.getButton(androidx.appcompat.app.AlertDialog.BUTTON_NEGATIVE)?.setTextColor(c)
+    }
+    d.show()
+}
+
     private fun parseGames(json: String): List<Game> {
         val arr = JSONArray(json)
         val list = ArrayList<Game>(arr.length())
