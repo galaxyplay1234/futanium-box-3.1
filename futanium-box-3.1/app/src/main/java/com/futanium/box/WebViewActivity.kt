@@ -1,13 +1,21 @@
 package com.futanium.box
 
 import android.annotation.SuppressLint
+import android.graphics.Bitmap
 import android.graphics.Color
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.webkit.*
+import android.webkit.SslErrorHandler
+import android.net.http.SslError
+import android.content.Intent
+import android.provider.Settings
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
@@ -25,6 +33,11 @@ class WebViewActivity : AppCompatActivity() {
     private lateinit var insets: WindowInsetsControllerCompat
     // Loader central (igual ao do player)
     private lateinit var webLoader: android.widget.ProgressBar
+
+    // --- overlay preto para esconder erros / URL ---
+    private lateinit var blackShield: View
+    // última URL principal visitada (para "Tentar novamente")
+    private var lastMainUrl: String? = null
 
     // --- BLOQUEIO (lista remota) ---
     private val client = OkHttpClient()
@@ -114,6 +127,17 @@ class WebViewActivity : AppCompatActivity() {
         ViewCompat.requestApplyInsets(web)
         // =========================================
 
+        // --- overlay preto full-screen (inicialmente invisível) ---
+        blackShield = View(this).apply {
+            setBackgroundColor(Color.BLACK)
+            visibility = View.GONE
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        }
+        (contentRoot as ViewGroup).addView(blackShield)
+
         with(web.settings) {
             javaScriptEnabled = true
             domStorageEnabled = true
@@ -150,6 +174,9 @@ class WebViewActivity : AppCompatActivity() {
                 val u = uri.toString()
                 val uLower = u.lowercase(Locale.ROOT)
 
+                // guarda a última URL principal tentada
+                lastMainUrl = u
+
                 // Sempre permite blobs/dados/mídia na própria guia
                 if (isMediaUrl(u) || u.startsWith("blob:") || u.startsWith("data:")) return false
 
@@ -162,8 +189,8 @@ class WebViewActivity : AppCompatActivity() {
                     || u.startsWith("sms:")) {
                     return try {
                         startActivity(
-                            android.content.Intent(
-                                android.content.Intent.ACTION_VIEW,
+                            Intent(
+                                Intent.ACTION_VIEW,
                                 Uri.parse(u)
                             )
                         )
@@ -173,6 +200,17 @@ class WebViewActivity : AppCompatActivity() {
 
                 // http/https
                 if (u.startsWith("http")) {
+                    // se estiver sem internet, não carrega nada: mostra overlay + popup
+                    if (!isOnline()) {
+                        blackShield.visibility = View.VISIBLE
+                        showOfflineDialog {
+                            blackShield.visibility = View.GONE
+                            val retry = lastMainUrl ?: u
+                            if (isOnline()) view.loadUrl(retry)
+                        }
+                        return true
+                    }
+
                     val host = uri.host?.lowercase(Locale.ROOT) ?: return true
 
                     // (A) Se estiver marcado para PROXY no blocklist, reescreve antes de carregar
@@ -218,10 +256,13 @@ class WebViewActivity : AppCompatActivity() {
                 return true
             }
 
-            override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+            override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                 super.onPageStarted(view, url, favicon)
                 // mostra loader
                 webLoader.visibility = View.VISIBLE
+
+                // guarda URL principal (para retry)
+                if (!url.isNullOrBlank()) lastMainUrl = url
 
                 url?.let {
                     val h = runCatching { Uri.parse(it).host?.lowercase(Locale.ROOT) }.getOrNull()
@@ -247,37 +288,48 @@ class WebViewActivity : AppCompatActivity() {
                 }
             }
 
-            // Se der erro de DNS/Conexão/Timeout no frame principal, evita tela de erro e vai direto pro proxy
+            // Mostrar overlay e popup para qualquer erro principal
+            private fun showBlackShieldAndDialog(view: WebView?) {
+                webLoader.visibility = View.GONE
+                try {
+                    view?.stopLoading()
+                    view?.loadUrl("about:blank")
+                } catch (_: Exception) {}
+                blackShield.visibility = View.VISIBLE
+
+                showOfflineDialog {
+                    blackShield.visibility = View.GONE
+                    val retry = lastMainUrl
+                    if (isOnline()) {
+                        if (retry.isNullOrBlank()) view?.reload() else view?.loadUrl(retry)
+                    } else {
+                        showOfflineDialog(this::hideBlackShieldIfOnline)
+                    }
+                }
+            }
+
+            private fun hideBlackShieldIfOnline() {
+                if (isOnline()) blackShield.visibility = View.GONE
+            }
+
+            // HTTP (ex.: 404/500) no frame principal
+            override fun onReceivedHttpError(
+                view: WebView,
+                request: WebResourceRequest,
+                errorResponse: WebResourceResponse
+            ) {
+                super.onReceivedHttpError(view, request, errorResponse)
+                if (request.isForMainFrame) showBlackShieldAndDialog(view)
+            }
+
+            // Se der erro de DNS/Conexão/Timeout no frame principal, evita tela de erro e (antes ia ao proxy)
             override fun onReceivedError(
                 view: WebView?,
                 request: WebResourceRequest,
                 error: WebResourceError
             ) {
                 super.onReceivedError(view, request, error)
-
-                if (request.isForMainFrame) {
-                    // esconde loader para não travar visível
-                    webLoader.visibility = View.GONE
-
-                    val code = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-                        error.errorCode
-                    } else 0
-
-                    // erros que indicam bloqueio/dns/timeout
-                    val shouldProxy = code == ERROR_HOST_LOOKUP ||
-                                      code == ERROR_CONNECT ||
-                                      code == ERROR_TIMEOUT
-
-                    if (shouldProxy) {
-                        val original = request.url.toString()
-                        val lower = original.lowercase(Locale.ROOT)
-                        if (!lower.startsWith(PROXY_BASE)) {
-                            view?.stopLoading()
-                            view?.loadUrl("about:blank")
-                            view?.post { view.loadUrl(PROXY_BASE + Uri.encode(original)) }
-                        }
-                    }
-                }
+                if (request.isForMainFrame) showBlackShieldAndDialog(view)
             }
 
             // Compat para Androids antigos (mesma lógica)
@@ -289,23 +341,17 @@ class WebViewActivity : AppCompatActivity() {
                 failingUrl: String?
             ) {
                 super.onReceivedError(view, errorCode, description, failingUrl)
-                // esconde loader em erro
-                webLoader.visibility = View.GONE
+                showBlackShieldAndDialog(view)
+            }
 
-                if (failingUrl != null) {
-                    val shouldProxy = errorCode == ERROR_HOST_LOOKUP ||
-                                      errorCode == ERROR_CONNECT ||
-                                      errorCode == ERROR_TIMEOUT
-
-                    if (shouldProxy) {
-                        val lower = failingUrl.lowercase(Locale.ROOT)
-                        if (!lower.startsWith(PROXY_BASE)) {
-                            view?.stopLoading()
-                            view?.loadUrl("about:blank")
-                            view?.post { view.loadUrl(PROXY_BASE + Uri.encode(failingUrl)) }
-                        }
-                    }
-                }
+            // SSL
+            override fun onReceivedSslError(
+                view: WebView?,
+                handler: SslErrorHandler?,
+                error: SslError?
+            ) {
+                handler?.cancel()
+                showBlackShieldAndDialog(view)
             }
 
             // BLOQUEIO de recursos secundários (scripts, iframes, imgs) usando a blocklist
@@ -345,7 +391,10 @@ class WebViewActivity : AppCompatActivity() {
             }
         }
 
-        if (initialUrl.isNotBlank()) web.loadUrl(initialUrl)
+        if (initialUrl.isNotBlank()) {
+            lastMainUrl = initialUrl
+            web.loadUrl(initialUrl)
+        }
     }
 
     private fun hideStatusBar() {
@@ -541,5 +590,35 @@ class WebViewActivity : AppCompatActivity() {
             })();
         """.trimIndent()
         web.evaluateJavascript(js, null)
+    }
+
+    // ===== Conectividade + popup "Sem conexão" (mesmo padrão do app) =====
+    private fun isOnline(): Boolean {
+        val cm = getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
+        val net = cm.activeNetwork ?: return false
+        val caps = cm.getNetworkCapabilities(net) ?: return false
+        return caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+               caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
+               caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+    }
+
+    private fun showOfflineDialog(onRetry: (() -> Unit)? = null) {
+        val d = AlertDialog.Builder(this)
+            .setTitle("⚠️ Sem conexão")
+            .setMessage("Verifique sua internet e tente novamente.")
+            .setNegativeButton("CONFIGURAR WI-FI") { _, _ ->
+                startActivity(Intent(Settings.ACTION_WIFI_SETTINGS))
+            }
+            .setPositiveButton("TENTAR NOVAMENTE") { _, _ ->
+                if (isOnline()) onRetry?.invoke() else showOfflineDialog(onRetry)
+            }
+            .create()
+
+        d.setOnShowListener {
+            val c = getColor(R.color.menuColor)
+            d.getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(c)
+            d.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(c)
+        }
+        d.show()
     }
 }
