@@ -421,12 +421,12 @@ class MainActivity : AppCompatActivity() {
 
     private fun showOfflineDialog(onRetry: (() -> Unit)? = null) {
         val d = androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Sem conexão")
+            .setTitle("Sem conexão ⚠️")
             .setMessage("Verifique sua internet e tente novamente.")
-            .setNegativeButton("Configurar Wi-Fi") { _, _ ->
+            .setNegativeButton("CONFIGURAR WI-FI") { _, _ ->
                 startActivity(android.content.Intent(android.provider.Settings.ACTION_WIFI_SETTINGS))
             }
-            .setPositiveButton("Tentar novamente") { _, _ ->
+            .setPositiveButton("TENTAR NOVAMENTE") { _, _ ->
                 if (isOnline()) onRetry?.invoke() else showOfflineDialog(onRetry)
             }
             .create()
