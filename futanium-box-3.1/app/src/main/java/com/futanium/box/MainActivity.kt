@@ -247,7 +247,10 @@ class MainActivity : AppCompatActivity() {
                 if (remoteCode <= 0 || apkUrl.isBlank()) return@Thread
 
                 if (remoteCode > currentVersionCode()) {
-                    runOnUiThread { showUpdateAvailableDialog(changelog, apkUrl) }
+    val title = obj.optString("title", "Nova versão disponível")
+    val changelog = obj.optString("changelog", "Há uma nova versão disponível.")
+    runOnUiThread { showUpdateAvailableDialog(title, changelog, apkUrl) }
+}
                 } else if (showNoUpdateToast) {
                     runOnUiThread {
                         Toast.makeText(this, "Você já está na última versão.", Toast.LENGTH_SHORT).show()
@@ -263,12 +266,13 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
-    private fun showUpdateAvailableDialog(changelog: String, apkUrl: String) {
+    private fun showUpdateAvailableDialog(title: String, changelog: String, apkUrl: String) {
     val msg = if (changelog.isNotBlank()) changelog else "Há uma nova versão disponível."
 
     val dialog = AlertDialog.Builder(this)
-        .setTitle("Nova versão disponível")
+        .setTitle(title.ifBlank { "Nova versão disponível" })
         .setMessage(msg)
+        .setIcon(applicationInfo.icon) // <<< ícone do app
         .setNegativeButton("CANCELAR", null)
         .setPositiveButton("BAIXAR") { _, _ ->
             downloadAndPromptInstall(apkUrl)
@@ -276,15 +280,11 @@ class MainActivity : AppCompatActivity() {
         .create()
 
     dialog.setOnShowListener {
-    val c = getColor(R.color.menuColor)
+        val c = getColor(R.color.menuColor)
 
-    dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.apply {
-        setTextColor(c) // só muda a cor do texto
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(c)
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(c)
     }
-    dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.apply {
-        setTextColor(c)
-    }
-}
 
     dialog.show()
 }
