@@ -134,8 +134,19 @@ class MainActivity : AppCompatActivity() {
         vb.rvGames.adapter = adapter
 
         adapter.onOpenLink = { url, title, referer, ua ->
-            LinkHelper.openLinkSmart(this, url, title, referer, ua)
+    if (!isOnline()) {
+        showOfflineDialog {
+            if (isOnline()) {
+                LinkHelper.openLinkSmart(this, url, title, referer, ua)
+            } else {
+                // continua sem conexão: mostra de novo até o usuário conectar
+                showOfflineDialog { /* no-op, reabre quando tiver net */ }
+            }
         }
+    } else {
+        LinkHelper.openLinkSmart(this, url, title, referer, ua)
+    }
+}
 
         vb.swipe.setOnRefreshListener {
             if (!vb.swipe.isRefreshing) vb.swipe.isRefreshing = true
