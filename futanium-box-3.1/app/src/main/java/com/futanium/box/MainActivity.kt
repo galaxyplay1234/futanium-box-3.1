@@ -241,21 +241,18 @@ class MainActivity : AppCompatActivity() {
                 if (body.isBlank()) return@Thread
 
                 val obj = JSONObject(body)
-                val remoteCode = obj.optInt("versionCode", -1)
-                val apkUrl = obj.optString("apkUrl", "")
-                val changelog = obj.optString("changelog", "").trim()
-                if (remoteCode <= 0 || apkUrl.isBlank()) return@Thread
+val remoteCode = obj.optInt("versionCode", -1)
+val apkUrl     = obj.optString("apkUrl", "")
+val title      = obj.optString("title", "Nova versão disponível")
+val changelog  = obj.optString("changelog", "")
 
-                if (remoteCode > currentVersionCode()) {
-    val title = obj.optString("title", "Nova versão disponível")
-    val changelog = obj.optString("changelog", "Há uma nova versão disponível.")
+if (remoteCode > currentVersionCode()) {
     runOnUiThread { showUpdateAvailableDialog(title, changelog, apkUrl) }
+} else if (showNoUpdateToast) {
+    runOnUiThread {
+        Toast.makeText(this, "Você já está na última versão.", Toast.LENGTH_SHORT).show()
+    }
 }
-                } else if (showNoUpdateToast) {
-                    runOnUiThread {
-                        Toast.makeText(this, "Você já está na última versão.", Toast.LENGTH_SHORT).show()
-                    }
-                }
             } catch (_: Exception) {
                 if (showNoUpdateToast) {
                     runOnUiThread {
