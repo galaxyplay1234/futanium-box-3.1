@@ -143,14 +143,22 @@ class MainActivity : AppCompatActivity() {
             fetchGames(onFinally = { stopRefreshSpin() })
         }
 
+        if (isOnline()) {
+    fetchGames()
+    checkAppUpdateExternal(
+        metaUrl = "https://raw.githubusercontent.com/galaxyplay1234/futanium-box-3.1/refs/heads/main/update.json",
+        showNoUpdateToast = false
+    )
+} else {
+    showOfflineDialog {
+        vb.swipe.isRefreshing = true
         fetchGames()
-
-        // Verifica se há update disponível (fora da Play)
         checkAppUpdateExternal(
             metaUrl = "https://raw.githubusercontent.com/galaxyplay1234/futanium-box-3.1/refs/heads/main/update.json",
             showNoUpdateToast = false
         )
     }
+}
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.main_menu, menu)
@@ -197,7 +205,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun fetchGames(onFinally: (() -> Unit)? = null) {
+    if (!isOnline()) {
+    vb.swipe.isRefreshing = false
+    showOfflineDialog { 
+        vb.swipe.isRefreshing = true
+        fetchGames(onFinally)
+    }
+    return
+}
         if (!vb.swipe.isRefreshing) vb.swipe.isRefreshing = true
 
         Thread {
