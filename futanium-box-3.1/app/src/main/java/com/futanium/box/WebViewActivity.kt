@@ -108,6 +108,8 @@ class WebViewActivity : AppCompatActivity() {
         web.setBackgroundColor(Color.BLACK)
         web.keepScreenOn = true
 
+        web.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+
         // 🔒 bloqueia long-press/seleção (não deixa copiar nada de telas de erro internas)
         web.isLongClickable = false
         web.setOnLongClickListener { true }
