@@ -1,6 +1,3 @@
-*Webview activity*
-
-
 package com.futanium.box
 
 import android.annotation.SuppressLint
