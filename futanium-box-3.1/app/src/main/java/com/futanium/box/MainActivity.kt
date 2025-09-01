@@ -44,6 +44,12 @@ import androidx.appcompat.app.AlertDialog
 import android.widget.ProgressBar
 import android.widget.LinearLayout
 
+// >>> IMPORTS extra p/ TV/DPAD:
+import android.view.KeyEvent
+import androidx.recyclerview.widget.RecyclerView
+import kotlin.math.min
+import kotlin.math.max
+
 class MainActivity : AppCompatActivity() {
 
     private lateinit var vb: ActivityMainBinding
@@ -133,20 +139,79 @@ class MainActivity : AppCompatActivity() {
         vb.rvGames.layoutManager = LinearLayoutManager(this)
         vb.rvGames.adapter = adapter
 
-        adapter.onOpenLink = { url, title, referer, ua ->
-    if (!isOnline()) {
-        showOfflineDialog {
-            if (isOnline()) {
-                LinkHelper.openLinkSmart(this, url, title, referer, ua)
+        // =============== AJUSTES TV/DPAD ===============
+        // 1) Permitir que os filhos (botões dentro do card) recebam foco com DPAD
+        vb.rvGames.isFocusable = true
+        vb.rvGames.isFocusableInTouchMode = true
+        vb.rvGames.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
+        vb.rvGames.setHasFixedSize(false)
+
+        // 2) Largura máx. visual dos cards (500dp) em telas grandes + centralizar
+        val maxCardPx = dp(500)
+        vb.rvGames.clipToPadding = false
+        vb.rvGames.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            // centraliza via padding lateral quando a tela é maior que 500dp
+            val w = vb.rvGames.width
+            val target = min(w, maxCardPx)
+            val side = max(0, (w - target) / 2)
+            vb.rvGames.setPadding(side, vb.rvGames.paddingTop, side, vb.rvGames.paddingBottom)
+        }
+        // força largura de cada child <= 500dp (caso item root seja match_parent)
+        vb.rvGames.addOnChildAttachStateChangeListener(object : RecyclerView.OnChildAttachStateChangeListener {
+            override fun onChildViewAttachedToWindow(view: View) {
+                val w = vb.rvGames.width
+                val target = min(w, maxCardPx)
+                val lp = view.layoutParams as RecyclerView.LayoutParams
+                lp.width = target
+                view.layoutParams = lp
+            }
+            override fun onChildViewDetachedFromWindow(view: View) {}
+        })
+
+        // 3) Empurrar foco do card para o 1º botão “focusable” dentro dele ao pressionar DPAD
+        vb.rvGames.setOnKeyListener { _, keyCode, event ->
+            if (event.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false
+            val isDpad = keyCode == KeyEvent.KEYCODE_DPAD_DOWN ||
+                         keyCode == KeyEvent.KEYCODE_DPAD_UP   ||
+                         keyCode == KeyEvent.KEYCODE_DPAD_LEFT ||
+                         keyCode == KeyEvent.KEYCODE_DPAD_RIGHT
+            if (!isDpad) return@setOnKeyListener false
+
+            // view atualmente focada
+            val focused = currentFocus
+            // Se já está num botão interno, deixa o sistema mover o foco normalmente
+            if (focused != null && focused !== vb.rvGames && focused !== vb.root) return@setOnKeyListener false
+
+            // Tenta achar o card visível no centro da tela
+            val lm = vb.rvGames.layoutManager as LinearLayoutManager
+            val midPos = (lm.findFirstVisibleItemPosition() + lm.findLastVisibleItemPosition()) / 2
+            val holder = vb.rvGames.findViewHolderForAdapterPosition(midPos) ?: return@setOnKeyListener false
+            val cardRoot = holder.itemView
+
+            // Procura um filho focóvel dentro do card (ex.: 1º botão de ações)
+            val next = findFirstFocusableDescendant(cardRoot)
+            return@setOnKeyListener if (next != null && next.isFocusable) {
+                next.requestFocus()
+                true
             } else {
-                // continua sem conexão: mostra de novo até o usuário conectar
-                showOfflineDialog { /* no-op, reabre quando tiver net */ }
+                false
             }
         }
-    } else {
-        LinkHelper.openLinkSmart(this, url, title, referer, ua)
-    }
-}
+        // =================================================
+
+        adapter.onOpenLink = { url, title, referer, ua ->
+            if (!isOnline()) {
+                showOfflineDialog {
+                    if (isOnline()) {
+                        LinkHelper.openLinkSmart(this, url, title, referer, ua)
+                    } else {
+                        showOfflineDialog { /* no-op, reabre quando tiver net */ }
+                    }
+                }
+            } else {
+                LinkHelper.openLinkSmart(this, url, title, referer, ua)
+            }
+        }
 
         vb.swipe.setOnRefreshListener {
             if (!vb.swipe.isRefreshing) vb.swipe.isRefreshing = true
@@ -598,5 +663,17 @@ class MainActivity : AppCompatActivity() {
                 pi.versionCode
             }
         } catch (_: Exception) { 0 }
+    }
+
+    // ===== helper: achar primeiro filho focável dentro do card =====
+    private fun findFirstFocusableDescendant(root: View): View? {
+        if (root.isFocusable) return root
+        if (root is ViewGroup) {
+            for (i in 0 until root.childCount) {
+                val f = findFirstFocusableDescendant(root.getChildAt(i))
+                if (f != null) return f
+            }
+        }
+        return null
     }
 }
