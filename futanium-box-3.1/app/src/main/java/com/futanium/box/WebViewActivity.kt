@@ -31,43 +31,34 @@ class WebViewActivity : AppCompatActivity() {
 
     private lateinit var web: WebView
     private lateinit var insets: WindowInsetsControllerCompat
-    // Loader central (igual ao do player)
     private lateinit var webLoader: android.widget.ProgressBar
 
-    // --- overlay preto para esconder erros / URL ---
     private lateinit var blackShield: View
-    // última URL principal visitada (para "Tentar novamente")
     private var lastMainUrl: String? = null
 
-    // --- BLOQUEIO (lista remota) ---
     private val client = OkHttpClient()
     private val blocklistUrl =
         "https://raw.githubusercontent.com/galaxyplay1234/bloqueio-ads-futanium/refs/heads/main/blocklist.txt"
 
-    private val domainRules = HashSet<String>()      // domínios exatos (bloqueio)
-    private val substringRules = ArrayList<String>() // trechos na URL (bloqueio)
+    private val domainRules = HashSet<String>()
+    private val substringRules = ArrayList<String>()
 
-    // >>> ALLOWLIST (linhas iniciadas com "per:")
-    private val allowDomainRules = HashSet<String>()      // domínios permitidos (navegação principal)
-    private val allowSubstringRules = ArrayList<String>() // trechos permitidos (navegação principal)
+    private val allowDomainRules = HashSet<String>()
+    private val allowSubstringRules = ArrayList<String>()
 
-    // >>> PROXY (linhas iniciadas com "proxy:")
-    private val proxyDomainRules = HashSet<String>()      // domínios que devem ir via proxy
-    private val proxySubstringRules = ArrayList<String>() // trechos que devem ir via proxy
+    private val proxyDomainRules = HashSet<String>()
+    private val proxySubstringRules = ArrayList<String>()
     private val PROXY_BASE = "https://controledeestoque.rf.gd/proxy.php?url="
 
-    private var allowHost: String? = null            // host/eTLD+1 do player atual
+    private var allowHost: String? = null
     private val blockReady = AtomicBoolean(false)
-    // --------------------------------
 
-    // === MODO ENC. (bit.ly) ===
     private var shortenerActive: Boolean = false
     private fun isShortener(url: String, host: String?): Boolean {
         val u = url.lowercase(Locale.ROOT)
         val h = (host ?: "").lowercase(Locale.ROOT)
         return h == "bit.ly" || u.contains("/bit.ly/") || u.contains("://bit.ly/")
     }
-    // ==========================
 
     // --- BLOQUEIO “DURO” (fixo, estilo B4A) ---
     private val hardBlockedHosts = setOf(
@@ -92,7 +83,6 @@ class WebViewActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Status bar translúcida (aparece só ao puxar). Nav bar fica fixa e preta.
         WindowCompat.setDecorFitsSystemWindows(window, true)
         window.statusBarColor = Color.BLACK
         window.navigationBarColor = Color.BLACK
@@ -106,31 +96,23 @@ class WebViewActivity : AppCompatActivity() {
 
         setContentView(R.layout.activity_webview)
 
-        // 👇 encontra o loader
         webLoader = findViewById(R.id.webLoader)
-
-        // Mantém a tela ligada (reforço além do keepScreenOn da WebView)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         val initialUrl = intent.getStringExtra(EXTRA_URL).orEmpty()
         val initHost = runCatching { Uri.parse(initialUrl).host?.lowercase(Locale.ROOT) }.getOrNull()
         allowHost = initHost
-
         if (isShortener(initialUrl, initHost)) shortenerActive = true
 
-        // carrega blocklist em background
         Thread { loadBlocklist() }.start()
 
         web = findViewById(R.id.web)
         web.setBackgroundColor(Color.BLACK)
         web.keepScreenOn = true
-
-        // 🔒 bloqueia long-press/seleção (não deixa copiar nada de telas de erro internas)
         web.isLongClickable = false
         web.setOnLongClickListener { true }
         web.isHapticFeedbackEnabled = false
 
-        // === NÃO ficar atrás da navigation bar ===
         val contentRoot = findViewById<ViewGroup>(android.R.id.content).getChildAt(0) ?: web
         ViewCompat.setOnApplyWindowInsetsListener(contentRoot) { v, ins ->
             val nav = ins.getInsets(WindowInsetsCompat.Type.navigationBars())
@@ -144,9 +126,7 @@ class WebViewActivity : AppCompatActivity() {
         }
         ViewCompat.requestApplyInsets(contentRoot)
         ViewCompat.requestApplyInsets(web)
-        // =========================================
 
-        // --- overlay preto full-screen (inicialmente invisível) ---
         blackShield = View(this).apply {
             setBackgroundColor(Color.BLACK)
             visibility = View.GONE
@@ -210,41 +190,41 @@ class WebViewActivity : AppCompatActivity() {
 
                     val host = uri.host?.lowercase(Locale.ROOT) ?: return true
 
-                    // 🔥 BLOQUEIO DURO imediato (sem “efeito de clique”)
+                    // bloqueio duro (sem efeito de clique)
                     if (shouldBlockHard(uLower, host)) return true
 
-                    // (A) Proxy obrigatório (se configurado na blocklist remota)
+                    // proxy se marcado
                     if (mustProxy(host, uLower) && !uLower.startsWith(PROXY_BASE)) {
                         view.loadUrl(PROXY_BASE + Uri.encode(u))
                         return true
                     }
 
-                    // 0) Encurtador -> permite 1x
+                    // encurtador -> permitir 1x
                     if (isShortener(u, host)) {
                         shortenerActive = true
                         return false
                     }
 
-                    // 1) Allowlist libera e fixa host
+                    // allowlist -> libera e fixa host
                     if (matchesAllowlist(host, uLower)) {
                         allowHost = host
                         shortenerActive = false
                         return false
                     }
 
-                    // 2) Se veio do encurtador, aceita 1 travessia
+                    // veio do encurtador -> aceita travessia
                     if (shortenerActive) {
                         allowHost = host
                         shortenerActive = false
                         return false
                     }
 
-                    // 3) Mantém dentro do mesmo eTLD+1
+                    // mantém dentro do mesmo eTLD+1
                     val allow = allowHost
                     val same = allow != null && (host == allow || host.endsWith(".$allow"))
                     if (!same) return true
 
-                    // 4) Blocklist remota no main-frame
+                    // blocklist remota no main-frame
                     if (request.isForMainFrame && blockReady.get() && isBlocked(host, uLower)) {
                         return true
                     }
@@ -357,7 +337,6 @@ class WebViewActivity : AppCompatActivity() {
                     return null
                 }
 
-                // 🔥 BLOQUEIO DURO também em sub-recursos
                 val uLower = url.lowercase(Locale.ROOT)
                 if (shouldBlockHard(uLower, host)) return empty204()
 
@@ -416,7 +395,7 @@ class WebViewActivity : AppCompatActivity() {
                 blockReady.set(true)
             }
         } catch (_: Exception) {
-            // sem lista -> segue sem bloquear recursos por URL
+            // sem lista -> segue sem bloquear
         }
     }
 
@@ -501,9 +480,24 @@ class WebViewActivity : AppCompatActivity() {
             .filter { it.isNotBlank() }
             .take(2000)
             .joinToString(separator = "\",\"", prefix = "[\"", postfix = "\"]") { it.replace("\"", "") }
+
+        // host permitido atual (ou vazio)
+        val allow = (allowHost ?: "").lowercase(Locale.ROOT)
+
         val js = """
             (function(){
               const LIST = $tokens;
+              const ALLOW = ${if (allow.isBlank()) "null" else "\"$allow\""};
+              
+              function sameHostOrSub(h,a){
+                if(!a||!h) return false;
+                h = (""+h).toLowerCase();
+                a = (""+a).toLowerCase();
+                return (h===a) || h.endsWith("."+a);
+              }
+              function hostOf(u){
+                try { return new URL(u, location.href).host.toLowerCase(); } catch(e){ return ""; }
+              }
               function isBad(u){
                 if(!u) return false;
                 u = (""+u).toLowerCase();
@@ -511,33 +505,43 @@ class WebViewActivity : AppCompatActivity() {
                   const t = LIST[i];
                   if(!t) continue;
                   if(t.startsWith(".")) {
-                    try { 
-                      const h = new URL(u, location.href).host.toLowerCase(); 
-                      if (h===t.slice(1) || h.endsWith(t)) return true;
-                    } catch(e){}
+                    const h = hostOf(u);
+                    if (h===t.slice(1) || h.endsWith(t)) return true;
                   } else {
                     if(u.indexOf(t) !== -1) return true;
                   }
                 }
                 return false;
               }
-              // bloqueia popups/redirects
+
+              // Bloqueia popups/redirects JS
               window.open = function(){ return null; };
               ['assign','replace'].forEach(k=>{
                 const orig = location[k].bind(location);
-                location[k] = function(u){ if (isBad(u)) return; try{orig(u);}catch(e){} };
+                location[k] = function(u){ if (isBad(u)) return; if (ALLOW && !sameHostOrSub(hostOf(u), ALLOW)) return; try{orig(u);}catch(e){} };
               });
-              Object.defineProperty(window, 'onbeforeunload', {get:()=>null,set:()=>true});
-              window.addEventListener('click', function(e){
+
+              // Mata cliques em links "ruins" ou fora do host permitido (sem flash/tap-highlight)
+              function killIfBadAnchor(e){
                 let el = e.target;
                 while (el && el !== document && !('href' in el)) el = el.parentElement;
-                if (el && el.href && isBad(el.href)) {
-                  e.preventDefault(); e.stopImmediatePropagation(); return false;
+                if (el && el.href){
+                  const href = el.href;
+                  const h = hostOf(href);
+                  if (isBad(href) || (ALLOW && !sameHostOrSub(h, ALLOW))) {
+                    e.preventDefault(); e.stopImmediatePropagation();
+                    return false;
+                  }
                 }
-              }, true);
-              // 🔒 SEM "clique azulado" + sem seleção/callout
+              }
+              window.addEventListener('mousedown', killIfBadAnchor, true);
+              window.addEventListener('click',    killIfBadAnchor, true);
+              window.addEventListener('touchstart', killIfBadAnchor, true);
+
+              // 🔒 Sem “clique azulado”, sem seleção/callout/focus-outline
               const css = `
                 * { -webkit-tap-highlight-color: rgba(0,0,0,0) !important; }
+                *:focus { outline: none !important; }
                 a, a:link, a:visited, a:hover, a:active {
                   outline: none !important;
                   -webkit-tap-highlight-color: transparent !important;
@@ -553,6 +557,7 @@ class WebViewActivity : AppCompatActivity() {
               const style = document.createElement('style');
               style.type = 'text/css'; style.appendChild(document.createTextNode(css));
               document.documentElement.appendChild(style);
+
               const _setInterval = window.setInterval;
               window.setInterval = function(fn, t){
                 if (typeof fn === 'string' && isBad(fn)) return 0;
@@ -560,20 +565,45 @@ class WebViewActivity : AppCompatActivity() {
               };
             })();
         """.trimIndent()
+
         web.evaluateJavascript(js, null)
     }
 
-    private fun injectCoreShieldJS(extraTokens: List<String>) {
+    private fun injectCoreShieldJS(@Suppress("UNUSED_PARAMETER") extraTokens: List<String>) {
+        val allow = (allowHost ?: "").lowercase(Locale.ROOT)
         val js = """
             (function(){
+              const ALLOW = ${if (allow.isBlank()) "null" else "\"$allow\""};
+              function hostOf(u){ try { return new URL(u, location.href).host.toLowerCase(); } catch(e){ return ""; } }
+              function sameHostOrSub(h,a){
+                if(!a||!h) return false;
+                h = (""+h).toLowerCase(); a = (""+a).toLowerCase();
+                return (h===a) || h.endsWith("."+a);
+              }
+
               window.open = function(){ return null; };
               ['assign','replace'].forEach(k=>{
                 const orig = location[k].bind(location);
-                location[k] = function(u){ if(!u) return; try{orig(u);}catch(e){} };
+                location[k] = function(u){ if (ALLOW && !sameHostOrSub(hostOf(u), ALLOW)) return; try{orig(u);}catch(e){} };
               });
-              // 🔒 SEM "clique azulado" + sem seleção/callout
+
+              function killIfBadAnchor(e){
+                let el = e.target;
+                while (el && el !== document && !('href' in el)) el = el.parentElement;
+                if (el && el.href){
+                  const h = hostOf(el.href);
+                  if (ALLOW && !sameHostOrSub(h, ALLOW)) {
+                    e.preventDefault(); e.stopImmediatePropagation(); return false;
+                  }
+                }
+              }
+              window.addEventListener('mousedown', killIfBadAnchor, true);
+              window.addEventListener('click',    killIfBadAnchor, true);
+              window.addEventListener('touchstart', killIfBadAnchor, true);
+
               const css = `
                 * { -webkit-tap-highlight-color: rgba(0,0,0,0) !important; }
+                *:focus { outline: none !important; }
                 a, a:link, a:visited, a:hover, a:active {
                   outline: none !important;
                   -webkit-tap-highlight-color: transparent !important;
@@ -589,16 +619,15 @@ class WebViewActivity : AppCompatActivity() {
               document.documentElement.appendChild(style);
             })();
         """.trimIndent()
+
         web.evaluateJavascript(js, null)
     }
 
-    // === apaga totalmente a página atual (evita tela de erro com URL) ===
     private fun showBlank(view: WebView?) {
         try { view?.stopLoading() } catch (_: Exception) {}
         try { view?.loadDataWithBaseURL("about:blank", "", "text/html", "utf-8", null) } catch (_: Exception) {}
     }
 
-    // ===== Conectividade + popup "Sem conexão" =====
     private fun isOnline(): Boolean {
         val cm = getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
         val net = cm.activeNetwork ?: return false
