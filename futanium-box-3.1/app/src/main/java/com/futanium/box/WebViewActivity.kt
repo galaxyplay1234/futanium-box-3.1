@@ -1,3 +1,6 @@
+*Webview activity*
+
+
 package com.futanium.box
 
 import android.annotation.SuppressLint
@@ -26,71 +29,55 @@ import okhttp3.Request
 import java.io.ByteArrayInputStream
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
-import android.view.MotionEvent   // <- importante
 
 class WebViewActivity : AppCompatActivity() {
 
     private lateinit var web: WebView
     private lateinit var insets: WindowInsetsControllerCompat
+    // Loader central (igual ao do player)
     private lateinit var webLoader: android.widget.ProgressBar
 
+    // --- overlay preto para esconder erros / URL ---
     private lateinit var blackShield: View
+    // última URL principal visitada (para "Tentar novamente")
     private var lastMainUrl: String? = null
 
+    // --- BLOQUEIO (lista remota) ---
     private val client = OkHttpClient()
     private val blocklistUrl =
         "https://raw.githubusercontent.com/galaxyplay1234/bloqueio-ads-futanium/refs/heads/main/blocklist.txt"
 
-    private val domainRules = HashSet<String>()
-    private val substringRules = ArrayList<String>()
+    private val domainRules = HashSet<String>()      // domínios exatos (bloqueio)
+    private val substringRules = ArrayList<String>() // trechos na URL (bloqueio)
 
-    private val allowDomainRules = HashSet<String>()
-    private val allowSubstringRules = ArrayList<String>()
+    // >>> ALLOWLIST (linhas iniciadas com "per:")
+    private val allowDomainRules = HashSet<String>()      // domínios permitidos (navegação principal)
+    private val allowSubstringRules = ArrayList<String>() // trechos permitidos (navegação principal)
 
-    private val proxyDomainRules = HashSet<String>()
-    private val proxySubstringRules = ArrayList<String>()
+    // >>> PROXY (linhas iniciadas com "proxy:")
+    private val proxyDomainRules = HashSet<String>()      // domínios que devem ir via proxy
+    private val proxySubstringRules = ArrayList<String>() // trechos que devem ir via proxy
     private val PROXY_BASE = "https://controledeestoque.rf.gd/proxy.php?url="
 
-    private var allowHost: String? = null
+    private var allowHost: String? = null            // host/eTLD+1 do player atual
     private val blockReady = AtomicBoolean(false)
+    // --------------------------------
 
+    // === MODO ENC. (bit.ly) ===
     private var shortenerActive: Boolean = false
     private fun isShortener(url: String, host: String?): Boolean {
         val u = url.lowercase(Locale.ROOT)
         val h = (host ?: "").lowercase(Locale.ROOT)
+        // bit.ly direto OU bit.ly aparecendo no caminho (ex.: rf.gd/bit.ly/...)
         return h == "bit.ly" || u.contains("/bit.ly/") || u.contains("://bit.ly/")
     }
-
-    // --- BLOQUEIO “DURO” ---
-    private val hardBlockedHosts = setOf(
-        "googlesyndication.com", "doubleclick.net", "adnxs.com", "taboola.com",
-        "outbrain.com", "popads.net", "propellerads.com", "exdynsrv.com",
-        "adskeeper.com", "adform.net", "trafficjunky.net", "revcontent.com"
-    )
-    private val hardBlockedParts = listOf(
-        "/ads", "/adserver", "/advert", "/banner", "/popup", "/popunder",
-        "redirect", "/clk", "ads?"
-    )
-    private fun shouldBlockHard(uLower: String, host: String, mainUrl: String?): Boolean {
-        // não bloqueia a navegação principal inicial por engano
-        if (!mainUrl.isNullOrBlank() && uLower == mainUrl.lowercase(Locale.ROOT)) return false
-        if (hardBlockedHosts.any { host == it || host.endsWith(".$it") }) return true
-
-        // analisa só path+query (mais preciso)
-        val uri = runCatching { Uri.parse(uLower) }.getOrNull()
-        val pathq = ((uri?.path ?: "") + "?" + (uri?.query ?: "")).lowercase(Locale.ROOT)
-        if (hardBlockedParts.any { it in pathq }) return true
-
-        if (uLower.startsWith("intent:") || uLower.startsWith("mailto:")
-            || uLower.startsWith("tel:") || uLower.startsWith("sms:")) return true
-        return false
-    }
-    // -----------------------
+    // ==========================
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Status bar translúcida (aparece só ao puxar). Nav bar fica fixa e preta.
         WindowCompat.setDecorFitsSystemWindows(window, true)
         window.statusBarColor = Color.BLACK
         window.navigationBarColor = Color.BLACK
@@ -104,63 +91,51 @@ class WebViewActivity : AppCompatActivity() {
 
         setContentView(R.layout.activity_webview)
 
+        // 👇 encontra o loader
         webLoader = findViewById(R.id.webLoader)
+
+        // Mantém a tela ligada (reforço além do keepScreenOn da WebView)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         val initialUrl = intent.getStringExtra(EXTRA_URL).orEmpty()
         val initHost = runCatching { Uri.parse(initialUrl).host?.lowercase(Locale.ROOT) }.getOrNull()
         allowHost = initHost
+
+        // ativa modo encurtador se a URL inicial já for encurtada
         if (isShortener(initialUrl, initHost)) shortenerActive = true
 
+        // carrega blocklist em background
         Thread { loadBlocklist() }.start()
 
         web = findViewById(R.id.web)
         web.setBackgroundColor(Color.BLACK)
         web.keepScreenOn = true
 
-        // 🔒 bloqueia long-press/seleção
+        // 🔒 bloqueia long-press/seleção (não deixa copiar nada de telas de erro internas)
         web.isLongClickable = false
         web.setOnLongClickListener { true }
         web.isHapticFeedbackEnabled = false
 
-        // 🔒 mata highlight ANTES do click quando o alvo será bloqueado / fora do host
-        web.setOnTouchListener { v, ev ->
-            if (ev.action == MotionEvent.ACTION_DOWN) {
-                val hit = web.hitTestResult
-                val targetUrl = hit?.extra
-                if (!targetUrl.isNullOrBlank()) {
-                    val uLower = targetUrl.lowercase(Locale.ROOT)
-                    val host = runCatching { Uri.parse(targetUrl).host?.lowercase(Locale.ROOT) }.getOrNull() ?: ""
-                    val outside = allowHost?.let { a -> !(host == a || host.endsWith(".$a")) } ?: false
-                    val blockedHard = shouldBlockHard(uLower, host, lastMainUrl)
-                    val blockedRemote = blockReady.get() && isBlocked(host, uLower)
-                    if (blockedHard || blockedRemote || outside) {
-                        // cancela QUALQUER efeito visual e consume o toque
-                        v.cancelPendingInputEvents()
-                        v.isPressed = false
-                        return@setOnTouchListener true
-                    }
-                }
-            }
-            false
-        }
-
-        // Insets
+        // === NÃO ficar atrás da navigation bar ===
+        // 1) Aplica padding bottom no root do conteúdo da Activity.
         val contentRoot = findViewById<ViewGroup>(android.R.id.content).getChildAt(0) ?: web
-        ViewCompat.setOnApplyWindowInsetsListener(contentRoot) { vv, ins ->
+        ViewCompat.setOnApplyWindowInsetsListener(contentRoot) { v, ins ->
             val nav = ins.getInsets(WindowInsetsCompat.Type.navigationBars())
-            vv.setPadding(vv.paddingLeft, vv.paddingTop, vv.paddingRight, nav.bottom)
+            v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, nav.bottom)
             ins
         }
-        ViewCompat.setOnApplyWindowInsetsListener(web) { vv, ins ->
+        // 2) Garante também na própria WebView (caso o layout seja diferente).
+        ViewCompat.setOnApplyWindowInsetsListener(web) { v, ins ->
             val nav = ins.getInsets(WindowInsetsCompat.Type.navigationBars())
-            vv.setPadding(vv.paddingLeft, vv.paddingTop, vv.paddingRight, nav.bottom)
+            v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, nav.bottom)
             ins
         }
+        // 3) Dispara a aplicação dos insets agora.
         ViewCompat.requestApplyInsets(contentRoot)
         ViewCompat.requestApplyInsets(web)
+        // =========================================
 
-        // overlay preto (GONE)
+        // --- overlay preto full-screen (inicialmente invisível) ---
         blackShield = View(this).apply {
             setBackgroundColor(Color.BLACK)
             visibility = View.GONE
@@ -175,20 +150,30 @@ class WebViewActivity : AppCompatActivity() {
             javaScriptEnabled = true
             domStorageEnabled = true
             mediaPlaybackRequiresUserGesture = false
+
+            // pop-ups/abas novas
             setSupportMultipleWindows(false)
             javaScriptCanOpenWindowsAutomatically = false
+
+            // zoom OFF
             builtInZoomControls = false
             displayZoomControls = false
             setSupportZoom(false)
+
+            // Força layout MOBILE (controles grandes)
             useWideViewPort = false
             loadWithOverviewMode = false
+
+            // User-Agent de celular (Chrome Android)
             userAgentString =
                 "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
+
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
         }
 
         web.webViewClient = object : WebViewClient() {
 
+            // BLOQUEIO de navegação principal (redirecionamentos/clicks que trocam a página)
             override fun shouldOverrideUrlLoading(
                 view: WebView,
                 request: WebResourceRequest
@@ -197,21 +182,33 @@ class WebViewActivity : AppCompatActivity() {
                 val u = uri.toString()
                 val uLower = u.lowercase(Locale.ROOT)
 
+                // guarda a última URL principal tentada
                 lastMainUrl = u
 
+                // Sempre permite blobs/dados/mídia na própria guia
                 if (isMediaUrl(u) || u.startsWith("blob:") || u.startsWith("data:")) return false
+
+                // Evita travar players que usam about:blank no main-frame
                 if (u == "about:blank") return false
 
+                // Esquemas externos -> fora da WebView
                 if (u.startsWith("intent://") || u.startsWith("market://")
                     || u.startsWith("mailto:") || u.startsWith("tel:")
                     || u.startsWith("sms:")) {
                     return try {
-                        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(u)))
+                        startActivity(
+                            Intent(
+                                Intent.ACTION_VIEW,
+                                Uri.parse(u)
+                            )
+                        )
                         true
                     } catch (_: Exception) { true }
                 }
 
+                // http/https
                 if (u.startsWith("http")) {
+                    // se estiver sem internet, não carrega nada: mostra overlay + popup
                     if (!isOnline()) {
                         blackShield.visibility = View.VISIBLE
                         showOfflineDialog {
@@ -224,58 +221,60 @@ class WebViewActivity : AppCompatActivity() {
 
                     val host = uri.host?.lowercase(Locale.ROOT) ?: return true
 
-                    // BLOQUEIO DURO (mais criterioso p/ não travar primeira navegação)
-                    if (shouldBlockHard(uLower, host, lastMainUrl)) return true
-
-                    // Proxy obrigatório (blocklist remota)
+                    // (A) Se estiver marcado para PROXY no blocklist, reescreve antes de carregar
                     if (mustProxy(host, uLower) && !uLower.startsWith(PROXY_BASE)) {
                         view.loadUrl(PROXY_BASE + Uri.encode(u))
                         return true
                     }
 
-                    // Encurtador -> permite 1x
+                    // 0) Se é encurtador (bit.ly), permite e mantém shortenerActive ligado
                     if (isShortener(u, host)) {
                         shortenerActive = true
                         return false
                     }
 
-                    // Allowlist libera e fixa host
+                    // 1) Se URL está na ALLOWLIST (per:), permite e atualiza host do player
                     if (matchesAllowlist(host, uLower)) {
                         allowHost = host
                         shortenerActive = false
                         return false
                     }
 
-                    // Se veio do encurtador, aceita 1 travessia
+                    // 2) Se MODO ENC. ativo (vindo de bit.ly), permite atravessar até cair no player final
                     if (shortenerActive) {
                         allowHost = host
                         shortenerActive = false
                         return false
                     }
 
-                    // Mantém dentro do mesmo eTLD+1
+                    // 3) Mesmo com gesto, não deixa sair do eTLD+1 do player
                     val allow = allowHost
                     val same = allow != null && (host == allow || host.endsWith(".$allow"))
-                    if (!same) return true
+                    if (!same) return true   // bloqueia ida para domínio de anúncio
 
-                    // Blocklist remota no main-frame
+                    // 4) Se a blocklist marcar como ad, bloqueia
                     if (request.isForMainFrame && blockReady.get() && isBlocked(host, uLower)) {
                         return true
                     }
 
-                    return false
+                    return false // permitir dentro do mesmo host do player
                 }
 
+                // qualquer outro esquema desconhecido -> consumir (bloquear)
                 return true
             }
 
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                 super.onPageStarted(view, url, favicon)
+                // mostra loader
                 webLoader.visibility = View.VISIBLE
+
+                // guarda URL principal (para retry)
                 if (!url.isNullOrBlank()) lastMainUrl = url
 
                 url?.let {
                     val h = runCatching { Uri.parse(it).host?.lowercase(Locale.ROOT) }.getOrNull()
+                    // se ainda está no encurtador, mantém o modo; se não, desliga e fixa host
                     if (isShortener(it, h)) {
                         shortenerActive = true
                     } else {
@@ -287,6 +286,7 @@ class WebViewActivity : AppCompatActivity() {
 
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
+                // esconde loader
                 webLoader.visibility = View.GONE
 
                 if (blockReady.get()) {
@@ -296,8 +296,10 @@ class WebViewActivity : AppCompatActivity() {
                 }
             }
 
+            // Mostrar overlay e popup para qualquer erro principal
             private fun showBlackShieldAndDialog(view: WebView?) {
                 webLoader.visibility = View.GONE
+                // apaga totalmente qualquer tela interna (sem URL)
                 showBlank(view)
                 blackShield.visibility = View.VISIBLE
 
@@ -316,6 +318,7 @@ class WebViewActivity : AppCompatActivity() {
                 if (isOnline()) blackShield.visibility = View.GONE
             }
 
+            // HTTP (ex.: 404/500) no frame principal
             override fun onReceivedHttpError(
                 view: WebView,
                 request: WebResourceRequest,
@@ -325,6 +328,7 @@ class WebViewActivity : AppCompatActivity() {
                 if (request.isForMainFrame) showBlackShieldAndDialog(view)
             }
 
+            // DNS/Conexão/Timeout no frame principal
             override fun onReceivedError(
                 view: WebView?,
                 request: WebResourceRequest,
@@ -345,6 +349,7 @@ class WebViewActivity : AppCompatActivity() {
                 showBlackShieldAndDialog(view)
             }
 
+            // SSL
             override fun onReceivedSslError(
                 view: WebView?,
                 handler: SslErrorHandler?,
@@ -354,6 +359,7 @@ class WebViewActivity : AppCompatActivity() {
                 showBlackShieldAndDialog(view)
             }
 
+            // BLOQUEIO de recursos secundários
             override fun shouldInterceptRequest(
                 view: WebView,
                 request: WebResourceRequest
@@ -371,10 +377,7 @@ class WebViewActivity : AppCompatActivity() {
                     return null
                 }
 
-                val uLower = url.lowercase(Locale.ROOT)
-                if (shouldBlockHard(uLower, host, lastMainUrl)) return empty204()
-
-                return if (isBlocked(host, uLower)) empty204() else null
+                return if (isBlocked(host, url.lowercase(Locale.ROOT))) empty204() else null
             }
         }
 
@@ -508,7 +511,7 @@ class WebViewActivity : AppCompatActivity() {
             ByteArrayInputStream(ByteArray(0))
         )
 
-    // ---------- JS/CSS anti-pop + remove highlight ----------
+    // ---------- Injeção de JS anti-pop/overlay/redirecionamento ----------
     private fun injectAdShieldJS() {
         val tokens = (substringRules + domainRules.map { ".$it" })
             .filter { it.isNotBlank() }
@@ -534,7 +537,7 @@ class WebViewActivity : AppCompatActivity() {
                 }
                 return false;
               }
-              window.open = function(){ return null; };
+              window.open = function(u){ if (isBad(u)) return null; return null; };
               ['assign','replace'].forEach(k=>{
                 const orig = location[k].bind(location);
                 location[k] = function(u){ if (isBad(u)) return; try{orig(u);}catch(e){} };
@@ -548,13 +551,6 @@ class WebViewActivity : AppCompatActivity() {
                 }
               }, true);
               const css = `
-                * { -webkit-tap-highlight-color: rgba(0,0,0,0) !important; }
-                a, a:link, a:visited, a:hover, a:active {
-                  outline: none !important;
-                  -webkit-tap-highlight-color: transparent !important;
-                  -webkit-touch-callout: none !important;
-                }
-                html, body { -webkit-user-select: none !important; user-select: none !important; }
                 [id*="ad"], [class*="ad"], .ads, .adsbox, .advert, .adunit,
                 .ad-container, .ad-banner, .ad-overlay, [class*="overlay"] {
                   display:none !important; pointer-events:none !important;
@@ -583,16 +579,7 @@ class WebViewActivity : AppCompatActivity() {
                 location[k] = function(u){ if(!u) return; try{orig(u);}catch(e){} };
               });
               const css = `
-                * { -webkit-tap-highlight-color: rgba(0,0,0,0) !important; }
-                a, a:link, a:visited, a:hover, a:active {
-                  outline: none !important;
-                  -webkit-tap-highlight-color: transparent !important;
-                  -webkit-touch-callout: none !important;
-                }
-                html, body { -webkit-user-select: none !important; user-select: none !important; }
-                [class*="overlay"], .ad, .ads, .ad-overlay {
-                  display:none !important; pointer-events:none !important;
-                }
+                [class*="overlay"], .ad, .ads, .ad-overlay { display:none !important; pointer-events:none !important; }
               `;
               const style = document.createElement('style');
               style.type = 'text/css'; style.appendChild(document.createTextNode(css));
@@ -608,7 +595,7 @@ class WebViewActivity : AppCompatActivity() {
         try { view?.loadDataWithBaseURL("about:blank", "", "text/html", "utf-8", null) } catch (_: Exception) {}
     }
 
-    // ===== Conectividade + popup "Sem conexão" =====
+    // ===== Conectividade + popup "Sem conexão" (mesmo padrão do app) =====
     private fun isOnline(): Boolean {
         val cm = getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
         val net = cm.activeNetwork ?: return false
