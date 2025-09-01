@@ -51,7 +51,7 @@ class WebViewActivity : AppCompatActivity() {
     private val blockReady = AtomicBoolean(false)
 
     private var shortenerActive: Boolean = false
-    private var isYoutubeMode: Boolean = false   // 👈 NOVO: modo YouTube
+    private var isYoutubeMode: Boolean = false  // evita bloqueios no embed do YouTube
 
     private fun isShortener(url: String, host: String?): Boolean {
         val u = url.lowercase(Locale.ROOT)
@@ -83,10 +83,9 @@ class WebViewActivity : AppCompatActivity() {
         val initHost = runCatching { Uri.parse(initialUrl).host?.lowercase(Locale.ROOT) }.getOrNull()
         allowHost = initHost
 
-        // 👇 detecta modo YouTube
-        if (initialUrl.contains("youtube.com/embed") || initialUrl.contains("youtube-nocookie.com/embed")) {
-            isYoutubeMode = true
-        }
+        // ativa modo YouTube quando o link inicial é embed
+        isYoutubeMode =
+            initialUrl.contains("youtube.com/embed") || initialUrl.contains("youtube-nocookie.com/embed")
 
         if (isShortener(initialUrl, initHost)) shortenerActive = true
 
@@ -97,10 +96,12 @@ class WebViewActivity : AppCompatActivity() {
         web.keepScreenOn = true
         web.setLayerType(View.LAYER_TYPE_HARDWARE, null)
 
+        // desativa seleção/callout
         web.isLongClickable = false
         web.setOnLongClickListener { true }
         web.isHapticFeedbackEnabled = false
 
+        // insets
         val contentRoot = findViewById<ViewGroup>(android.R.id.content).getChildAt(0) ?: web
         ViewCompat.setOnApplyWindowInsetsListener(contentRoot) { v, ins ->
             val nav = ins.getInsets(WindowInsetsCompat.Type.navigationBars())
@@ -115,6 +116,7 @@ class WebViewActivity : AppCompatActivity() {
         ViewCompat.requestApplyInsets(contentRoot)
         ViewCompat.requestApplyInsets(web)
 
+        // overlay preto para esconder telas de erro internas
         blackShield = View(this).apply {
             setBackgroundColor(Color.BLACK)
             visibility = View.GONE
@@ -139,9 +141,8 @@ class WebViewActivity : AppCompatActivity() {
             userAgentString =
                 "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-            setAppCacheEnabled(true)
-            mediaPlaybackRequiresUserGesture = false
             loadsImagesAutomatically = true
+            mediaPlaybackRequiresUserGesture = false
         }
 
         web.webViewClient = object : WebViewClient() {
@@ -151,14 +152,15 @@ class WebViewActivity : AppCompatActivity() {
                 val u = uri.toString()
                 lastMainUrl = u
 
-                // 👇 Se for YouTube, não aplica nenhum bloqueio
+                // no YouTube embed: não bloqueia nada
                 if (isYoutubeMode) return false
 
                 if (isMediaUrl(u) || u.startsWith("blob:") || u.startsWith("data:")) return false
                 if (u == "about:blank") return false
 
                 if (u.startsWith("intent://") || u.startsWith("market://")
-                    || u.startsWith("mailto:") || u.startsWith("tel:") || u.startsWith("sms:")) {
+                    || u.startsWith("mailto:") || u.startsWith("tel:")
+                    || u.startsWith("sms:")) {
                     return try {
                         startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(u)))
                         true
@@ -177,8 +179,35 @@ class WebViewActivity : AppCompatActivity() {
                     }
 
                     val host = uri.host?.lowercase(Locale.ROOT) ?: return true
+
                     if (mustProxy(host, u.lowercase(Locale.ROOT)) && !u.startsWith(PROXY_BASE)) {
                         view.loadUrl(PROXY_BASE + Uri.encode(u))
+                        return true
+                    }
+
+                    // encurtador
+                    if (isShortener(u, host)) {
+                        shortenerActive = true
+                        return false
+                    }
+                    // allowlist
+                    if (matchesAllowlist(host, u.lowercase(Locale.ROOT))) {
+                        allowHost = host
+                        shortenerActive = false
+                        return false
+                    }
+                    // passagem única pós-encurtador
+                    if (shortenerActive) {
+                        allowHost = host
+                        shortenerActive = false
+                        return false
+                    }
+                    // manter no mesmo domínio base
+                    val allow = allowHost
+                    val same = allow != null && (host == allow || host.endsWith(".$allow"))
+                    if (!same) return true
+
+                    if (request.isForMainFrame && blockReady.get() && isBlocked(host, u.lowercase(Locale.ROOT))) {
                         return true
                     }
                     return false
@@ -217,14 +246,19 @@ class WebViewActivity : AppCompatActivity() {
             }
 
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
-                if (isYoutubeMode) return null // 👈 não intercepta YouTube
+                if (isYoutubeMode) return null
                 if (request.isForMainFrame) return null
                 if (!blockReady.get()) return null
+
                 val url = request.url.toString()
                 val host = request.url.host?.lowercase(Locale.ROOT) ?: return null
+
                 if (isMediaUrl(url)) return null
+
                 val allow = allowHost
-                if (allow != null && (host == allow || host.endsWith(".$allow"))) return null
+                if (allow != null && (host == allow || host.endsWith(".$allow"))) {
+                    return null
+                }
                 return if (isBlocked(host, url.lowercase(Locale.ROOT))) empty204() else null
             }
 
@@ -242,7 +276,7 @@ class WebViewActivity : AppCompatActivity() {
             }
         }
 
-        web.webChromeClient = object : WebChromeClient()
+        web.webChromeClient = object : WebChromeClient() {}
 
         if (initialUrl.isNotBlank()) {
             lastMainUrl = initialUrl
@@ -260,20 +294,16 @@ class WebViewActivity : AppCompatActivity() {
         if (hasFocus) hideStatusBar()
     }
 
-    override fun onBackPressed() {
-        finish()
-    }
+    override fun onBackPressed() { finish() }
 
     override fun onDestroy() {
         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         super.onDestroy()
     }
 
-    companion object {
-        const val EXTRA_URL = "url"
-    }
+    companion object { const val EXTRA_URL = "url" }
 
-    // Helpers
+    // ===== Blocklist =====
     private fun loadBlocklist() {
         try {
             val req = Request.Builder().url(blocklistUrl).build()
@@ -289,9 +319,11 @@ class WebViewActivity : AppCompatActivity() {
         domainRules.clear(); substringRules.clear()
         allowDomainRules.clear(); allowSubstringRules.clear()
         proxyDomainRules.clear(); proxySubstringRules.clear()
+
         text.lineSequence().forEach { raw ->
             val line = raw.trim()
             if (line.isEmpty() || line.startsWith("#")) return@forEach
+
             val isAllow = line.startsWith("per:", true)
             val isProxy = line.startsWith("proxy:", true)
             val ruleText = when {
@@ -300,8 +332,10 @@ class WebViewActivity : AppCompatActivity() {
                 else -> line
             }
             if (ruleText.isEmpty()) return@forEach
+
             val rule = ruleText.lowercase(Locale.ROOT)
             val isDomain = rule.contains('.') && !rule.contains(' ') && !rule.contains('/')
+
             when {
                 isAllow -> if (isDomain) allowDomainRules += rule else allowSubstringRules += rule
                 isProxy -> if (isDomain) proxyDomainRules += rule else proxySubstringRules += rule
@@ -312,27 +346,108 @@ class WebViewActivity : AppCompatActivity() {
 
     private fun isBlocked(host: String, fullUrlLower: String): Boolean {
         for (d in domainRules) if (host == d || host.endsWith(".$d")) return true
-        for (p in substringRules) if (fullUrlLower.contains(p)) return true
+        for (p in substringRules) if (p.isNotEmpty() && fullUrlLower.contains(p)) return true
         return false
     }
 
     private fun mustProxy(host: String, fullUrlLower: String): Boolean {
         for (d in proxyDomainRules) if (host == d || host.endsWith(".$d")) return true
-        for (p in proxySubstringRules) if (fullUrlLower.contains(p)) return true
+        for (p in proxySubstringRules) if (p.isNotEmpty() && fullUrlLower.contains(p)) return true
         return false
     }
 
     private fun isMediaUrl(u: String): Boolean {
         val x = u.lowercase(Locale.ROOT)
-        return x.endsWith(".m3u8") || x.endsWith(".mp4") || x.endsWith(".webm")
+        return x.endsWith(".m3u8") || x.endsWith(".mp4") || x.endsWith(".webm") ||
+               x.endsWith(".mpd")  || x.endsWith(".ts")  || x.endsWith(".m4s") ||
+               x.endsWith(".aac")  || x.endsWith(".mp3") || x.endsWith(".oga") ||
+               x.endsWith(".vtt")  || x.endsWith(".srt")
     }
 
     private fun empty204(): WebResourceResponse =
         WebResourceResponse("text/plain", "utf-8", 204, "No Content", emptyMap(), ByteArrayInputStream(ByteArray(0)))
 
-    private fun injectAdShieldJS() { /* ... igual antes ... */ }
-    private fun injectCoreShieldJS(extraTokens: List<String>) { /* ... igual antes ... */ }
+    // ===== JS injections =====
+    private fun injectAdShieldJS() {
+        val tokens = (substringRules + domainRules.map { ".$it" })
+            .filter { it.isNotBlank() }
+            .take(2000)
+            .joinToString(separator = "\",\"", prefix = "[\"", postfix = "\"]") { it.replace("\"", "") }
+        val js = """
+            (function(){
+              const LIST = $tokens;
+              function isBad(u){
+                if(!u) return false;
+                u = (""+u).toLowerCase();
+                for (let i=0;i<LIST.length;i++){
+                  const t = LIST[i];
+                  if(!t) continue;
+                  if(t.startsWith(".")) {
+                    try { 
+                      const h = new URL(u, location.href).host.toLowerCase(); 
+                      if (h===t.slice(1) || h.endsWith(t)) return true;
+                    } catch(e){}
+                  } else {
+                    if(u.indexOf(t) !== -1) return true;
+                  }
+                }
+                return false;
+              }
+              window.open = function(){ return null; };
+              ['assign','replace'].forEach(k=>{
+                const orig = location[k].bind(location);
+                location[k] = function(u){ if (isBad(u)) return; try{orig(u);}catch(e){} };
+              });
+              Object.defineProperty(window, 'onbeforeunload', {get:()=>null,set:()=>true});
+              window.addEventListener('click', function(e){
+                let el = e.target;
+                while (el && el !== document && !('href' in el)) el = el.parentElement;
+                if (el && el.href && isBad(el.href)) {
+                  e.preventDefault(); e.stopImmediatePropagation(); return false;
+                }
+              }, true);
+              const css = `
+                [id*="ad"], [class*="ad"], .ads, .adsbox, .advert, .adunit,
+                .ad-container, .ad-banner, .ad-overlay, [class*="overlay"] {
+                  display:none !important; pointer-events:none !important;
+                }
+                body { overscroll-behavior: contain; }
+              `;
+              const style = document.createElement('style');
+              style.type = 'text/css'; style.appendChild(document.createTextNode(css));
+              document.documentElement.appendChild(style);
+              const _setInterval = window.setInterval;
+              window.setInterval = function(fn, t){
+                if (typeof fn === 'string' && isBad(fn)) return 0;
+                return _setInterval(fn, t);
+              };
+            })();
+        """.trimIndent()
+        web.evaluateJavascript(js, null)
+    }
 
+    private fun injectCoreShieldJS(extraTokens: List<String>) {
+        val js = """
+            (function(){
+              window.open = function(){ return null; };
+              ['assign','replace'].forEach(k=>{
+                const orig = location[k].bind(location);
+                location[k] = function(u){ if(!u) return; try{orig(u);}catch(e){} };
+              });
+              const css = `
+                [class*="overlay"], .ad, .ads, .ad-overlay { 
+                  display:none !important; pointer-events:none !important; 
+                }
+              `;
+              const style = document.createElement('style');
+              style.type = 'text/css'; style.appendChild(document.createTextNode(css));
+              document.documentElement.appendChild(style);
+            })();
+        """.trimIndent()
+        web.evaluateJavascript(js, null)
+    }
+
+    // ===== utilidades =====
     private fun showBlank(view: WebView?) {
         try { view?.stopLoading() } catch (_: Exception) {}
         try { view?.loadDataWithBaseURL("about:blank", "", "text/html", "utf-8", null) } catch (_: Exception) {}
