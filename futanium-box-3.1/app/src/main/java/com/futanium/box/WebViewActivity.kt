@@ -185,16 +185,7 @@ class WebViewActivity : AppCompatActivity() {
                         return true
                     }
 
-                    // >>> checa se a URL/host está permitida pela allowlist (per:)
-private fun matchesAllowlist(host: String, fullUrlLower: String): Boolean {
-    for (d in allowDomainRules) {
-        if (host == d || host.endsWith(".$d")) return true
-    }
-    for (p in allowSubstringRules) {
-        if (p.isNotEmpty() && fullUrlLower.contains(p)) return true
-    }
-    return false
-}
+                    
                      
                     // encurtador
                     if (isShortener(u, host)) {
@@ -225,6 +216,17 @@ private fun matchesAllowlist(host: String, fullUrlLower: String): Boolean {
                 }
                 return true
             }
+
+            // >>> checa se a URL/host está permitida pela allowlist (per:)
+private fun matchesAllowlist(host: String, fullUrlLower: String): Boolean {
+    for (d in allowDomainRules) {
+        if (host == d || host.endsWith(".$d")) return true
+    }
+    for (p in allowSubstringRules) {
+        if (p.isNotEmpty() && fullUrlLower.contains(p)) return true
+    }
+    return false
+}
 
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                 super.onPageStarted(view, url, favicon)
