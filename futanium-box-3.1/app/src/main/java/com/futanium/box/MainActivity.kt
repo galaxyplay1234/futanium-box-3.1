@@ -20,6 +20,7 @@ import android.view.Menu
 import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
+import android.view.KeyEvent
 import android.view.animation.LinearInterpolator
 import android.widget.ImageView
 import android.widget.TextView
@@ -30,6 +31,7 @@ import androidx.appcompat.widget.AppCompatImageView
 import androidx.core.content.FileProvider
 import androidx.core.view.MenuItemCompat
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.futanium.box.databinding.ActivityMainBinding
 import com.futanium.box.model.Game
 import com.futanium.box.ui.GameAdapter
@@ -43,12 +45,8 @@ import android.content.pm.PackageManager
 import androidx.appcompat.app.AlertDialog
 import android.widget.ProgressBar
 import android.widget.LinearLayout
-
-// >>> IMPORTS extra p/ TV/DPAD:
-import android.view.KeyEvent
-import androidx.recyclerview.widget.RecyclerView
-import kotlin.math.min
 import kotlin.math.max
+import kotlin.math.min
 
 class MainActivity : AppCompatActivity() {
 
@@ -58,33 +56,24 @@ class MainActivity : AppCompatActivity() {
 
     private val API_URL = "http://91.108.124.236:8080/games/api"
 
-    // referências do botão de refresh
     private var refreshItem: MenuItem? = null
     private var refreshView: AppCompatImageView? = null
 
-    // controle do giro
     private val SPIN_TAG_KEY = 0x13572468
     private var spinCompletedOne = false
     private var spinPendingStop = false
-
-    // animator contínuo e contador de ciclos
     private var spinAnimator: ObjectAnimator? = null
     private var spinRepeats: Int = 0
 
-    // --- Auto-update (fora da Play) ---
     private var pendingApkUri: Uri? = null
     private var downloadingDialog: AlertDialog? = null
 
-    // Resultado da tela de permitir “Apps desconhecidos”
     private val unknownSourcesLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { _ ->
         pendingApkUri?.let { uri ->
-            if (canInstallUnknownSources()) {
-                startApkInstall(uri)
-            } else {
-                Toast.makeText(this, "Permita instalar apps deste fonte para atualizar.", Toast.LENGTH_LONG).show()
-            }
+            if (canInstallUnknownSources()) startApkInstall(uri)
+            else Toast.makeText(this, "Permita instalar apps deste fonte para atualizar.", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -95,16 +84,10 @@ class MainActivity : AppCompatActivity() {
 
         setSupportActionBar(vb.toolbar)
 
-        // Status bar #10131C
         window.statusBarColor = Color.parseColor("#10131C")
-
-        // Sombra leve na toolbar
         vb.toolbar.elevation = 6f
-
-        // Ícone da direita afastado da borda
         vb.toolbar.contentInsetEndWithActions = dp(44)
 
-        // Título menor e em negrito
         vb.toolbar.post {
             for (i in 0 until vb.toolbar.childCount) {
                 val child = vb.toolbar.getChildAt(i)
@@ -116,11 +99,9 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Texto "Jogos de Hoje - dd/MM" no chip
         val df = java.text.SimpleDateFormat("dd/MM", java.util.Locale.getDefault())
         vb.todayChipText.text = "Jogos de Hoje - ${df.format(java.util.Date())}"
 
-        // Garante que o rail fica por cima e a lista passa por baixo
         vb.todayRail.bringToFront()
         vb.root.post {
             val topSpace = vb.todayRail.bottom + dp(4)
@@ -130,7 +111,6 @@ class MainActivity : AppCompatActivity() {
                 vb.rvGames.paddingRight,
                 vb.rvGames.paddingBottom
             )
-
             val start = vb.todayRail.bottom + dp(6)
             val end   = start + dp(44)
             vb.swipe.setProgressViewOffset(true, start, end)
@@ -139,65 +119,79 @@ class MainActivity : AppCompatActivity() {
         vb.rvGames.layoutManager = LinearLayoutManager(this)
         vb.rvGames.adapter = adapter
 
-        // =============== AJUSTES TV/DPAD ===============
-        // 1) Permitir que os filhos (botões dentro do card) recebam foco com DPAD
+        // ======== AJUSTES TV/DPAD + LARGURA EM TELAS GRANDES ========
+        val isTv = packageManager.hasSystemFeature("android.software.leanback") ||
+                   packageManager.hasSystemFeature("android.hardware.type.television")
+        val isLarge = resources.configuration.smallestScreenWidthDp >= 600 || isTv
+        val maxCardPx = dp(500)
+
+        // 1) Descendentes ganham foco antes do RV (botões ficam focáveis)
+        vb.rvGames.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
         vb.rvGames.isFocusable = true
         vb.rvGames.isFocusableInTouchMode = true
-        vb.rvGames.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
-        vb.rvGames.setHasFixedSize(false)
 
-        // 2) Largura máx. visual dos cards (500dp) em telas grandes + centralizar
-        val maxCardPx = dp(500)
-        vb.rvGames.clipToPadding = false
-        vb.rvGames.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
-            // centraliza via padding lateral quando a tela é maior que 500dp
-            val w = vb.rvGames.width
-            val target = min(w, maxCardPx)
-            val side = max(0, (w - target) / 2)
-            vb.rvGames.setPadding(side, vb.rvGames.paddingTop, side, vb.rvGames.paddingBottom)
-        }
-        // força largura de cada child <= 500dp (caso item root seja match_parent)
-        vb.rvGames.addOnChildAttachStateChangeListener(object : RecyclerView.OnChildAttachStateChangeListener {
-            override fun onChildViewAttachedToWindow(view: View) {
+        // 2) Em telas grandes/TV, centraliza e limita a largura dos cards
+        if (isLarge) {
+            vb.rvGames.clipToPadding = false
+            vb.rvGames.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
                 val w = vb.rvGames.width
                 val target = min(w, maxCardPx)
-                val lp = view.layoutParams as RecyclerView.LayoutParams
-                lp.width = target
-                view.layoutParams = lp
+                val side = max(0, (w - target) / 2)
+                vb.rvGames.setPadding(side, vb.rvGames.paddingTop, side, vb.rvGames.paddingBottom)
             }
-            override fun onChildViewDetachedFromWindow(view: View) {}
-        })
+            vb.rvGames.addOnChildAttachStateChangeListener(object : RecyclerView.OnChildAttachStateChangeListener {
+                override fun onChildViewAttachedToWindow(view: View) {
+                    // limita largura do item visualmente
+                    val w = vb.rvGames.width
+                    val target = min(w, maxCardPx)
+                    val lp = view.layoutParams as RecyclerView.LayoutParams
+                    lp.width = target
+                    view.layoutParams = lp
+                    // torna filhos "clickable" focáveis para DPAD
+                    makeClickableChildrenFocusable(view)
+                }
+                override fun onChildViewDetachedFromWindow(view: View) {}
+            })
+        } else {
+            // celular: só garante que os botões internos são focáveis
+            vb.rvGames.addOnChildAttachStateChangeListener(object : RecyclerView.OnChildAttachStateChangeListener {
+                override fun onChildViewAttachedToWindow(view: View) {
+                    makeClickableChildrenFocusable(view)
+                }
+                override fun onChildViewDetachedFromWindow(view: View) {}
+            })
+        }
 
-        // 3) Empurrar foco do card para o 1º botão “focusable” dentro dele ao pressionar DPAD
+        // 3) Se o foco está no RV e o usuário usa as setas, empurra para 1º botão focável do card
         vb.rvGames.setOnKeyListener { _, keyCode, event ->
             if (event.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false
             val isDpad = keyCode == KeyEvent.KEYCODE_DPAD_DOWN ||
                          keyCode == KeyEvent.KEYCODE_DPAD_UP   ||
                          keyCode == KeyEvent.KEYCODE_DPAD_LEFT ||
-                         keyCode == KeyEvent.KEYCODE_DPAD_RIGHT
+                         keyCode == KeyEvent.KEYCODE_DPAD_RIGHT ||
+                         keyCode == KeyEvent.KEYCODE_DPAD_CENTER ||
+                         keyCode == KeyEvent.KEYCODE_ENTER
             if (!isDpad) return@setOnKeyListener false
 
-            // view atualmente focada
             val focused = currentFocus
-            // Se já está num botão interno, deixa o sistema mover o foco normalmente
+            // se já está num botão interno, deixa o sistema mover o foco normalmente
             if (focused != null && focused !== vb.rvGames && focused !== vb.root) return@setOnKeyListener false
 
-            // Tenta achar o card visível no centro da tela
             val lm = vb.rvGames.layoutManager as LinearLayoutManager
             val midPos = (lm.findFirstVisibleItemPosition() + lm.findLastVisibleItemPosition()) / 2
             val holder = vb.rvGames.findViewHolderForAdapterPosition(midPos) ?: return@setOnKeyListener false
-            val cardRoot = holder.itemView
-
-            // Procura um filho focóvel dentro do card (ex.: 1º botão de ações)
-            val next = findFirstFocusableDescendant(cardRoot)
-            return@setOnKeyListener if (next != null && next.isFocusable) {
+            val next = findFirstFocusableDescendant(holder.itemView)
+            if (next != null) {
                 next.requestFocus()
-                true
-            } else {
-                false
+                // se foi DPAD_CENTER/ENTER, também dispara o click
+                if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER) {
+                    next.performClick()
+                }
+                return@setOnKeyListener true
             }
+            false
         }
-        // =================================================
+        // =============================================================
 
         adapter.onOpenLink = { url, title, referer, ua ->
             if (!isOnline()) {
@@ -205,7 +199,7 @@ class MainActivity : AppCompatActivity() {
                     if (isOnline()) {
                         LinkHelper.openLinkSmart(this, url, title, referer, ua)
                     } else {
-                        showOfflineDialog { /* no-op, reabre quando tiver net */ }
+                        showOfflineDialog { }
                     }
                 }
             } else {
@@ -219,7 +213,6 @@ class MainActivity : AppCompatActivity() {
             fetchGames(onFinally = { stopRefreshSpin() })
         }
 
-        // ✅ Checagem de internet no primeiro carregamento
         if (isOnline()) {
             fetchGames()
             checkAppUpdateExternal(
@@ -236,7 +229,17 @@ class MainActivity : AppCompatActivity() {
                 )
             }
         }
-    } // <<< FECHA onCreate CORRETAMENTE
+
+        // em TV: após popular a lista, joga foco no 1º botão do 1º card
+        if (isTv) {
+            vb.rvGames.postDelayed({
+                val lm = vb.rvGames.layoutManager as LinearLayoutManager
+                val firstPos = lm.findFirstVisibleItemPosition().coerceAtLeast(0)
+                val holder = vb.rvGames.findViewHolderForAdapterPosition(firstPos)
+                holder?.itemView?.let { findFirstFocusableDescendant(it)?.requestFocus() }
+            }, 300)
+        }
+    } // onCreate
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.main_menu, menu)
@@ -283,7 +286,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ fetchGames reintroduzida no lugar certo (inclui checagem offline antes de baixar)
     private fun fetchGames(onFinally: (() -> Unit)? = null) {
         if (!isOnline()) {
             vb.swipe.isRefreshing = false
@@ -327,7 +329,6 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
-    /** Verifica JSON remoto e, se houver versão maior, mostra popup e permite baixar */
     private fun checkAppUpdateExternal(metaUrl: String, showNoUpdateToast: Boolean = false) {
         Thread {
             try {
@@ -365,11 +366,9 @@ class MainActivity : AppCompatActivity() {
         val dialog = AlertDialog.Builder(this)
             .setTitle(title.ifBlank { "Nova versão disponível" })
             .setMessage(msg)
-            .setIcon(applicationInfo.icon) // ícone do app
+            .setIcon(applicationInfo.icon)
             .setNegativeButton("CANCELAR", null)
-            .setPositiveButton("BAIXAR") { _, _ ->
-                downloadAndPromptInstall(apkUrl)
-            }
+            .setPositiveButton("BAIXAR") { _, _ -> downloadAndPromptInstall(apkUrl) }
             .create()
 
         dialog.setOnShowListener {
@@ -377,11 +376,9 @@ class MainActivity : AppCompatActivity() {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(c)
             dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(c)
         }
-
         dialog.show()
     }
 
-    // --- Diálogo indeterminado "Baixando..." ---
     private fun showDownloadingDialog(): AlertDialog {
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -404,7 +401,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun downloadAndPromptInstall(apkUrl: String) {
-        // Mostra diálogo "Baixando..."
         downloadingDialog?.dismiss()
         downloadingDialog = showDownloadingDialog()
 
@@ -417,14 +413,10 @@ class MainActivity : AppCompatActivity() {
                 val dir = File(cacheDir, "apks").apply { mkdirs() }
                 val file = File(dir, "update.apk")
                 body.byteStream().use { input ->
-                    file.outputStream().use { output ->
-                        input.copyTo(output)
-                    }
+                    file.outputStream().use { output -> input.copyTo(output) }
                 }
 
-                val uri = FileProvider.getUriForFile(
-                    this, "$packageName.fileprovider", file
-                )
+                val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
                 runOnUiThread {
                     downloadingDialog?.dismiss()
                     downloadingDialog = null
@@ -467,23 +459,14 @@ class MainActivity : AppCompatActivity() {
             setDataAndType(uri, "application/vnd.android.package-archive")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        try {
-            startActivity(intent)
-        } catch (e: Exception) {
-            Toast.makeText(this, "Não foi possível iniciar a instalação.", Toast.LENGTH_LONG).show()
-        }
+        try { startActivity(intent) }
+        catch (e: Exception) { Toast.makeText(this, "Não foi possível iniciar a instalação.", Toast.LENGTH_LONG).show() }
     }
 
     private fun canInstallUnknownSources(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            try {
-                packageManager.canRequestPackageInstalls()
-            } catch (_: SecurityException) {
-                false
-            }
-        } else {
-            true
-        }
+            try { packageManager.canRequestPackageInstalls() } catch (_: SecurityException) { false }
+        } else true
     }
 
     private fun isOnline(): Boolean {
@@ -555,8 +538,6 @@ class MainActivity : AppCompatActivity() {
         return list
     }
 
-    // -------- animação suave do refresh (mín. 1 volta, sem “voltar”) --------
-
     private fun startRefreshSpin() {
         val v = refreshView ?: return
         if (v.getTag(SPIN_TAG_KEY) == true) return
@@ -596,11 +577,7 @@ class MainActivity : AppCompatActivity() {
     private fun stopRefreshSpin() {
         val v = refreshView ?: return
         if (v.getTag(SPIN_TAG_KEY) != true) return
-
-        if (!spinCompletedOne) {
-            spinPendingStop = true
-            return
-        }
+        if (!spinCompletedOne) { spinPendingStop = true; return }
 
         spinAnimator?.cancel()
         spinAnimator = null
@@ -609,7 +586,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun finishToSnap(v: View) {
         v.setTag(SPIN_TAG_KEY, false)
-
         val current = ((v.rotation % 360f) + 360f) % 360f
         val remaining = if (current == 0f) 0f else 360f - current
         if (remaining > 0f) {
@@ -618,22 +594,16 @@ class MainActivity : AppCompatActivity() {
                 .rotationBy(remaining)
                 .setDuration(dur)
                 .setInterpolator(LinearInterpolator())
-                .withEndAction {
-                    v.rotation = 0f
-                    v.setLayerType(View.LAYER_TYPE_NONE, null)
-                }
+                .withEndAction { v.rotation = 0f; v.setLayerType(View.LAYER_TYPE_NONE, null) }
                 .start()
         } else {
             v.rotation = 0f
             v.setLayerType(View.LAYER_TYPE_NONE, null)
         }
-
         spinRepeats = 0
         spinCompletedOne = false
         spinPendingStop = false
     }
-
-    // -----------------------------------
 
     private fun obtainActionBarSize(): Int {
         val tv = TypedValue()
@@ -646,26 +616,32 @@ class MainActivity : AppCompatActivity() {
 
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
 
-    // -------- helper para obter o versionCode sem BuildConfig --------
     private fun currentVersionCode(): Int {
         return try {
             val pm = packageManager
             val pi = if (Build.VERSION.SDK_INT >= 33) {
                 pm.getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(0))
             } else {
-                @Suppress("DEPRECATION")
-                pm.getPackageInfo(packageName, 0)
+                @Suppress("DEPRECATION") pm.getPackageInfo(packageName, 0)
             }
-            if (Build.VERSION.SDK_INT >= 28) {
-                pi.longVersionCode.toInt()
-            } else {
-                @Suppress("DEPRECATION")
-                pi.versionCode
-            }
+            if (Build.VERSION.SDK_INT >= 28) pi.longVersionCode.toInt() else @Suppress("DEPRECATION") pi.versionCode
         } catch (_: Exception) { 0 }
     }
 
-    // ===== helper: achar primeiro filho focável dentro do card =====
+    // ---- helpers de foco ----
+    private fun makeClickableChildrenFocusable(root: View) {
+        if (root is ViewGroup) {
+            for (i in 0 until root.childCount) {
+                val v = root.getChildAt(i)
+                if (v is ViewGroup) makeClickableChildrenFocusable(v)
+                if (v.isClickable) {
+                    v.isFocusable = true
+                    v.isFocusableInTouchMode = true
+                }
+            }
+        }
+    }
+
     private fun findFirstFocusableDescendant(root: View): View? {
         if (root.isFocusable) return root
         if (root is ViewGroup) {
