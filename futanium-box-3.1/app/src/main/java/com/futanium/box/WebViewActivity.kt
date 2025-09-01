@@ -31,41 +31,32 @@ class WebViewActivity : AppCompatActivity() {
 
     private lateinit var web: WebView
     private lateinit var insets: WindowInsetsControllerCompat
-    // Loader central (igual ao do player)
     private lateinit var webLoader: android.widget.ProgressBar
-
-    // --- overlay preto para esconder erros / URL ---
     private lateinit var blackShield: View
-    // última URL principal visitada (para "Tentar novamente")
     private var lastMainUrl: String? = null
 
-    // --- BLOQUEIO (lista remota) ---
     private val client = OkHttpClient()
     private val blocklistUrl =
         "https://raw.githubusercontent.com/galaxyplay1234/bloqueio-ads-futanium/refs/heads/main/blocklist.txt"
 
-    private val domainRules = HashSet<String>()      // domínios exatos (bloqueio)
-    private val substringRules = ArrayList<String>() // trechos na URL (bloqueio)
+    private val domainRules = HashSet<String>()
+    private val substringRules = ArrayList<String>()
 
-    // >>> ALLOWLIST (linhas iniciadas com "per:")
-    private val allowDomainRules = HashSet<String>()      // domínios permitidos (navegação principal)
-    private val allowSubstringRules = ArrayList<String>() // trechos permitidos (navegação principal)
+    private val allowDomainRules = HashSet<String>()
+    private val allowSubstringRules = ArrayList<String>()
 
-    // >>> PROXY (linhas iniciadas com "proxy:")
-    private val proxyDomainRules = HashSet<String>()      // domínios que devem ir via proxy
-    private val proxySubstringRules = ArrayList<String>() // trechos que devem ir via proxy
+    private val proxyDomainRules = HashSet<String>()
+    private val proxySubstringRules = ArrayList<String>()
     private val PROXY_BASE = "https://controledeestoque.rf.gd/proxy.php?url="
 
-    private var allowHost: String? = null            // host/eTLD+1 do player atual
+    private var allowHost: String? = null
     private val blockReady = AtomicBoolean(false)
-    // --------------------------------
 
     // === MODO ENC. (bit.ly) ===
     private var shortenerActive: Boolean = false
     private fun isShortener(url: String, host: String?): Boolean {
         val u = url.lowercase(Locale.ROOT)
         val h = (host ?: "").lowercase(Locale.ROOT)
-        // bit.ly direto OU bit.ly aparecendo no caminho (ex.: rf.gd/bit.ly/...)
         return h == "bit.ly" || u.contains("/bit.ly/") || u.contains("://bit.ly/")
     }
     // ==========================
@@ -88,51 +79,48 @@ class WebViewActivity : AppCompatActivity() {
 
         setContentView(R.layout.activity_webview)
 
-        // 👇 encontra o loader
         webLoader = findViewById(R.id.webLoader)
-
-        // Mantém a tela ligada (reforço além do keepScreenOn da WebView)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         val initialUrl = intent.getStringExtra(EXTRA_URL).orEmpty()
         val initHost = runCatching { Uri.parse(initialUrl).host?.lowercase(Locale.ROOT) }.getOrNull()
         allowHost = initHost
-
-        // ativa modo encurtador se a URL inicial já for encurtada
         if (isShortener(initialUrl, initHost)) shortenerActive = true
 
-        // carrega blocklist em background
         Thread { loadBlocklist() }.start()
 
         web = findViewById(R.id.web)
         web.setBackgroundColor(Color.BLACK)
         web.keepScreenOn = true
 
-        // 🔒 bloqueia long-press/seleção (não deixa copiar nada de telas de erro internas)
+        // 🔒 bloqueia long-press/seleção
         web.isLongClickable = false
         web.setOnLongClickListener { true }
         web.isHapticFeedbackEnabled = false
 
+        // ✅ REMOVER “FLASH AZUL” (edge glow/overscroll e highlight)
+        web.overScrollMode = View.OVER_SCROLL_NEVER
+        web.isVerticalScrollBarEnabled = false
+        web.isHorizontalScrollBarEnabled = false
+        web.scrollBarStyle = View.SCROLLBARS_INSIDE_OVERLAY
+        // (o tap-highlight é removido via CSS injetado em onPageFinished)
+
         // === NÃO ficar atrás da navigation bar ===
-        // 1) Aplica padding bottom no root do conteúdo da Activity.
         val contentRoot = findViewById<ViewGroup>(android.R.id.content).getChildAt(0) ?: web
         ViewCompat.setOnApplyWindowInsetsListener(contentRoot) { v, ins ->
             val nav = ins.getInsets(WindowInsetsCompat.Type.navigationBars())
             v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, nav.bottom)
             ins
         }
-        // 2) Garante também na própria WebView (caso o layout seja diferente).
         ViewCompat.setOnApplyWindowInsetsListener(web) { v, ins ->
             val nav = ins.getInsets(WindowInsetsCompat.Type.navigationBars())
             v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, nav.bottom)
             ins
         }
-        // 3) Dispara a aplicação dos insets agora.
         ViewCompat.requestApplyInsets(contentRoot)
         ViewCompat.requestApplyInsets(web)
-        // =========================================
 
-        // --- overlay preto full-screen (inicialmente invisível) ---
+        // --- overlay preto full-screen ---
         blackShield = View(this).apply {
             setBackgroundColor(Color.BLACK)
             visibility = View.GONE
@@ -147,30 +135,20 @@ class WebViewActivity : AppCompatActivity() {
             javaScriptEnabled = true
             domStorageEnabled = true
             mediaPlaybackRequiresUserGesture = false
-
-            // pop-ups/abas novas
             setSupportMultipleWindows(false)
             javaScriptCanOpenWindowsAutomatically = false
-
-            // zoom OFF
             builtInZoomControls = false
             displayZoomControls = false
             setSupportZoom(false)
-
-            // Força layout MOBILE (controles grandes)
             useWideViewPort = false
             loadWithOverviewMode = false
-
-            // User-Agent de celular (Chrome Android)
             userAgentString =
                 "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
-
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
         }
 
         web.webViewClient = object : WebViewClient() {
 
-            // BLOQUEIO de navegação principal (redirecionamentos/clicks que trocam a página)
             override fun shouldOverrideUrlLoading(
                 view: WebView,
                 request: WebResourceRequest
@@ -179,33 +157,22 @@ class WebViewActivity : AppCompatActivity() {
                 val u = uri.toString()
                 val uLower = u.lowercase(Locale.ROOT)
 
-                // guarda a última URL principal tentada
                 lastMainUrl = u
 
-                // Sempre permite blobs/dados/mídia na própria guia
                 if (isMediaUrl(u) || u.startsWith("blob:") || u.startsWith("data:")) return false
-
-                // Evita travar players que usam about:blank no main-frame
                 if (u == "about:blank") return false
 
-                // Esquemas externos -> fora da WebView
                 if (u.startsWith("intent://") || u.startsWith("market://")
                     || u.startsWith("mailto:") || u.startsWith("tel:")
-                    || u.startsWith("sms:")) {
+                    || u.startsWith("sms:")
+                ) {
                     return try {
-                        startActivity(
-                            Intent(
-                                Intent.ACTION_VIEW,
-                                Uri.parse(u)
-                            )
-                        )
+                        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(u)))
                         true
                     } catch (_: Exception) { true }
                 }
 
-                // http/https
                 if (u.startsWith("http")) {
-                    // se estiver sem internet, não carrega nada: mostra overlay + popup
                     if (!isOnline()) {
                         blackShield.visibility = View.VISIBLE
                         showOfflineDialog {
@@ -218,60 +185,49 @@ class WebViewActivity : AppCompatActivity() {
 
                     val host = uri.host?.lowercase(Locale.ROOT) ?: return true
 
-                    // (A) Se estiver marcado para PROXY no blocklist, reescreve antes de carregar
                     if (mustProxy(host, uLower) && !uLower.startsWith(PROXY_BASE)) {
                         view.loadUrl(PROXY_BASE + Uri.encode(u))
                         return true
                     }
 
-                    // 0) Se é encurtador (bit.ly), permite e mantém shortenerActive ligado
                     if (isShortener(u, host)) {
                         shortenerActive = true
                         return false
                     }
 
-                    // 1) Se URL está na ALLOWLIST (per:), permite e atualiza host do player
                     if (matchesAllowlist(host, uLower)) {
                         allowHost = host
                         shortenerActive = false
                         return false
                     }
 
-                    // 2) Se MODO ENC. ativo (vindo de bit.ly), permite atravessar até cair no player final
                     if (shortenerActive) {
                         allowHost = host
                         shortenerActive = false
                         return false
                     }
 
-                    // 3) Mesmo com gesto, não deixa sair do eTLD+1 do player
                     val allow = allowHost
                     val same = allow != null && (host == allow || host.endsWith(".$allow"))
-                    if (!same) return true   // bloqueia ida para domínio de anúncio
+                    if (!same) return true
 
-                    // 4) Se a blocklist marcar como ad, bloqueia
                     if (request.isForMainFrame && blockReady.get() && isBlocked(host, uLower)) {
                         return true
                     }
 
-                    return false // permitir dentro do mesmo host do player
+                    return false
                 }
 
-                // qualquer outro esquema desconhecido -> consumir (bloquear)
                 return true
             }
 
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                 super.onPageStarted(view, url, favicon)
-                // mostra loader
                 webLoader.visibility = View.VISIBLE
-
-                // guarda URL principal (para retry)
                 if (!url.isNullOrBlank()) lastMainUrl = url
 
                 url?.let {
                     val h = runCatching { Uri.parse(it).host?.lowercase(Locale.ROOT) }.getOrNull()
-                    // se ainda está no encurtador, mantém o modo; se não, desliga e fixa host
                     if (isShortener(it, h)) {
                         shortenerActive = true
                     } else {
@@ -283,7 +239,6 @@ class WebViewActivity : AppCompatActivity() {
 
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
-                // esconde loader
                 webLoader.visibility = View.GONE
 
                 if (blockReady.get()) {
@@ -291,12 +246,27 @@ class WebViewActivity : AppCompatActivity() {
                 } else {
                     injectCoreShieldJS(emptyList())
                 }
+
+                // ✅ CSS para remover o “flash azul” (tap highlight) do conteúdo
+                val jsNoTap = """
+                    (function(){
+                      try{
+                        const css = `
+                          * { -webkit-tap-highlight-color: rgba(0,0,0,0) !important; outline: none !important; }
+                          html, body { -webkit-tap-highlight-color: transparent !important; }
+                        `;
+                        var st = document.createElement('style');
+                        st.type = 'text/css';
+                        st.appendChild(document.createTextNode(css));
+                        document.documentElement.appendChild(st);
+                      }catch(e){}
+                    })();
+                """.trimIndent()
+                web.evaluateJavascript(jsNoTap, null)
             }
 
-            // Mostrar overlay e popup para qualquer erro principal
             private fun showBlackShieldAndDialog(view: WebView?) {
                 webLoader.visibility = View.GONE
-                // apaga totalmente qualquer tela interna (sem URL)
                 showBlank(view)
                 blackShield.visibility = View.VISIBLE
 
@@ -315,7 +285,6 @@ class WebViewActivity : AppCompatActivity() {
                 if (isOnline()) blackShield.visibility = View.GONE
             }
 
-            // HTTP (ex.: 404/500) no frame principal
             override fun onReceivedHttpError(
                 view: WebView,
                 request: WebResourceRequest,
@@ -325,7 +294,6 @@ class WebViewActivity : AppCompatActivity() {
                 if (request.isForMainFrame) showBlackShieldAndDialog(view)
             }
 
-            // DNS/Conexão/Timeout no frame principal
             override fun onReceivedError(
                 view: WebView?,
                 request: WebResourceRequest,
@@ -346,7 +314,6 @@ class WebViewActivity : AppCompatActivity() {
                 showBlackShieldAndDialog(view)
             }
 
-            // SSL
             override fun onReceivedSslError(
                 view: WebView?,
                 handler: SslErrorHandler?,
@@ -356,7 +323,6 @@ class WebViewActivity : AppCompatActivity() {
                 showBlackShieldAndDialog(view)
             }
 
-            // BLOQUEIO de recursos secundários
             override fun shouldInterceptRequest(
                 view: WebView,
                 request: WebResourceRequest
@@ -428,9 +394,7 @@ class WebViewActivity : AppCompatActivity() {
                 parseBlocklist(body)
                 blockReady.set(true)
             }
-        } catch (_: Exception) {
-            // sem lista -> segue sem bloquear recursos por URL
-        }
+        } catch (_: Exception) { }
     }
 
     private fun parseBlocklist(text: String) {
@@ -508,7 +472,6 @@ class WebViewActivity : AppCompatActivity() {
             ByteArrayInputStream(ByteArray(0))
         )
 
-    // ---------- Injeção de JS anti-pop/overlay/redirecionamento ----------
     private fun injectAdShieldJS() {
         val tokens = (substringRules + domainRules.map { ".$it" })
             .filter { it.isNotBlank() }
@@ -586,13 +549,11 @@ class WebViewActivity : AppCompatActivity() {
         web.evaluateJavascript(js, null)
     }
 
-    // === apaga totalmente a página atual (evita tela de erro com URL) ===
     private fun showBlank(view: WebView?) {
         try { view?.stopLoading() } catch (_: Exception) {}
         try { view?.loadDataWithBaseURL("about:blank", "", "text/html", "utf-8", null) } catch (_: Exception) {}
     }
 
-    // ===== Conectividade + popup "Sem conexão" (mesmo padrão do app) =====
     private fun isOnline(): Boolean {
         val cm = getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
         val net = cm.activeNetwork ?: return false
