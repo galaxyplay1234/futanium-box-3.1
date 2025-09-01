@@ -12,6 +12,7 @@
         android:label="Futanium Box"
         android:icon="@android:drawable/sym_def_app_icon"
         android:roundIcon="@android:drawable/sym_def_app_icon"
+        android:hardwareAccelerated="true"
         android:allowBackup="true"
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
@@ -36,6 +37,7 @@
 
         <activity
             android:name=".WebViewActivity"
+			      android:hardwareAccelerated="true"
             android:screenOrientation="landscape"
             android:theme="@style/Theme.Futanium.Fullscreen"
             android:exported="false" />
