@@ -15,6 +15,7 @@ import android.webkit.SslErrorHandler
 import android.net.http.SslError
 import android.content.Intent
 import android.provider.Settings
+import android.widget.FrameLayout
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
@@ -70,9 +71,22 @@ class WebViewActivity : AppCompatActivity() {
     }
     // ==========================
 
+    // ----- Suporte a vídeo/fullscreen (para evitar tela preta em YouTube) -----
+    private var customVideoView: View? = null
+    private var customViewCallback: WebChromeClient.CustomViewCallback? = null
+    private var fullScreenContainer: FrameLayout? = null
+    private fun isInFullscreen(): Boolean = customVideoView != null
+    // --------------------------------------------------------------------------
+
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Garante aceleração de hardware na janela
+        window.setFlags(
+            WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+            WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
+        )
 
         // Status bar translúcida (aparece só ao puxar). Nav bar fica fixa e preta.
         WindowCompat.setDecorFitsSystemWindows(window, true)
@@ -108,6 +122,7 @@ class WebViewActivity : AppCompatActivity() {
         web.setBackgroundColor(Color.BLACK)
         web.keepScreenOn = true
 
+        // força renderização acelerada no componente
         web.setLayerType(View.LAYER_TYPE_HARDWARE, null)
 
         // 🔒 bloqueia long-press/seleção (não deixa copiar nada de telas de erro internas)
@@ -168,6 +183,10 @@ class WebViewActivity : AppCompatActivity() {
                 "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
 
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+            // Opcionalmente melhora vídeo:
+            mediaPlaybackRequiresUserGesture = false
+            allowContentAccess = true
+            allowFileAccess = true
         }
 
         web.webViewClient = object : WebViewClient() {
@@ -381,6 +400,8 @@ class WebViewActivity : AppCompatActivity() {
         }
 
         web.webChromeClient = object : WebChromeClient() {
+
+            // cancela qualquer window.open / target=_blank
             override fun onCreateWindow(
                 view: WebView?,
                 isDialog: Boolean,
@@ -389,6 +410,75 @@ class WebViewActivity : AppCompatActivity() {
             ): Boolean {
                 return false
             }
+
+            // --- FULLSCREEN DE VÍDEO (corrige tela preta em YouTube/JW/etc.) ---
+            override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
+                if (customVideoView != null) {
+                    callback?.onCustomViewHidden()
+                    return
+                }
+                customVideoView = view
+                customViewCallback = callback
+
+                // container fullscreen simples
+                fullScreenContainer = FrameLayout(this@WebViewActivity).apply {
+                    setBackgroundColor(Color.BLACK)
+                    addView(
+                        customVideoView,
+                        FrameLayout.LayoutParams(
+                            FrameLayout.LayoutParams.MATCH_PARENT,
+                            FrameLayout.LayoutParams.MATCH_PARENT
+                        )
+                    )
+                }
+
+                // coloca por cima de tudo
+                val decor = window.decorView as ViewGroup
+                decor.addView(
+                    fullScreenContainer,
+                    ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                )
+
+                // esconde a WebView por trás
+                web.visibility = View.GONE
+
+                // esconde barras do sistema
+                insets.hide(WindowInsetsCompat.Type.systemBars())
+                insets.isAppearanceLightStatusBars = false
+                insets.isAppearanceLightNavigationBars = false
+            }
+
+            override fun onHideCustomView() {
+                if (customVideoView == null) return
+
+                val decor = window.decorView as ViewGroup
+                try {
+                    decor.removeView(fullScreenContainer)
+                } catch (_: Exception) { }
+
+                fullScreenContainer = null
+                customVideoView = null
+
+                // mostra a WebView novamente
+                web.visibility = View.VISIBLE
+
+                // restaura barras (seguimos escondendo status bar como no app)
+                hideStatusBar()
+
+                try {
+                    customViewCallback?.onCustomViewHidden()
+                } catch (_: Exception) { }
+                customViewCallback = null
+            }
+
+            // evita “poster” branco/preto enquanto o vídeo inicializa
+            override fun getDefaultVideoPoster(): Bitmap? {
+                return Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+            }
+            // -------------------------------------------------------------------
         }
 
         if (initialUrl.isNotBlank()) {
@@ -408,6 +498,11 @@ class WebViewActivity : AppCompatActivity() {
     }
 
     override fun onBackPressed() {
+        // se estiver em fullscreen de vídeo, sai do fullscreen primeiro
+        if (isInFullscreen()) {
+            try { (web.webChromeClient as? WebChromeClient)?.onHideCustomView() } catch (_: Exception) {}
+            return
+        }
         finish()
     }
 
