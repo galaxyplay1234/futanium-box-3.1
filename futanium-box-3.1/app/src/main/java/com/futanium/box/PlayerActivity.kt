@@ -1,3 +1,6 @@
+*Player m3u8*
+
+
 package com.futanium.box
 
 import android.content.Intent
@@ -19,7 +22,7 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.hls.HlsMediaSource
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
 
 class PlayerActivity : AppCompatActivity() {
@@ -173,31 +176,27 @@ class PlayerActivity : AppCompatActivity() {
         ua: String?,
         subtitleUrl: String?
     ) {
-        // 1) Cabeçalhos vindos do blocklist (ref/ua) + sobrescrita pelos extras, se houver
-        val headers = RefHeaders.getForUrl(url).toMutableMap()
-        if (!ua.isNullOrBlank()) headers["User-Agent"] = ua
-        if (!referer.isNullOrBlank()) {
-            headers["Referer"] = referer
-            runCatching { Uri.parse(referer) }.getOrNull()?.let { r ->
-                val scheme = r.scheme ?: "https"
-                val h = r.host
-                if (!h.isNullOrBlank()) headers["Origin"] = "$scheme://$h"
-            }
-        } else {
-            // fallback de Origin com base na própria URL do stream
-            runCatching { Uri.parse(url) }.getOrNull()?.let { u ->
-                val scheme = u.scheme ?: "https"
-                val h = u.host
-                if (!h.isNullOrBlank()) headers.putIfAbsent("Origin", "$scheme://$h")
-            }
+        val dsFactory = DefaultHttpDataSource.Factory().apply {
+            setAllowCrossProtocolRedirects(true)
+            ua?.let { setUserAgent(it) }
+            setDefaultRequestProperties(buildMap {
+                if (!referer.isNullOrBlank()) put("Referer", referer)
+                put("Origin", Uri.parse(url).scheme + "://" + (Uri.parse(url).host ?: ""))
+            })
         }
 
-        // 2) DataSource com headers
-        val dsFactory = DefaultHttpDataSource.Factory()
-            .setAllowCrossProtocolRedirects(true)
-            .setDefaultRequestProperties(headers)
+        val mediaSourceFactory = DefaultMediaSourceFactory(dsFactory)
 
-        // 3) MediaItem com metadados/legendas (quando houver)
+        val p = ExoPlayer.Builder(this)
+            .setMediaSourceFactory(mediaSourceFactory)
+            .build()
+            .also { playerView.player = it }
+
+
+       val url = intent.getStringExtra("url") ?: return
+
+
+
         val itemBuilder = MediaItem.Builder().setUri(url)
         if (!title.isNullOrBlank()) {
             itemBuilder.setMediaMetadata(MediaMetadata.Builder().setTitle(title).build())
@@ -210,18 +209,8 @@ class PlayerActivity : AppCompatActivity() {
                 .build()
             itemBuilder.setSubtitleConfigurations(listOf(sub))
         }
-        val mediaItem = itemBuilder.build()
 
-        // 4) MediaSource HLS com a factory que carrega os headers
-        val mediaSource = HlsMediaSource.Factory(dsFactory)
-            .createMediaSource(mediaItem)
-
-        // 5) Player
-        val p = ExoPlayer.Builder(this)
-            .build()
-            .also { playerView.player = it }
-
-        p.setMediaSource(mediaSource)
+        p.setMediaItem(itemBuilder.build())
         p.prepare()
         p.playWhenReady = true
 
