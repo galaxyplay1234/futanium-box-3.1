@@ -176,33 +176,33 @@ class MainActivity : AppCompatActivity() {
                     view.isFocusable = true
                     view.isFocusableInTouchMode = true
 
-                    // todos os botões internos devem ser focáveis e ter listener de UP/DOWN
+                    // botões internos focáveis + UP/DOWN mudam de card
                     makeButtonsFocusableForTv(view)
 
-                    // OK no CARD: abre/expande e move foco para o 1º botão visível
+                    // OK no CARD → expande e foca 1º botão visível; LEFT/RIGHT entra nos botões
                     view.setOnKeyListener { v, key, ev ->
-    if (ev.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false
+                        if (ev.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false
 
-    if (key == KeyEvent.KEYCODE_DPAD_CENTER || key == KeyEvent.KEYCODE_ENTER) {
-        v.performClick() // abre/expande
-        v.postDelayed({
-            findFirstVisibleFocusableButton(v)?.requestFocus()
-        }, 80)
-        return@setOnKeyListener true
-    }
+                        if (key == KeyEvent.KEYCODE_DPAD_CENTER || key == KeyEvent.KEYCODE_ENTER) {
+                            v.performClick()
+                            v.postDelayed({
+                                findFirstVisibleFocusableButton(v)?.requestFocus()
+                            }, 80)
+                            return@setOnKeyListener true
+                        }
 
-    if (key == KeyEvent.KEYCODE_DPAD_LEFT || key == KeyEvent.KEYCODE_DPAD_RIGHT) {
-        val target = if (key == KeyEvent.KEYCODE_DPAD_RIGHT)
-            findFirstVisibleFocusableButton(v)
-        else
-            findLastVisibleFocusableButton(v)
-        if (target != null) {
-            target.requestFocus()
-            return@setOnKeyListener true
-        }
-    }
-    false
-}
+                        if (key == KeyEvent.KEYCODE_DPAD_LEFT || key == KeyEvent.KEYCODE_DPAD_RIGHT) {
+                            val target = if (key == KeyEvent.KEYCODE_DPAD_RIGHT)
+                                findFirstVisibleFocusableButton(v)
+                            else
+                                findLastVisibleFocusableButton(v)
+                            if (target != null) {
+                                target.requestFocus()
+                                return@setOnKeyListener true
+                            }
+                        }
+                        false
+                    }
                 }
             }
             override fun onChildViewDetachedFromWindow(view: View) {}
@@ -313,45 +313,45 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun fetchGames(onFinally: (() -> Unit)? = null) {
-    if (!isOnline()) {
-        vb.swipe.isRefreshing = false
-        showOfflineDialog {
-            vb.swipe.isRefreshing = true
-            fetchGames(onFinally)
+        if (!isOnline()) {
+            vb.swipe.isRefreshing = false
+            showOfflineDialog {
+                vb.swipe.isRefreshing = true
+                fetchGames(onFinally)
+            }
+            return
         }
-        return
-    }
 
-    if (!vb.swipe.isRefreshing) vb.swipe.isRefreshing = true
+        if (!vb.swipe.isRefreshing) vb.swipe.isRefreshing = true
 
-    Thread {
-        try {
-            val req = Request.Builder().url(API_URL).build()
-            val res = client.newCall(req).execute()
-            val body = res.body?.string() ?: "[]"
+        Thread {
+            try {
+                val req = Request.Builder().url(API_URL).build()
+                val res = client.newCall(req).execute()
+                val body = res.body?.string() ?: "[]"
 
-            val games = parseGames(body)
-            runOnUiThread {
-                (vb.rvGames.adapter as GameAdapter).submit(games)
+                val games = parseGames(body)
+                runOnUiThread {
+                    (vb.rvGames.adapter as GameAdapter).submit(games)
 
-                if (games.isEmpty()) {
-                    vb.rvGames.visibility = View.GONE
-                    vb.emptyView.visibility = View.VISIBLE
-                } else {
-                    vb.rvGames.visibility = View.VISIBLE
-                    vb.emptyView.visibility = View.GONE
+                    if (games.isEmpty()) {
+                        vb.rvGames.visibility = View.GONE
+                        vb.emptyView.visibility = View.VISIBLE
+                    } else {
+                        vb.rvGames.visibility = View.VISIBLE
+                        vb.emptyView.visibility = View.GONE
+                    }
+                }
+            } catch (_: Exception) {
+                // silêncio para não expor a API
+            } finally {
+                runOnUiThread {
+                    vb.swipe.isRefreshing = false
+                    onFinally?.invoke()
                 }
             }
-        } catch (_: Exception) {
-            // 🚫 Não mostra Toast, não mostra emptyView, fica em silêncio
-        } finally {
-            runOnUiThread {
-                vb.swipe.isRefreshing = false
-                onFinally?.invoke()
-            }
-        }
-    }.start()
-}
+        }.start()
+    }
 
     private fun checkAppUpdateExternal(metaUrl: String, showNoUpdateToast: Boolean = false) {
         Thread {
@@ -662,7 +662,7 @@ class MainActivity : AppCompatActivity() {
                 if (v.isClickable) {
                     v.isFocusable = true
                     v.isFocusableInTouchMode = true
-                    // quando foco está no botão, UP/DOWN mudam de card
+                    // quando o foco está num botão, UP/DOWN mudam de card
                     v.setOnKeyListener { btn, keyCode, ev ->
                         if (ev.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false
                         if (keyCode == KeyEvent.KEYCODE_DPAD_UP || keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
@@ -676,7 +676,7 @@ class MainActivity : AppCompatActivity() {
                             }
                             return@setOnKeyListener true
                         }
-                        false // deixa LEFT/RIGHT/OK seguirem padrão (navega pelos botões e clica)
+                        false // LEFT/RIGHT/OK seguem padrão (navega pelos botões e clica)
                     }
                 }
             }
@@ -684,24 +684,24 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun findFirstVisibleFocusableButton(root: View): View? {
-    if (root !is ViewGroup) return null
-    for (i in 0 until root.childCount) {
-        val c = root.getChildAt(i)
-        if (c.visibility == View.VISIBLE && c.isClickable && c.isFocusable) return c
-        val deeper = findFirstVisibleFocusableButton(c)
-        if (deeper != null) return deeper
+        if (root !is ViewGroup) return null
+        for (i in 0 until root.childCount) {
+            val c = root.getChildAt(i)
+            if (c.visibility == View.VISIBLE && c.isClickable && c.isFocusable) return c
+            val deeper = findFirstVisibleFocusableButton(c)
+            if (deeper != null) return deeper
+        }
+        return null
     }
-    return null
-}
 
-private fun findLastVisibleFocusableButton(root: View): View? {
-    if (root !is ViewGroup) return null
-    for (i in root.childCount - 1 downTo 0) {
-        val c = root.getChildAt(i)
-        if (c.visibility == View.VISIBLE && c.isClickable && c.isFocusable) return c
-        val deeper = findLastVisibleFocusableButton(c)
-        if (deeper != null) return deeper
+    private fun findLastVisibleFocusableButton(root: View): View? {
+        if (root !is ViewGroup) return null
+        for (i in root.childCount - 1 downTo 0) {
+            val c = root.getChildAt(i)
+            if (c.visibility == View.VISIBLE && c.isClickable && c.isFocusable) return c
+            val deeper = findLastVisibleFocusableButton(c)
+            if (deeper != null) return deeper
+        }
+        return null
     }
-    return null
-}
 }
