@@ -181,30 +181,28 @@ class MainActivity : AppCompatActivity() {
 
                     // OK no CARD: abre/expande e move foco para o 1º botão visível
                     view.setOnKeyListener { v, key, ev ->
-                        if (ev.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false
-                        if (key == KeyEvent.KEYCODE_DPAD_CENTER || key == KeyEvent.KEYCODE_ENTER) {
-                            // dispara o click do card (seu adapter expande/colapsa aqui)
-                            v.performClick()
-                            // dá um tempo para o layout inflar os botões e então foca o primeiro
-                            v.postDelayed({
-                                findFirstVisibleFocusableButton(v)?.requestFocus()
-                            }, 80)
-                            return@setOnKeyListener true // consome para não fechar
-                        }
-                        // LEFT/RIGHT no CARD: também tenta entrar nos botões (qualquer caso)
-                        if (key == KeyEvent.KEYCODE_DPAD_LEFT || key == KeyEvent.KEYCODE_DPAD_RIGHT) {
-                            val target =
-                                if (key == KeyEvent.KEYCODE_DPAD_RIGHT)
-                                    findFirstVisibleFocusableButton(v)
-                                else
-                                    findLastVisibleFocusableButton(v)
-                            if (target != null) {
-                                target.requestFocus()
-                                return@setOnKeyListener true
-                            }
-                        }
-                        false
-                    }
+    if (ev.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false
+
+    if (key == KeyEvent.KEYCODE_DPAD_CENTER || key == KeyEvent.KEYCODE_ENTER) {
+        v.performClick() // abre/expande
+        v.postDelayed({
+            findFirstVisibleFocusableButton(v)?.requestFocus()
+        }, 80)
+        return@setOnKeyListener true
+    }
+
+    if (key == KeyEvent.KEYCODE_DPAD_LEFT || key == KeyEvent.KEYCODE_DPAD_RIGHT) {
+        val target = if (key == KeyEvent.KEYCODE_DPAD_RIGHT)
+            findFirstVisibleFocusableButton(v)
+        else
+            findLastVisibleFocusableButton(v)
+        if (target != null) {
+            target.requestFocus()
+            return@setOnKeyListener true
+        }
+    }
+    false
+}
                 }
             }
             override fun onChildViewDetachedFromWindow(view: View) {}
@@ -688,24 +686,24 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun findFirstVisibleFocusableButton(root: View): View? {
-        if (root.visibility == View.VISIBLE && root.isFocusable && root.isClickable) return root
-        if (root is ViewGroup) {
-            for (i in 0 until root.childCount) {
-                val f = findFirstVisibleFocusableButton(root.getChildAt(i))
-                if (f != null) return f
-            }
-        }
-        return null
+    if (root !is ViewGroup) return null
+    for (i in 0 until root.childCount) {
+        val c = root.getChildAt(i)
+        if (c.visibility == View.VISIBLE && c.isClickable && c.isFocusable) return c
+        val deeper = findFirstVisibleFocusableButton(c)
+        if (deeper != null) return deeper
     }
+    return null
+}
 
-    private fun findLastVisibleFocusableButton(root: View): View? {
-        if (root is ViewGroup) {
-            for (i in root.childCount - 1 downTo 0) {
-                val f = findLastVisibleFocusableButton(root.getChildAt(i))
-                if (f != null) return f
-            }
-        }
-        if (root.visibility == View.VISIBLE && root.isFocusable && root.isClickable) return root
-        return null
+private fun findLastVisibleFocusableButton(root: View): View? {
+    if (root !is ViewGroup) return null
+    for (i in root.childCount - 1 downTo 0) {
+        val c = root.getChildAt(i)
+        if (c.visibility == View.VISIBLE && c.isClickable && c.isFocusable) return c
+        val deeper = findLastVisibleFocusableButton(c)
+        if (deeper != null) return deeper
     }
+    return null
+}
 }
