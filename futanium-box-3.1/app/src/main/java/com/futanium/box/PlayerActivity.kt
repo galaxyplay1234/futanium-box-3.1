@@ -103,26 +103,28 @@ class PlayerActivity : AppCompatActivity() {
 
         // ====== CENTRALIZAÇÃO + RODAPÉ ======
         ViewCompat.setOnApplyWindowInsetsListener(playerView) { _, ins ->
-            val sys = ins.getInsets(WindowInsetsCompat.Type.systemBars())
-            val side = maxOf(sys.left, sys.right)
+    val sys = ins.getInsets(WindowInsetsCompat.Type.systemBars())
+    val side = maxOf(sys.left, sys.right)
+    val top = sys.top
+    val bottom = sys.bottom
 
-            // laterais iguais; SEM padding no bottom para o controller “colar” no rodapé
-            playerView.setPadding(side, playerView.paddingTop, side, 0)
+    // ✅ aplica os insets, mantendo o vídeo centralizado entre status bar e nav bar
+    playerView.setPadding(side, top, side, bottom)
 
-            // leve ajuste nos tempos para dentro (simétrico)
-            playerView.findViewById<View?>(androidx.media3.ui.R.id.exo_position)?.let { v ->
-                v.setPadding(v.paddingLeft + dp(6), v.paddingTop, v.paddingRight, v.paddingBottom)
-            }
-            playerView.findViewById<View?>(androidx.media3.ui.R.id.exo_duration)?.let { v ->
-                v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight + dp(6), v.paddingBottom)
-            }
+    // Ajustes dos textos do controller (opcional, só mantém simetria)
+    playerView.findViewById<View?>(androidx.media3.ui.R.id.exo_position)?.let { v ->
+        v.setPadding(v.paddingLeft + dp(6), v.paddingTop, v.paddingRight, v.paddingBottom)
+    }
+    playerView.findViewById<View?>(androidx.media3.ui.R.id.exo_duration)?.let { v ->
+        v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight + dp(6), v.paddingBottom)
+    }
 
-            // garante que o container do controller não ganhe “folga” extra embaixo
-            playerView.findViewById<View?>(androidx.media3.ui.R.id.exo_controller)?.let { c ->
-                c.setPadding(c.paddingLeft, c.paddingTop, c.paddingRight, 0)
-            }
-            ins
-        }
+    // ✅ garante que o container do controller respeite o bottom (fica acima da nav bar)
+    playerView.findViewById<View?>(androidx.media3.ui.R.id.exo_controller)?.let { c ->
+        c.setPadding(c.paddingLeft, c.paddingTop, c.paddingRight, bottom)
+    }
+    ins
+}
         // ====================================
 
         findViewById<android.widget.ProgressBar>(androidx.media3.ui.R.id.exo_buffering)?.let { pb ->
