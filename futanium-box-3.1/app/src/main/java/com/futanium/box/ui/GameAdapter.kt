@@ -43,8 +43,10 @@ class GameAdapter(
         val ivAway: ImageView = v.findViewById(R.id.imgAway)
         val tvAway: TextView  = v.findViewById(R.id.tvAwayName)
 
-        val gameStatus: TextView = v.findViewById(R.id.gameStatus) // ⬅️ texto abaixo da hora
-        val btnContainer: LinearLayout = v.findViewById(R.id.btnContainer)
+        val gameStatus: TextView = v.findViewById(R.id.gameStatus)
+
+        // 🔧 Agora como ViewGroup para suportar FlexboxLayout ou LinearLayout
+        val btnContainer: ViewGroup = v.findViewById(R.id.btnContainer)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
@@ -88,7 +90,6 @@ class GameAdapter(
         }
 
         // ----- STATUS (texto abaixo da hora; sem badge) -----
-        // cancela qualquer "piscar" antigo preso na célula reciclada
         (h.gameStatus.getTag(R.id.tag_blink_anim) as? android.animation.ObjectAnimator)?.let {
             it.cancel()
             h.gameStatus.setTag(R.id.tag_blink_anim, null)
@@ -100,7 +101,7 @@ class GameAdapter(
         when {
             g.isLive == true -> {
                 h.gameStatus.text = "ao vivo"
-                h.gameStatus.setTextColor(android.graphics.Color.parseColor("#FF3B30")) // vermelho
+                h.gameStatus.setTextColor(android.graphics.Color.parseColor("#FF3B30"))
                 h.gameStatus.visibility = View.VISIBLE
 
                 val anim = android.animation.ObjectAnimator
@@ -116,7 +117,7 @@ class GameAdapter(
             }
             g.isFinished == true -> {
                 h.gameStatus.text = "encerrado"
-                h.gameStatus.setTextColor(android.graphics.Color.parseColor("#A5A5A5")) // cinza
+                h.gameStatus.setTextColor(android.graphics.Color.parseColor("#A5A5A5"))
                 h.gameStatus.visibility = View.VISIBLE
                 h.gameStatus.alpha = 1f
             }
@@ -133,81 +134,78 @@ class GameAdapter(
 
         h.btnContainer.visibility = if (isExpanded) View.VISIBLE else View.GONE
         h.btnContainer.removeAllViews()
+
         if (isExpanded) {
-    btns.forEachIndexed { idx, anyBtn ->
-        val (title, link) = extractTitleAndLink(anyBtn, idx)
+            val d = h.itemView.resources.displayMetrics.density
+            btns.forEachIndexed { idx, anyBtn ->
+                val (title, link) = extractTitleAndLink(anyBtn, idx)
 
-        val ctx = h.itemView.context
-        val d   = h.itemView.resources.displayMetrics.density
+                val ctx = h.itemView.context
 
-        // ripple sobre o fundo flat
-        val rippleColor = android.content.res.ColorStateList.valueOf(
-            android.graphics.Color.parseColor("#22000000")
-        )
-        val content = androidx.appcompat.content.res.AppCompatResources.getDrawable(
-            ctx, R.drawable.bg_channel_button
-        )
-        val mask = android.graphics.drawable.GradientDrawable().apply {
-            shape = android.graphics.drawable.GradientDrawable.RECTANGLE
-            cornerRadius = 12f * d
-            setColor(android.graphics.Color.WHITE) // só limita a área do ripple
-        }
-        val ripple = android.graphics.drawable.RippleDrawable(rippleColor, content, mask)
+                // ripple
+                val rippleColor = android.content.res.ColorStateList.valueOf(
+                    android.graphics.Color.parseColor("#22000000")
+                )
+                val content = androidx.appcompat.content.res.AppCompatResources.getDrawable(
+                    ctx, R.drawable.bg_channel_button
+                )
+                val mask = android.graphics.drawable.GradientDrawable().apply {
+                    shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                    cornerRadius = 12f * d
+                    setColor(android.graphics.Color.WHITE)
+                }
+                val ripple = android.graphics.drawable.RippleDrawable(rippleColor, content, mask)
 
-        val b = Button(ctx).apply {
-            text = title
-            setAllCaps(false)
-            setTextColor(android.graphics.Color.parseColor("#222222"))
-            textSize = 14f
+                val b = Button(ctx).apply {
+                    text = title
+                    setAllCaps(false)
+                    setTextColor(android.graphics.Color.parseColor("#222222"))
+                    textSize = 14f
+                    background = ripple
+                    stateListAnimator = null
+                    elevation = 0f
+                    backgroundTintList = null
+                    minHeight = 0; minimumHeight = 0
+                    minWidth  = 0; minimumWidth  = 0
+                    includeFontPadding = false
+                    setPadding((14 * d).toInt(), (8 * d).toInt(), (14 * d).toInt(), (8 * d).toInt())
 
-            // fundo flat + ripple, sem elevação/sombra
-            background = ripple
-            stateListAnimator = null
-            elevation = 0f
-            backgroundTintList = null
-
-            // tira mínimos do Button padrão
-            minHeight = 0; minimumHeight = 0
-            minWidth  = 0; minimumWidth  = 0
-            includeFontPadding = false
-
-            // padding estilo chip
-            setPadding((14 * d).toInt(), (8 * d).toInt(), (14 * d).toInt(), (8 * d).toInt())
-
-            // margens entre chips (alinhado à esquerda pelo container)
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                marginEnd = (8 * d).toInt()
-                topMargin = (6 * d).toInt()
-            }
-
-            // feedback visível antes de abrir a outra tela
-            setOnClickListener { v ->
-                v.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
-                v.isPressed = true
-                v.refreshDrawableState()
-
-                v.animate().cancel()
-                v.animate()
-                    .scaleX(0.98f).scaleY(0.98f)
-                    .setDuration(90)
-                    .withEndAction {
-                        v.animate().scaleX(1f).scaleY(1f).setDuration(140).start()
+                    setOnClickListener { v ->
+                        v.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
+                        v.isPressed = true
+                        v.refreshDrawableState()
+                        v.animate().cancel()
+                        v.animate().scaleX(0.98f).scaleY(0.98f).setDuration(90)
+                            .withEndAction { v.animate().scaleX(1f).scaleY(1f).setDuration(140).start() }
+                            .start()
+                        v.postDelayed({ openLink(h.itemView, title, link) }, 130)
                     }
-                    .start()
+                }
 
-                // pequeno atraso pro ripple aparecer
-                v.postDelayed({
-                    openLink(h.itemView, title, link)
-                }, 130)
+                // 👉 LayoutParams compatível (FlexboxLayout OU LinearLayout)
+                val lp: ViewGroup.MarginLayoutParams =
+                    if (h.btnContainer is com.google.android.flexbox.FlexboxLayout) {
+                        com.google.android.flexbox.FlexboxLayout.LayoutParams(
+                            ViewGroup.LayoutParams.WRAP_CONTENT,
+                            ViewGroup.LayoutParams.WRAP_CONTENT
+                        ).apply {
+                            // margem entre "chips"
+                            rightMargin = (8 * d).toInt()
+                            topMargin = (6 * d).toInt()
+                        }
+                    } else {
+                        LinearLayout.LayoutParams(
+                            ViewGroup.LayoutParams.WRAP_CONTENT,
+                            ViewGroup.LayoutParams.WRAP_CONTENT
+                        ).apply {
+                            marginEnd = (8 * d).toInt()
+                            topMargin = (6 * d).toInt()
+                        }
+                    }
+
+                h.btnContainer.addView(b, lp)
             }
         }
-
-        h.btnContainer.addView(b)
-    }
-}
 
         // Expansão por clique (só se houver botões)
         h.itemView.setOnClickListener {
@@ -260,7 +258,7 @@ class GameAdapter(
                         ctx.startActivity(it)
                     }
                 }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             Toast.makeText(ctx, "Não foi possível abrir o link.", Toast.LENGTH_SHORT).show()
         }
     }
