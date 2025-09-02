@@ -189,6 +189,22 @@ class PlayerActivity : AppCompatActivity() {
             .build()
             .also { playerView.player = it }
 
+
+       val url = intent.getStringExtra("url") ?: return
+
+// 🔹 pega os headers certos (Ref + UA) para o link
+val headers = RefHeaders.getForUrl(url)
+
+val dataSourceFactory = DefaultHttpDataSource.Factory()
+    .setDefaultRequestProperties(headers)
+
+val mediaSource = HlsMediaSource.Factory(dataSourceFactory)
+    .createMediaSource(MediaItem.fromUri(url))
+
+player.setMediaSource(mediaSource)
+player.prepare()
+player.playWhenReady = true
+
         val itemBuilder = MediaItem.Builder().setUri(url)
         if (!title.isNullOrBlank()) {
             itemBuilder.setMediaMetadata(MediaMetadata.Builder().setTitle(title).build())
