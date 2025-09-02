@@ -1,6 +1,3 @@
-*Player m3u8*
-
-
 package com.futanium.box
 
 import android.content.Intent
