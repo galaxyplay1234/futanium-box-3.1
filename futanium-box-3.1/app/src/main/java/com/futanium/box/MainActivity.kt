@@ -313,47 +313,45 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun fetchGames(onFinally: (() -> Unit)? = null) {
-        if (!isOnline()) {
-            vb.swipe.isRefreshing = false
-            showOfflineDialog {
-                vb.swipe.isRefreshing = true
-                fetchGames(onFinally)
-            }
-            return
+    if (!isOnline()) {
+        vb.swipe.isRefreshing = false
+        showOfflineDialog {
+            vb.swipe.isRefreshing = true
+            fetchGames(onFinally)
         }
+        return
+    }
 
-        if (!vb.swipe.isRefreshing) vb.swipe.isRefreshing = true
+    if (!vb.swipe.isRefreshing) vb.swipe.isRefreshing = true
 
-        Thread {
-            try {
-                val req = Request.Builder().url(API_URL).build()
-                val res = client.newCall(req).execute()
-                val body = res.body?.string() ?: "[]"
+    Thread {
+        try {
+            val req = Request.Builder().url(API_URL).build()
+            val res = client.newCall(req).execute()
+            val body = res.body?.string() ?: "[]"
 
-                val games = parseGames(body)
-                runOnUiThread {
-                    (vb.rvGames.adapter as GameAdapter).submit(games)
+            val games = parseGames(body)
+            runOnUiThread {
+                (vb.rvGames.adapter as GameAdapter).submit(games)
 
-                    if (games.isEmpty()) {
-                        vb.rvGames.visibility = View.GONE
-                        vb.emptyView.visibility = View.VISIBLE
-                    } else {
-                        vb.rvGames.visibility = View.VISIBLE
-                        vb.emptyView.visibility = View.GONE
-                    }
-                }
-            } catch (e: Exception) {
-                runOnUiThread {
-                    Toast.makeText(this, "Erro ao carregar: ${e.message}", Toast.LENGTH_LONG).show()
-                }
-            } finally {
-                runOnUiThread {
-                    vb.swipe.isRefreshing = false
-                    onFinally?.invoke()
+                if (games.isEmpty()) {
+                    vb.rvGames.visibility = View.GONE
+                    vb.emptyView.visibility = View.VISIBLE
+                } else {
+                    vb.rvGames.visibility = View.VISIBLE
+                    vb.emptyView.visibility = View.GONE
                 }
             }
-        }.start()
-    }
+        } catch (_: Exception) {
+            // 🚫 Não mostra Toast, não mostra emptyView, fica em silêncio
+        } finally {
+            runOnUiThread {
+                vb.swipe.isRefreshing = false
+                onFinally?.invoke()
+            }
+        }
+    }.start()
+}
 
     private fun checkAppUpdateExternal(metaUrl: String, showNoUpdateToast: Boolean = false) {
         Thread {
