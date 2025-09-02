@@ -117,9 +117,7 @@ class MainActivity : AppCompatActivity() {
         vb.rvGames.layoutManager = LinearLayoutManager(this)
         vb.rvGames.adapter = adapter
 
-        // ======= SOMENTE o que você pediu =======
-
-        // 1) Largura máxima dos cards em telas grandes/TV (600dp)
+        // ======= Largura máx. 600dp em telas grandes / TV =======
         val isTv = packageManager.hasSystemFeature("android.software.leanback") ||
                    packageManager.hasSystemFeature("android.hardware.type.television")
         val maxCardPx = (600 * resources.displayMetrics.density).toInt()
@@ -138,7 +136,6 @@ class MainActivity : AppCompatActivity() {
                 val target = min(w, maxCardPx)
                 val side = max(0, (w - target) / 2)
                 vb.rvGames.setPadding(side, vb.rvGames.paddingTop, side, vb.rvGames.paddingBottom)
-                // força a largura dos filhos anexados
                 for (i in 0 until vb.rvGames.childCount) {
                     val child = vb.rvGames.getChildAt(i)
                     val lp = child.layoutParams as RecyclerView.LayoutParams
@@ -146,7 +143,6 @@ class MainActivity : AppCompatActivity() {
                     child.layoutParams = lp
                 }
             } else {
-                // celular normal: largura total
                 vb.rvGames.setPadding(0, vb.rvGames.paddingTop, 0, vb.rvGames.paddingBottom)
                 for (i in 0 until vb.rvGames.childCount) {
                     val child = vb.rvGames.getChildAt(i)
@@ -158,34 +154,54 @@ class MainActivity : AppCompatActivity() {
         }
 
         vb.rvGames.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> applyCardWidthConstraint() }
+
         vb.rvGames.addOnChildAttachStateChangeListener(object : RecyclerView.OnChildAttachStateChangeListener {
             override fun onChildViewAttachedToWindow(view: View) {
-                // garante largura correta para cada item recém-anexado
+                // ajusta largura do item
                 if (isLargeNow()) {
                     val target = min(vb.rvGames.width, maxCardPx)
-                    val lp = view.layoutParams as RecyclerView.LayoutParams
-                    lp.width = target
-                    view.layoutParams = lp
+                    (view.layoutParams as RecyclerView.LayoutParams).apply {
+                        width = target
+                        view.layoutParams = this
+                    }
                 } else {
-                    val lp = view.layoutParams as RecyclerView.LayoutParams
-                    lp.width = ViewGroup.LayoutParams.MATCH_PARENT
-                    view.layoutParams = lp
+                    (view.layoutParams as RecyclerView.LayoutParams).apply {
+                        width = ViewGroup.LayoutParams.MATCH_PARENT
+                        view.layoutParams = this
+                    }
                 }
+
                 if (isTv) {
-                    // card pode receber foco, e filhos clicáveis também
+                    // o CARD é focável
                     view.isFocusable = true
                     view.isFocusableInTouchMode = true
-                    makeClickableChildrenFocusable(view)
 
-                    // quando o foco está no CARD: LEFT/RIGHT entra nos botões
+                    // todos os botões internos devem ser focáveis e ter listener de UP/DOWN
+                    makeButtonsFocusableForTv(view)
+
+                    // OK no CARD: abre/expande e move foco para o 1º botão visível
                     view.setOnKeyListener { v, key, ev ->
                         if (ev.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false
-                        if (key == KeyEvent.KEYCODE_DPAD_RIGHT || key == KeyEvent.KEYCODE_DPAD_LEFT) {
-                            val targetChild =
-                                if (key == KeyEvent.KEYCODE_DPAD_RIGHT) findFirstFocusableDescendant(v)
-                                else findLastFocusableDescendant(v)
-                            targetChild?.requestFocus() ?: false
-                            return@setOnKeyListener targetChild != null
+                        if (key == KeyEvent.KEYCODE_DPAD_CENTER || key == KeyEvent.KEYCODE_ENTER) {
+                            // dispara o click do card (seu adapter expande/colapsa aqui)
+                            v.performClick()
+                            // dá um tempo para o layout inflar os botões e então foca o primeiro
+                            v.postDelayed({
+                                findFirstVisibleFocusableButton(v)?.requestFocus()
+                            }, 80)
+                            return@setOnKeyListener true // consome para não fechar
+                        }
+                        // LEFT/RIGHT no CARD: também tenta entrar nos botões (qualquer caso)
+                        if (key == KeyEvent.KEYCODE_DPAD_LEFT || key == KeyEvent.KEYCODE_DPAD_RIGHT) {
+                            val target =
+                                if (key == KeyEvent.KEYCODE_DPAD_RIGHT)
+                                    findFirstVisibleFocusableButton(v)
+                                else
+                                    findLastVisibleFocusableButton(v)
+                            if (target != null) {
+                                target.requestFocus()
+                                return@setOnKeyListener true
+                            }
                         }
                         false
                     }
@@ -194,32 +210,26 @@ class MainActivity : AppCompatActivity() {
             override fun onChildViewDetachedFromWindow(view: View) {}
         })
 
-        // 2) Navegação por DPAD na TV:
-        //    se o foco estiver em um botão dentro do card e o usuário apertar UP/DOWN,
-        //    mudamos para o card anterior/próximo.
+        // UP/DOWN quando o foco estiver em um botão interno muda de card
         if (isTv) {
             vb.rvGames.isFocusable = true
             vb.rvGames.isFocusableInTouchMode = true
             vb.rvGames.setOnKeyListener { _, keyCode, event ->
                 if (event.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false
                 if (keyCode != KeyEvent.KEYCODE_DPAD_UP && keyCode != KeyEvent.KEYCODE_DPAD_DOWN) return@setOnKeyListener false
-
                 val focused = currentFocus ?: return@setOnKeyListener false
-                // só tratamos se o foco estiver dentro de um item (ex.: em algum botão)
                 val holder = vb.rvGames.findContainingViewHolder(focused) ?: return@setOnKeyListener false
                 val pos = holder.bindingAdapterPosition
                 val nextPos = if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN) pos + 1 else pos - 1
                 if (nextPos < 0 || nextPos >= (vb.rvGames.adapter?.itemCount ?: 0)) return@setOnKeyListener true
-
-                val lm = vb.rvGames.layoutManager as LinearLayoutManager
-                lm.scrollToPosition(nextPos)
+                (vb.rvGames.layoutManager as LinearLayoutManager).scrollToPosition(nextPos)
                 vb.rvGames.post {
                     vb.rvGames.findViewHolderForAdapterPosition(nextPos)?.itemView?.requestFocus()
                 }
                 true
             }
         }
-        // =======================================
+        // ===========================================================
 
         adapter.onOpenLink = { url, title, referer, ua ->
             if (!isOnline()) {
@@ -556,6 +566,7 @@ class MainActivity : AppCompatActivity() {
         return list
     }
 
+    // ===== refresh icon spin (inalterado) =====
     private fun startRefreshSpin() {
         val v = refreshView ?: return
         if (v.getTag(SPIN_TAG_KEY) == true) return
@@ -646,38 +657,55 @@ class MainActivity : AppCompatActivity() {
         } catch (_: Exception) { 0 }
     }
 
-    // ---- helpers de foco ----
-    private fun makeClickableChildrenFocusable(root: View) {
+    // ========= Helpers de foco/TV =========
+    private fun makeButtonsFocusableForTv(root: View) {
         if (root is ViewGroup) {
             for (i in 0 until root.childCount) {
                 val v = root.getChildAt(i)
-                if (v is ViewGroup) makeClickableChildrenFocusable(v)
+                if (v is ViewGroup) makeButtonsFocusableForTv(v)
                 if (v.isClickable) {
                     v.isFocusable = true
                     v.isFocusableInTouchMode = true
+                    // quando foco está no botão, UP/DOWN mudam de card
+                    v.setOnKeyListener { btn, keyCode, ev ->
+                        if (ev.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false
+                        if (keyCode == KeyEvent.KEYCODE_DPAD_UP || keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
+                            val holder = vb.rvGames.findContainingViewHolder(btn) ?: return@setOnKeyListener false
+                            val pos = holder.bindingAdapterPosition
+                            val nextPos = if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN) pos + 1 else pos - 1
+                            if (nextPos < 0 || nextPos >= (vb.rvGames.adapter?.itemCount ?: 0)) return@setOnKeyListener true
+                            (vb.rvGames.layoutManager as LinearLayoutManager).scrollToPosition(nextPos)
+                            vb.rvGames.post {
+                                vb.rvGames.findViewHolderForAdapterPosition(nextPos)?.itemView?.requestFocus()
+                            }
+                            return@setOnKeyListener true
+                        }
+                        false // deixa LEFT/RIGHT/OK seguirem padrão (navega pelos botões e clica)
+                    }
                 }
             }
         }
     }
 
-    private fun findFirstFocusableDescendant(root: View): View? {
-        if (root.isFocusable) return root
+    private fun findFirstVisibleFocusableButton(root: View): View? {
+        if (root.visibility == View.VISIBLE && root.isFocusable && root.isClickable) return root
         if (root is ViewGroup) {
             for (i in 0 until root.childCount) {
-                val f = findFirstFocusableDescendant(root.getChildAt(i))
+                val f = findFirstVisibleFocusableButton(root.getChildAt(i))
                 if (f != null) return f
             }
         }
         return null
     }
 
-    private fun findLastFocusableDescendant(root: View): View? {
+    private fun findLastVisibleFocusableButton(root: View): View? {
         if (root is ViewGroup) {
             for (i in root.childCount - 1 downTo 0) {
-                val f = findLastFocusableDescendant(root.getChildAt(i))
+                val f = findLastVisibleFocusableButton(root.getChildAt(i))
                 if (f != null) return f
             }
         }
-        return if (root.isFocusable) root else null
+        if (root.visibility == View.VISIBLE && root.isFocusable && root.isClickable) return root
+        return null
     }
 }
