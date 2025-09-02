@@ -103,25 +103,28 @@ class PlayerActivity : AppCompatActivity() {
 
         // ====== CENTRALIZAÇÃO + RODAPÉ ======
         ViewCompat.setOnApplyWindowInsetsListener(playerView) { _, ins ->
-    val sys = ins.getInsets(WindowInsetsCompat.Type.systemBars())
-    val side = maxOf(sys.left, sys.right)
-    val top = sys.top
-    val bottom = sys.bottom
+    // só respeita navegação lateral/inf e notch; NÃO empurra no topo
+    val bars = ins.getInsets(
+        WindowInsetsCompat.Type.navigationBars() or WindowInsetsCompat.Type.displayCutout()
+    )
+    val left   = bars.left
+    val right  = bars.right
+    val bottom = bars.bottom
 
-    // ✅ aplica os insets, mantendo o vídeo centralizado entre status bar e nav bar
-    playerView.setPadding(side, top, side, bottom)
+    // ✅ padding exatamente conforme cada lado (nada de simetrizar)
+    playerView.setPadding(left, 0, right, bottom)
 
-    // Ajustes dos textos do controller (opcional, só mantém simetria)
-    playerView.findViewById<View?>(androidx.media3.ui.R.id.exo_position)?.let { v ->
-        v.setPadding(v.paddingLeft + dp(6), v.paddingTop, v.paddingRight, v.paddingBottom)
+    // controller também “senta” acima da nav bar, sem folga extra em cima
+    playerView.findViewById<View?>(androidx.media3.ui.R.id.exo_controller)?.apply {
+        setPadding(paddingLeft, paddingTop, paddingRight, bottom)
     }
-    playerView.findViewById<View?>(androidx.media3.ui.R.id.exo_duration)?.let { v ->
-        v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight + dp(6), v.paddingBottom)
-    }
 
-    // ✅ garante que o container do controller respeite o bottom (fica acima da nav bar)
-    playerView.findViewById<View?>(androidx.media3.ui.R.id.exo_controller)?.let { c ->
-        c.setPadding(c.paddingLeft, c.paddingTop, c.paddingRight, bottom)
+    // (opcional) pequenos ajustes dos textos
+    playerView.findViewById<View?>(androidx.media3.ui.R.id.exo_position)?.apply {
+        setPadding(paddingLeft + dp(6), paddingTop, paddingRight, paddingBottom)
+    }
+    playerView.findViewById<View?>(androidx.media3.ui.R.id.exo_duration)?.apply {
+        setPadding(paddingLeft, paddingTop, paddingRight + dp(6), paddingBottom)
     }
     ins
 }
