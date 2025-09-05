@@ -48,6 +48,10 @@ import android.widget.LinearLayout
 import kotlin.math.max
 import kotlin.math.min
 
+// 🔔 IMPORTES ADICIONADOS PARA NOTIFICAÇÃO
+import android.Manifest
+import com.google.firebase.messaging.FirebaseMessaging
+
 class MainActivity : AppCompatActivity() {
 
     private lateinit var vb: ActivityMainBinding
@@ -77,10 +81,29 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // 🔔 LAUNCHER DA PERMISSÃO DE NOTIFICAÇÃO (Android 13+)
+    private val requestNotif =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* ignore */ }
+
+    // 🔔 FUNÇÃO QUE GARANTE A PERMISSÃO (só Tiramisu+)
+    private fun ensureNotifPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+                requestNotif.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         vb = ActivityMainBinding.inflate(layoutInflater)
         setContentView(vb.root)
+
+        // 🔔 PEDIR PERMISSÃO E ASSINAR TÓPICO GLOBAL
+        ensureNotifPermission()
+        FirebaseMessaging.getInstance().subscribeToTopic("global")
+            .addOnCompleteListener { android.util.Log.d("FCM", "Inscrito no tópico global") }
 
         setSupportActionBar(vb.toolbar)
         window.statusBarColor = Color.parseColor("#10131C")
@@ -311,6 +334,8 @@ class MainActivity : AppCompatActivity() {
             else -> super.onOptionsItemSelected(item)
         }
     }
+
+
 
     private fun fetchGames(onFinally: (() -> Unit)? = null) {
         if (!isOnline()) {
