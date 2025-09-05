@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "588045697193",
+    "project_id": "futanium-box-3-1",
+    "storage_bucket": "futanium-box-3-1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:588045697193:android:d0a550b884eb4f826f69b8",
+        "android_client_info": {
+          "package_name": "com.futanium.box"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA4hMGT5fPXC-d4ordLOj6ACdgW4h26SA4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
