@@ -44,13 +44,14 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
 
         val notif = NotificationCompat.Builder(this, channelId)
-            .setSmallIcon(R.drawable.ic_stat_notify) // ícone em res/drawable
-            .setContentTitle(title)
-            .setContentText(body)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
-            .setAutoCancel(true)
-            .setSound(sound)
-            .build()
+    .setSmallIcon(R.drawable.ic_stat_notify) // 🔔 aparece na status bar
+    .setLargeIcon(android.graphics.BitmapFactory.decodeResource(resources, R.drawable.ic_futanium_logo)) // 🟦 logo grande colorido
+    .setContentTitle(title)
+    .setContentText(body)
+    .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+    .setAutoCancel(true)
+    .setSound(sound)
+    .build()
 
         nm.notify(System.currentTimeMillis().toInt(), notif)
     }
