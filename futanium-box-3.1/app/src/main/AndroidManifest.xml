@@ -44,6 +44,13 @@
             android:screenOrientation="landscape"
             android:theme="@style/Theme.Futanium.Fullscreen"
             android:exported="false" />
+     
+        <activity
+    android:name=".ExternalWebViewActivity"
+    android:exported="false"
+    android:hardwareAccelerated="true"
+    android:screenOrientation="landscape"
+    android:theme="@style/Theme.Futanium.Fullscreen" />
 
         <activity
             android:name=".MainActivity"
