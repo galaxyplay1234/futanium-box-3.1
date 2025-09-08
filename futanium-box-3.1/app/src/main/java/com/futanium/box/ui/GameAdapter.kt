@@ -250,9 +250,9 @@ class GameAdapter(
             onOpenLink?.invoke(u, title, null, null)
                 ?: run {
                     if (u.startsWith("http", ignoreCase = true)) {
-                        val it = Intent(ctx, com.futanium.box.ExternalWebViewActivity::class.java)
-it.putExtra(com.futanium.box.ExternalWebViewActivity.EXTRA_URL, u)
-ctx.startActivity(it)
+                        val it = Intent(ctx, com.futanium.box.WebViewActivity::class.java)
+                        it.putExtra(com.futanium.box.WebViewActivity.EXTRA_URL, u)
+                        ctx.startActivity(it)
                     } else {
                         val it = Intent(Intent.ACTION_VIEW, Uri.parse(u))
                         ctx.startActivity(it)
