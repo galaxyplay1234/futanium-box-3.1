@@ -35,10 +35,10 @@ object LinkHelper {
             }
             context.startActivity(i)
         } else {
-            // Abre WebView (NOVA)
-val i = Intent(context, ExternalWebViewActivity::class.java).apply {
-    putExtra(ExternalWebViewActivity.EXTRA_URL, url)
-}
+          // Abre WebView
+            val i = Intent(context, WebViewActivity::class.java).apply {
+                putExtra(WebViewActivity.EXTRA_URL, url)
+            }
 context.startActivity(i)
         }
     }
