@@ -70,6 +70,12 @@
             android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|uiMode"
             android:theme="@style/Theme.Material3.DayNight.NoActionBar" />
 
+				        <activity
+            android:name=".AdWebViewActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.Material3.DayNight.NoActionBar" />
+
         <!-- 🔔 Service para receber mensagens do Firebase Cloud Messaging -->
         <service
             android:name=".push.MyFirebaseMessagingService"
