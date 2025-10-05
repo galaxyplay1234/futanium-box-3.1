@@ -278,7 +278,7 @@ class GameAdapter(
         Toast.makeText(ctx, "Não foi possível abrir o link.", Toast.LENGTH_SHORT).show()
     }
 }
-
+}
 /** Opcional: tipo forte para botões */
 data class ButtonInfo(
     val name: String?,
