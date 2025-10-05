@@ -58,7 +58,7 @@ class MainActivity : AppCompatActivity() {
     private val client = OkHttpClient()
     private val adapter = GameAdapter()
 
-    private val API_URL = "http://91.108.124.236:8080/games/api"
+    private val API_URL = "https://futaniumwebapp.vercel.app/api/games"
 
     private var refreshItem: MenuItem? = null
     private var refreshView: AppCompatImageView? = null
