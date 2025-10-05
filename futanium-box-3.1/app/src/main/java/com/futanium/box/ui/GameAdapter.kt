@@ -248,34 +248,15 @@ class GameAdapter(
     val u = link.trim()
 
     try {
-        // 🔸 URL da Monetag (coloque seu link)
-        val monetagUrl = "https://otieu.com/4/9902033"
+        val monetagUrl = "https://otieu.com/4/9902033" // seu link monetag
 
-        // 🔹 Abre o anúncio no navegador (pop-under)
-        try {
-            val adIntent = Intent(Intent.ACTION_VIEW, Uri.parse(monetagUrl))
-            adIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            ctx.startActivity(adIntent)
-        } catch (e: Exception) {
-            e.printStackTrace()
+        val adIntent = Intent(ctx, com.futanium.box.AdWebViewActivity::class.java).apply {
+            putExtra(com.futanium.box.AdWebViewActivity.EXTRA_AD_URL, monetagUrl)
+            putExtra(com.futanium.box.AdWebViewActivity.EXTRA_FINAL_URL, u)
         }
-
-        // 🔹 Aguarda 1.5 segundos antes de abrir o player (garante registro do clique)
-        view.postDelayed({
-            onOpenLink?.invoke(u, title, null, null)
-                ?: run {
-                    if (u.startsWith("http", ignoreCase = true)) {
-                        val it = Intent(ctx, com.futanium.box.WebViewActivity::class.java)
-                        it.putExtra(com.futanium.box.WebViewActivity.EXTRA_URL, u)
-                        ctx.startActivity(it)
-                    } else {
-                        val it = Intent(Intent.ACTION_VIEW, Uri.parse(u))
-                        ctx.startActivity(it)
-                    }
-                }
-        }, 1500)
+        ctx.startActivity(adIntent)
     } catch (_: Exception) {
-        Toast.makeText(ctx, "Não foi possível abrir o link.", Toast.LENGTH_SHORT).show()
+        Toast.makeText(ctx, "Erro ao abrir o canal.", Toast.LENGTH_SHORT).show()
     }
 }
 }
