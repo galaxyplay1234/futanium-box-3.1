@@ -15,6 +15,7 @@ import coil.load
 import com.futanium.box.R
 import com.futanium.box.model.Game
 import org.json.JSONObject
+import androidx.browser.customtabs.CustomTabsIntent
 
 class GameAdapter(
     private val items: MutableList<Game> = mutableListOf()
