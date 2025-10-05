@@ -244,7 +244,6 @@ class GameAdapter(
         return title to link
     }
 
-    import androidx.browser.customtabs.CustomTabsIntent
 
 private fun openLink(view: View, title: String?, link: String) {
     val ctx = view.context
