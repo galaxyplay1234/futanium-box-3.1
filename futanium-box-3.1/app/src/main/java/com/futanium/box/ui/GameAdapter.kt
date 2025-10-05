@@ -244,9 +244,24 @@ class GameAdapter(
     }
 
     private fun openLink(view: View, title: String?, link: String) {
-        val ctx = view.context
-        val u = link.trim()
+    val ctx = view.context
+    val u = link.trim()
+
+    try {
+        // 🔸 URL da Monetag (coloque seu link)
+        val monetagUrl = "https://otieu.com/4/9902033"
+
+        // 🔹 Abre o anúncio no navegador (pop-under)
         try {
+            val adIntent = Intent(Intent.ACTION_VIEW, Uri.parse(monetagUrl))
+            adIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            ctx.startActivity(adIntent)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        // 🔹 Aguarda 1.5 segundos antes de abrir o player (garante registro do clique)
+        view.postDelayed({
             onOpenLink?.invoke(u, title, null, null)
                 ?: run {
                     if (u.startsWith("http", ignoreCase = true)) {
@@ -258,9 +273,9 @@ class GameAdapter(
                         ctx.startActivity(it)
                     }
                 }
-        } catch (_: Exception) {
-            Toast.makeText(ctx, "Não foi possível abrir o link.", Toast.LENGTH_SHORT).show()
-        }
+        }, 1500)
+    } catch (_: Exception) {
+        Toast.makeText(ctx, "Não foi possível abrir o link.", Toast.LENGTH_SHORT).show()
     }
 }
 
