@@ -46,6 +46,7 @@ dependencies {
     implementation("androidx.cardview:cardview:1.0.0")
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
     implementation("com.google.android.flexbox:flexbox:3.0.0")
+		implementation ("androidx.browser:browser:1.8.0")
 
     // Media3 (ExoPlayer moderno + UI + HLS)
     implementation("androidx.media3:media3-exoplayer:1.4.1")
