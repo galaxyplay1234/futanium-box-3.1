@@ -243,20 +243,40 @@ class GameAdapter(
         return title to link
     }
 
-    private fun openLink(view: View, title: String?, link: String) {
+    import androidx.browser.customtabs.CustomTabsIntent
+
+private fun openLink(view: View, title: String?, link: String) {
     val ctx = view.context
     val u = link.trim()
 
     try {
-        val monetagUrl = "https://otieu.com/4/9902033" // seu link monetag
+        val monetagUrl = "https://otieu.com/4/9902033"
 
-        val adIntent = Intent(ctx, com.futanium.box.AdWebViewActivity::class.java).apply {
-            putExtra(com.futanium.box.AdWebViewActivity.EXTRA_AD_URL, monetagUrl)
-            putExtra(com.futanium.box.AdWebViewActivity.EXTRA_FINAL_URL, u)
-        }
-        ctx.startActivity(adIntent)
+        // 🔹 Abre o link da Monetag em uma aba sobre o app (Chrome Custom Tab)
+        val customTabsIntent = CustomTabsIntent.Builder()
+            .setShowTitle(false)
+            .setToolbarColor(android.graphics.Color.BLACK) // ou cor do seu app
+            .build()
+
+        customTabsIntent.launchUrl(ctx, Uri.parse(monetagUrl))
+
+        // 🔹 Depois de 3 segundos, abre o canal normalmente
+        view.postDelayed({
+            onOpenLink?.invoke(u, title, null, null)
+                ?: run {
+                    if (u.startsWith("http", ignoreCase = true)) {
+                        val it = Intent(ctx, com.futanium.box.WebViewActivity::class.java)
+                        it.putExtra(com.futanium.box.WebViewActivity.EXTRA_URL, u)
+                        ctx.startActivity(it)
+                    } else {
+                        val it = Intent(Intent.ACTION_VIEW, Uri.parse(u))
+                        ctx.startActivity(it)
+                    }
+                }
+        }, 3000)
+
     } catch (_: Exception) {
-        Toast.makeText(ctx, "Erro ao abrir o canal.", Toast.LENGTH_SHORT).show()
+        Toast.makeText(ctx, "Não foi possível abrir o link.", Toast.LENGTH_SHORT).show()
     }
 }
 }
