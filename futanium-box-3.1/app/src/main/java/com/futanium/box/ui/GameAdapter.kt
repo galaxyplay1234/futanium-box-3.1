@@ -46,74 +46,6 @@ class GameAdapter(
         val btnContainer: ViewGroup = v.findViewById(R.id.btnContainer)
     }
 
-    // 🔹 AVISO FIXO NO TOPO
-var notice: com.futanium.box.model.Notice? = null
-
-fun updateNotice(newNotice: com.futanium.box.model.Notice?) {
-    notice = newNotice
-    notifyDataSetChanged()
-}
-
-// Adiciona o suporte ao tipo de view do aviso
-override fun getItemViewType(position: Int): Int {
-    return if (notice != null && notice?.ativo == "sim" && position == 0) 0 else 1
-}
-
-// Renderiza o aviso no topo
-private fun bindNotice(h: VH) {
-    val n = notice ?: return
-    h.tvChamp.text = "${n.icone} ${n.mensagem}"
-    h.imgChamp.visibility = View.GONE
-    h.tvHome.visibility = View.GONE
-    h.tvAway.visibility = View.GONE
-    h.tvTime.visibility = View.GONE
-    h.gameStatus.visibility = View.GONE
-
-    h.btnContainer.removeAllViews()
-
-    val ctx = h.itemView.context
-    val d = ctx.resources.displayMetrics.density
-
-    fun addButton(label: String?, url: String?) {
-        if (label.isNullOrBlank() || url.isNullOrBlank()) return
-        val b = Button(ctx).apply {
-            text = label
-            setAllCaps(false)
-            textSize = 14f
-            setTextColor(android.graphics.Color.parseColor("#222222"))
-            val ripple = android.graphics.drawable.RippleDrawable(
-                android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#22000000")),
-                androidx.appcompat.content.res.AppCompatResources.getDrawable(ctx, R.drawable.bg_channel_button),
-                null
-            )
-            background = ripple
-            setPadding((14 * d).toInt(), (8 * d).toInt(), (14 * d).toInt(), (8 * d).toInt())
-            setOnClickListener {
-                try {
-                    val itn = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                    ctx.startActivity(itn)
-                } catch (e: Exception) {
-                    Toast.makeText(ctx, "Não foi possível abrir o link.", Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
-        val lp = LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        ).apply {
-            marginEnd = (8 * d).toInt()
-            topMargin = (6 * d).toInt()
-        }
-        h.btnContainer.addView(b, lp)
-    }
-
-    addButton(n.botao1_name, n.link1)
-    addButton(n.botao2_name, n.link2)
-    addButton(n.botao3_name, n.link3)
-    addButton(n.botao4_name, n.link4)
-}
-
-
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
         val inflater = LayoutInflater.from(parent.context)
         val view = inflater.inflate(R.layout.item_game, parent, false)
@@ -124,8 +56,74 @@ private fun bindNotice(h: VH) {
 
     override fun onBindViewHolder(h: VH, position: Int) {
         val g = items[position]
+        val isNotice = g.homeLogo == "Aviso" || g.homeName == "Aviso"
 
-        // Campeonato (esconde se vier vazio)
+        // ======= AVISO =======
+        if (isNotice) {
+            h.tvChamp.text = "${g.championshipImageUrl ?: ""}  ${g.championship}"
+            h.imgChamp.visibility = View.GONE
+            h.tvHome.visibility = View.GONE
+            h.tvAway.visibility = View.GONE
+            h.tvTime.visibility = View.GONE
+            h.gameStatus.visibility = View.GONE
+            h.ivHome.visibility = View.GONE
+            h.ivAway.visibility = View.GONE
+
+            // mostra os botões direto
+            h.btnContainer.visibility = View.VISIBLE
+            h.btnContainer.removeAllViews()
+
+            val d = h.itemView.resources.displayMetrics.density
+            val ctx = h.itemView.context
+            val btns: List<Any> = (g.buttons as? List<*>)?.filterNotNull() ?: emptyList()
+
+            btns.forEachIndexed { idx, anyBtn ->
+                val (title, link) = extractTitleAndLink(anyBtn, idx)
+                if (title.isBlank() || link.isBlank()) return@forEachIndexed
+
+                val b = Button(ctx).apply {
+                    text = title
+                    setAllCaps(false)
+                    textSize = 14f
+                    setTextColor(android.graphics.Color.parseColor("#222222"))
+                    background = android.graphics.drawable.GradientDrawable().apply {
+                        cornerRadius = 12f * d
+                        setColor(android.graphics.Color.WHITE)
+                        setStroke(1, android.graphics.Color.parseColor("#CCCCCC"))
+                    }
+                    setPadding((14 * d).toInt(), (8 * d).toInt(), (14 * d).toInt(), (8 * d).toInt())
+                    setOnClickListener {
+                        try {
+                            if (link.startsWith("f:")) {
+                                // abre fora do app
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(link.removePrefix("f:")))
+                                ctx.startActivity(intent)
+                            } else {
+                                // abre no webview do app
+                                onOpenLink?.invoke(link, title, null, null)
+                            }
+                        } catch (e: Exception) {
+                            Toast.makeText(ctx, "Erro ao abrir o link.", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+
+                val lp = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    marginEnd = (8 * d).toInt()
+                    topMargin = (6 * d).toInt()
+                }
+
+                h.btnContainer.addView(b, lp)
+            }
+
+            return
+        }
+
+        // ======= JOGOS NORMAIS =======
+
         val champName = g.championship.orEmpty()
         h.tvChamp.text = champName
         h.tvChamp.visibility = if (champName.isBlank()) View.GONE else View.VISIBLE
@@ -138,7 +136,6 @@ private fun bindNotice(h: VH) {
             h.imgChamp.load(champLogo) { crossfade(true) }
         }
 
-        // Times / hora
         h.tvHome.text = g.homeName.orEmpty()
         h.tvAway.text = g.awayName.orEmpty()
         h.tvTime.text = g.time.orEmpty()
@@ -154,11 +151,9 @@ private fun bindNotice(h: VH) {
             error(android.R.drawable.ic_menu_report_image)
         }
 
-        // ----- STATUS (texto abaixo da hora; sem badge) -----
-        (h.gameStatus.getTag(R.id.tag_blink_anim) as? android.animation.ObjectAnimator)?.let {
-            it.cancel()
-            h.gameStatus.setTag(R.id.tag_blink_anim, null)
-        }
+        // STATUS
+        (h.gameStatus.getTag(R.id.tag_blink_anim) as? android.animation.ObjectAnimator)?.cancel()
+        h.gameStatus.setTag(R.id.tag_blink_anim, null)
         h.gameStatus.animate().cancel()
         h.gameStatus.alpha = 1f
         h.gameStatus.visibility = View.GONE
@@ -168,9 +163,7 @@ private fun bindNotice(h: VH) {
                 h.gameStatus.text = "ao vivo"
                 h.gameStatus.setTextColor(android.graphics.Color.parseColor("#FF3B30"))
                 h.gameStatus.visibility = View.VISIBLE
-
-                val anim = android.animation.ObjectAnimator
-                    .ofFloat(h.gameStatus, View.ALPHA, 1f, 0.3f)
+                val anim = android.animation.ObjectAnimator.ofFloat(h.gameStatus, View.ALPHA, 1f, 0.3f)
                     .apply {
                         duration = 500
                         repeatMode = android.animation.ValueAnimator.REVERSE
@@ -184,15 +177,10 @@ private fun bindNotice(h: VH) {
                 h.gameStatus.text = "encerrado"
                 h.gameStatus.setTextColor(android.graphics.Color.parseColor("#A5A5A5"))
                 h.gameStatus.visibility = View.VISIBLE
-                h.gameStatus.alpha = 1f
-            }
-            else -> {
-                h.gameStatus.visibility = View.GONE
-                h.gameStatus.alpha = 1f
             }
         }
 
-        // ----- BOTÕES -----
+        // BOTÕES (expande ao clicar)
         val btns: List<Any> = (g.buttons as? List<*>)?.filterNotNull() ?: emptyList()
         val hasButtons = btns.isNotEmpty()
         val isExpanded = (position == expandedPos) && hasButtons
@@ -225,52 +213,36 @@ private fun bindNotice(h: VH) {
                     setTextColor(android.graphics.Color.parseColor("#222222"))
                     textSize = 14f
                     background = ripple
-                    stateListAnimator = null
-                    elevation = 0f
-                    backgroundTintList = null
-                    minHeight = 0; minimumHeight = 0
-                    minWidth = 0; minimumWidth = 0
-                    includeFontPadding = false
                     setPadding((14 * d).toInt(), (8 * d).toInt(), (14 * d).toInt(), (8 * d).toInt())
 
                     setOnClickListener { v ->
                         v.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
                         v.isPressed = true
-                        v.refreshDrawableState()
-                        v.animate().cancel()
-                        v.animate().scaleX(0.98f).scaleY(0.98f).setDuration(90)
-                            .withEndAction {
-                                v.animate().scaleX(1f).scaleY(1f).setDuration(140).start()
-                            }
+                        v.animate().scaleX(0.96f).scaleY(0.96f).setDuration(80)
+                            .withEndAction { v.animate().scaleX(1f).scaleY(1f).setDuration(100).start() }
                             .start()
-                        v.postDelayed({ openLink(h.itemView, title, link) }, 130)
+
+                        if (link.startsWith("f:")) {
+                            val it = Intent(Intent.ACTION_VIEW, Uri.parse(link.removePrefix("f:")))
+                            ctx.startActivity(it)
+                        } else {
+                            onOpenLink?.invoke(link, title, null, null)
+                        }
                     }
                 }
 
-                val lp: ViewGroup.MarginLayoutParams =
-                    if (h.btnContainer is com.google.android.flexbox.FlexboxLayout) {
-                        com.google.android.flexbox.FlexboxLayout.LayoutParams(
-                            ViewGroup.LayoutParams.WRAP_CONTENT,
-                            ViewGroup.LayoutParams.WRAP_CONTENT
-                        ).apply {
-                            rightMargin = (8 * d).toInt()
-                            topMargin = (6 * d).toInt()
-                        }
-                    } else {
-                        LinearLayout.LayoutParams(
-                            ViewGroup.LayoutParams.WRAP_CONTENT,
-                            ViewGroup.LayoutParams.WRAP_CONTENT
-                        ).apply {
-                            marginEnd = (8 * d).toInt()
-                            topMargin = (6 * d).toInt()
-                        }
-                    }
+                val lp = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    marginEnd = (8 * d).toInt()
+                    topMargin = (6 * d).toInt()
+                }
 
                 h.btnContainer.addView(b, lp)
             }
         }
 
-        // Expansão por clique (só se houver botões)
         h.itemView.setOnClickListener {
             if (!hasButtons) return@setOnClickListener
             val old = expandedPos
@@ -280,7 +252,6 @@ private fun bindNotice(h: VH) {
         }
     }
 
-    /** Extrai (título, link) de um item de botão vindo da API */
     private fun extractTitleAndLink(anyBtn: Any, index: Int): Pair<String, String> {
         var rawName: String? = null
         var rawUrl: String? = null
@@ -295,85 +266,12 @@ private fun bindNotice(h: VH) {
         var title = rawName?.trim().orEmpty()
         var link = rawUrl?.trim().orEmpty()
 
-        Regex("""\s+(go:\S+)\s*$""").find(title)?.let { m ->
-            link = m.groupValues[1]
-            title = title.removeRange(m.range).trim()
-        }
-
         if (title.isBlank()) title = "Canal ${index + 1}"
         if (link.isBlank()) link = rawUrl?.takeIf { it.isNotBlank() } ?: "#"
         return title to link
     }
-
-    // === abre o canal + bloqueia múltiplos cliques + mostra anúncio ===
-    private var lastClickTime = 0L
-
-    private fun openLink(view: View, title: String?, link: String) {
-        val ctx = view.context
-        val u = link.trim()
-        val monetagUrl = "https://otieu.com/4/9902033" // 🔸 seu link Monetag
-
-        try {
-            val now = System.currentTimeMillis()
-            if (now - lastClickTime < 3000) {
-                Toast.makeText(ctx, "Aguarde um momento...", Toast.LENGTH_SHORT).show()
-                return
-            }
-            lastClickTime = now
-
-            if (u.startsWith("http", ignoreCase = true)) {
-                val lower = u.lowercase()
-                if (lower.endsWith(".m3u8") || lower.endsWith(".ts") || lower.endsWith(".mp4")) {
-                    val it = Intent(ctx, com.futanium.box.PlayerActivity::class.java)
-                    it.putExtra(com.futanium.box.PlayerActivity.EXTRA_URL, u)
-                    it.putExtra(com.futanium.box.PlayerActivity.EXTRA_TITLE, title ?: "")
-                    ctx.startActivity(it)
-                } else {
-                    val it = Intent(ctx, com.futanium.box.WebViewActivity::class.java)
-                    it.putExtra(com.futanium.box.WebViewActivity.EXTRA_URL, u)
-                    ctx.startActivity(it)
-                }
-            } else {
-                val it = Intent(Intent.ACTION_VIEW, Uri.parse(u))
-                ctx.startActivity(it)
-            }
-
-            view.postDelayed({
-                try {
-                    val customTabsIntent = CustomTabsIntent.Builder()
-                        .setShowTitle(true)
-                        .setUrlBarHidingEnabled(false)
-                        .setToolbarColor(android.graphics.Color.parseColor("#202020"))
-                        .setColorScheme(CustomTabsIntent.COLOR_SCHEME_DARK)
-                        .build()
-
-                    customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY)
-                    customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                    customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
-
-                    customTabsIntent.launchUrl(ctx, Uri.parse(monetagUrl))
-
-                    view.postDelayed({
-                        Toast.makeText(
-                            ctx,
-                            "Esta é uma página de anúncio.\nFeche no X ou use o botão Voltar.",
-                            Toast.LENGTH_LONG
-                        ).show()
-                    }, 300)
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                    Toast.makeText(ctx, "Não foi possível abrir o anúncio.", Toast.LENGTH_SHORT).show()
-                }
-            }, 1000)
-
-        } catch (e: Exception) {
-            e.printStackTrace()
-            Toast.makeText(ctx, "Erro ao abrir o canal.", Toast.LENGTH_SHORT).show()
-        }
-    }
 }
 
-/** Opcional: tipo forte para botões */
 data class ButtonInfo(
     val name: String?,
     val url: String?
