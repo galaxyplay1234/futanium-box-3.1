@@ -16,6 +16,7 @@ import com.futanium.box.R
 import com.futanium.box.model.Game
 import org.json.JSONObject
 import androidx.browser.customtabs.CustomTabsIntent
+import android.text.TextUtils
 
 class GameAdapter(
     private val items: MutableList<Game> = mutableListOf()
@@ -67,6 +68,17 @@ class GameAdapter(
     override fun onBindViewHolder(h: VH, position: Int) {
         val g = items[position]
 
+
+      // estado padrão (jogos comuns)
+h.tvChamp.isSingleLine = true
+h.tvChamp.maxLines = 1
+h.tvChamp.ellipsize = TextUtils.TruncateAt.END
+(h.tvChamp.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
+    lp.height = ViewGroup.LayoutParams.WRAP_CONTENT
+    lp.bottomMargin = 0
+    h.tvChamp.layoutParams = lp
+}
+
             // 🟨 Detecta se é um aviso especial
     val isAviso = g.homeLogo == "Aviso"
 
@@ -80,12 +92,22 @@ class GameAdapter(
         h.gameStatus.visibility = View.GONE
 
         // Mostra o texto do aviso e emoji/ícone
+val d = h.itemView.resources.displayMetrics.density
 val emoji = g.championshipImageUrl.orEmpty()
 val texto = g.championship.orEmpty()
+
 h.tvChamp.text = "$emoji  $texto"
 h.tvChamp.isSingleLine = false
 h.tvChamp.maxLines = 3
 h.tvChamp.ellipsize = null
+h.tvChamp.includeFontPadding = true
+
+(h.tvChamp.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
+    lp.height = ViewGroup.LayoutParams.WRAP_CONTENT
+    lp.bottomMargin = (6 * d).toInt() // dá um respiro antes dos botões
+    h.tvChamp.layoutParams = lp
+}
+
 h.imgChamp.visibility = View.GONE
 
         // Exibe os botões sempre visíveis (mesmo estilo dos cards normais)
