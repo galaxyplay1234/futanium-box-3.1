@@ -85,56 +85,79 @@ class GameAdapter(
         h.tvChamp.text = "$emoji  $texto"
         h.imgChamp.visibility = View.GONE
 
-        // Exibe os botões sempre visíveis
-        val btns: List<Any> = (g.buttons as? List<*>)?.filterNotNull() ?: emptyList()
-        h.btnContainer.visibility = if (btns.isNotEmpty()) View.VISIBLE else View.GONE
-        h.btnContainer.removeAllViews()
+        // Exibe os botões sempre visíveis (mesmo estilo dos cards normais)
+val btns: List<Any> = (g.buttons as? List<*>)?.filterNotNull() ?: emptyList()
+h.btnContainer.visibility = if (btns.isNotEmpty()) View.VISIBLE else View.GONE
+h.btnContainer.removeAllViews()
 
-        if (btns.isNotEmpty()) {
-            val d = h.itemView.resources.displayMetrics.density
-            btns.forEachIndexed { idx, anyBtn ->
-                val (title, link) = extractTitleAndLink(anyBtn, idx)
-                val ctx = h.itemView.context
+if (btns.isNotEmpty()) {
+    val d = h.itemView.resources.displayMetrics.density
+    btns.forEachIndexed { idx, anyBtn ->
+        val (title, link) = extractTitleAndLink(anyBtn, idx)
+        val ctx = h.itemView.context
 
-                val rippleColor = android.content.res.ColorStateList.valueOf(
-                    android.graphics.Color.parseColor("#22000000")
-                )
-                val content = androidx.appcompat.content.res.AppCompatResources.getDrawable(
-                    ctx, R.drawable.bg_channel_button
-                )
-                val mask = android.graphics.drawable.GradientDrawable().apply {
-                    shape = android.graphics.drawable.GradientDrawable.RECTANGLE
-                    cornerRadius = 12f * d
-                    setColor(android.graphics.Color.WHITE)
+        val rippleColor = android.content.res.ColorStateList.valueOf(
+            android.graphics.Color.parseColor("#22000000")
+        )
+        val content = androidx.appcompat.content.res.AppCompatResources.getDrawable(
+            ctx, R.drawable.bg_channel_button
+        )
+        val mask = android.graphics.drawable.GradientDrawable().apply {
+            shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+            cornerRadius = 12f * d
+            setColor(android.graphics.Color.WHITE)
+        }
+        val ripple = android.graphics.drawable.RippleDrawable(rippleColor, content, mask)
+
+        val b = Button(ctx).apply {
+            text = title
+            setAllCaps(false)
+            setTextColor(android.graphics.Color.parseColor("#222222"))
+            textSize = 14f
+            background = ripple
+            stateListAnimator = null
+            elevation = 0f
+            backgroundTintList = null
+            minHeight = 0; minimumHeight = 0
+            minWidth = 0; minimumWidth = 0
+            includeFontPadding = false
+            setPadding((14 * d).toInt(), (8 * d).toInt(), (14 * d).toInt(), (8 * d).toInt())
+
+            setOnClickListener { v ->
+                v.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
+                v.isPressed = true
+                v.refreshDrawableState()
+                v.animate().cancel()
+                v.animate().scaleX(0.98f).scaleY(0.98f).setDuration(90)
+                    .withEndAction { v.animate().scaleX(1f).scaleY(1f).setDuration(140).start() }
+                    .start()
+                v.postDelayed({ openAvisoLink(v, title, link) }, 130)
+            }
+        }
+
+        // Mesmo layout dos botões de canal
+        val lp: ViewGroup.MarginLayoutParams =
+            if (h.btnContainer is com.google.android.flexbox.FlexboxLayout) {
+                com.google.android.flexbox.FlexboxLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    rightMargin = (8 * d).toInt()
+                    topMargin = (6 * d).toInt()
                 }
-                val ripple = android.graphics.drawable.RippleDrawable(rippleColor, content, mask)
-
-                val b = Button(ctx).apply {
-                    text = title
-                    setAllCaps(false)
-                    setTextColor(android.graphics.Color.parseColor("#222222"))
-                    textSize = 14f
-                    background = ripple
-                    includeFontPadding = false
-                    setPadding((14 * d).toInt(), (8 * d).toInt(), (14 * d).toInt(), (8 * d).toInt())
-
-                    setOnClickListener {
-                        it.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
-                        openAvisoLink(it, title, link)
-                    }
-                }
-
-                val lp = LinearLayout.LayoutParams(
+            } else {
+                LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT
                 ).apply {
                     marginEnd = (8 * d).toInt()
                     topMargin = (6 * d).toInt()
                 }
-
-                h.btnContainer.addView(b, lp)
             }
-        }
+
+        h.btnContainer.addView(b, lp)
+    }
+}
 
         // Impede expandir aviso ao clicar
         h.itemView.setOnClickListener(null)
