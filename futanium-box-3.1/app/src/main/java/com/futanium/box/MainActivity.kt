@@ -799,28 +799,43 @@ override fun onResume() {
 private fun fetchNotice() {
     Thread {
         try {
-            val url = "https://raw.githubusercontent.com/galaxyplay1234/futanium-box-3.1/refs/heads/main/aviso.json"
+            val url = "https://raw.githubusercontent.com/galaxyplay1234/futanium-box-3.1/main/aviso.json"
             val res = OkHttpClient().newCall(Request.Builder().url(url).build()).execute()
             val json = res.body?.string().orEmpty()
             if (json.isBlank()) return@Thread
 
             val o = JSONObject(json)
-            val notice = com.futanium.box.model.Notice(
-                ativo = o.optString("ativo"),
-                icone = o.optString("icone"),
-                mensagem = o.optString("mensagem"),
-                botao1_name = o.optString("botao1_name"),
-                link1 = o.optString("link1"),
-                botao2_name = o.optString("botao2_name"),
-                link2 = o.optString("link2"),
-                botao3_name = o.optString("botao3_name"),
-                link3 = o.optString("link3"),
-                botao4_name = o.optString("botao4_name"),
-                link4 = o.optString("link4")
-            )
+            val ativo = o.optString("ativo", "nao")
+            if (ativo.equals("sim", true)) {
+                val icon = o.optString("icone", "ℹ️")
+                val msg = o.optString("mensagem", "")
+                val buttons = ArrayList<Map<String, String>>()
+                for (i in 1..4) {
+                    val name = o.optString("botao${i}_name", "")
+                    val link = o.optString("link${i}", "")
+                    if (name.isNotBlank() && link.isNotBlank()) {
+                        buttons.add(mapOf("name" to name, "url" to link))
+                    }
+                }
 
-            runOnUiThread {
-                (vb.rvGames.adapter as? com.futanium.box.ui.GameAdapter)?.setNotice(notice)
+                // Usa o mesmo modelo de Game para renderizar o aviso
+                val noticeGame = Game(
+                    championship = "$icon  $msg", // mostra emoji + mensagem
+                    championshipImageUrl = null,
+                    homeName = "",
+                    awayName = "",
+                    time = "",
+                    isLive = false,
+                    isFinished = false,
+                    buttons = buttons
+                )
+
+                runOnUiThread {
+                    val adapter = vb.rvGames.adapter as GameAdapter
+                    val current = adapter.items.toMutableList()
+                    current.add(0, noticeGame) // sempre no topo
+                    adapter.submit(current)
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
