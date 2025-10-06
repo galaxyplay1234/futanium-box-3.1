@@ -339,7 +339,7 @@ h.itemView.setOnClickListener {
         }, 100)
     }
 }
-
+}
    // 🔹 Abre link de aviso (sem monetag)
 private fun openAvisoLink(view: View, title: String?, link: String) {
     val ctx = view.context
