@@ -21,6 +21,8 @@ import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
+import com.google.firebase.database.FirebaseDatabase
+import java.util.UUID
 
 class PlayerActivity : AppCompatActivity() {
 
@@ -54,6 +56,28 @@ class PlayerActivity : AppCompatActivity() {
             }
         }
     }
+    
+        private var m3u8RefId: String? = null
+    private var isM3u8Active = false
+
+    private fun setM3u8Status(active: Boolean) {
+        val db = FirebaseDatabase.getInstance("https://futanium-web-default-rtdb.firebaseio.com/")
+        val m3u8Ref = db.getReference("m3u8")
+
+        if (active) {
+            m3u8RefId = UUID.randomUUID().toString()
+            m3u8Ref.child(m3u8RefId!!).setValue(true)
+            m3u8Ref.child(m3u8RefId!!).onDisconnect().removeValue()
+            isM3u8Active = true
+        } else {
+            m3u8RefId?.let {
+                m3u8Ref.child(it).removeValue()
+                m3u8RefId = null
+                isM3u8Active = false
+            }
+        }
+    }
+
 
     private val controllerHandler = Handler(Looper.getMainLooper())
     private val controllerAutoHide = Runnable { playerView.hideController() }
@@ -64,6 +88,8 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+				setM3u8Status(true)
 
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = Color.BLACK
@@ -255,6 +281,16 @@ class PlayerActivity : AppCompatActivity() {
         player = null
         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         super.onDestroy()
+    }
+
+        override fun onPause() {
+        super.onPause()
+        setM3u8Status(false)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (!isM3u8Active) setM3u8Status(true)
     }
 
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
