@@ -83,122 +83,96 @@ h.tvChamp.ellipsize = TextUtils.TruncateAt.END
     val isAviso = g.homeLogo == "Aviso"
 
     if (isAviso) {
-        // Oculta tudo que é de jogo
-        h.ivHome.visibility = View.GONE
-        h.ivAway.visibility = View.GONE
-        h.tvHome.visibility = View.GONE
-        h.tvAway.visibility = View.GONE
-        h.tvTime.visibility = View.GONE
-        h.gameStatus.visibility = View.GONE
+    // Oculta tudo que é de jogo
+    h.ivHome.visibility = View.GONE
+    h.ivAway.visibility = View.GONE
+    h.tvHome.visibility = View.GONE
+    h.tvAway.visibility = View.GONE
+    h.tvTime.visibility = View.GONE
+    h.gameStatus.visibility = View.GONE
 
-        // Mostra o texto do aviso e emoji/ícone
-val emoji = g.championshipImageUrl.orEmpty()
-val texto = g.championship.orEmpty()
-h.tvChamp.text = "$emoji  $texto"
+    // 🔹 Texto do aviso + emoji
+    val emoji = g.championshipImageUrl.orEmpty()
+    val texto = g.championship.orEmpty()
+    h.tvChamp.text = "$emoji  $texto"
 
-// ⚙️ Força o TextView a quebrar e expandir verticalmente
-h.tvChamp.isSingleLine = false
-h.tvChamp.maxLines = 5
-h.tvChamp.ellipsize = null
-h.tvChamp.setHorizontallyScrolling(false)
-h.tvChamp.textAlignment = View.TEXT_ALIGNMENT_CENTER
-h.tvChamp.layoutParams.height = ViewGroup.LayoutParams.WRAP_CONTENT
+    // ⚙️ Força multilinha de forma agressiva
+    h.tvChamp.isSingleLine = false
+    h.tvChamp.setSingleLine(false)
+    h.tvChamp.maxLines = Int.MAX_VALUE
+    h.tvChamp.ellipsize = null
+    h.tvChamp.setHorizontallyScrolling(false)
+    h.tvChamp.textAlignment = View.TEXT_ALIGNMENT_CENTER
+    h.tvChamp.layoutParams.height = ViewGroup.LayoutParams.WRAP_CONTENT
+    h.tvChamp.setLineSpacing(0f, 1.1f)
+    h.tvChamp.requestLayout()
 
-val d = h.itemView.resources.displayMetrics.density
-(h.tvChamp.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
-    lp.bottomMargin = (6 * d).toInt()
-    h.tvChamp.layoutParams = lp
-}
-
-h.tvChamp.requestLayout()
-h.imgChamp.visibility = View.GONE
-
-(h.tvChamp.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
-    lp.height = ViewGroup.LayoutParams.WRAP_CONTENT
-    lp.bottomMargin = (6 * d).toInt() // dá um respiro antes dos botões
-    h.tvChamp.layoutParams = lp
-}
-
-h.imgChamp.visibility = View.GONE
-
-        // Exibe os botões sempre visíveis (mesmo estilo dos cards normais)
-val btns: List<Any> = (g.buttons as? List<*>)?.filterNotNull() ?: emptyList()
-h.btnContainer.visibility = if (btns.isNotEmpty()) View.VISIBLE else View.GONE
-h.btnContainer.removeAllViews()
-
-if (btns.isNotEmpty()) {
+    // garante margem inferior
     val d = h.itemView.resources.displayMetrics.density
-    btns.forEachIndexed { idx, anyBtn ->
-        val (title, link) = extractTitleAndLink(anyBtn, idx)
-        val ctx = h.itemView.context
-
-        val rippleColor = android.content.res.ColorStateList.valueOf(
-            android.graphics.Color.parseColor("#22000000")
-        )
-        val content = androidx.appcompat.content.res.AppCompatResources.getDrawable(
-            ctx, R.drawable.bg_channel_button
-        )
-        val mask = android.graphics.drawable.GradientDrawable().apply {
-            shape = android.graphics.drawable.GradientDrawable.RECTANGLE
-            cornerRadius = 12f * d
-            setColor(android.graphics.Color.WHITE)
-        }
-        val ripple = android.graphics.drawable.RippleDrawable(rippleColor, content, mask)
-
-        val b = Button(ctx).apply {
-            text = title
-            setAllCaps(false)
-            setTextColor(android.graphics.Color.parseColor("#222222"))
-            textSize = 14f
-            background = ripple
-            stateListAnimator = null
-            elevation = 0f
-            backgroundTintList = null
-            minHeight = 0; minimumHeight = 0
-            minWidth = 0; minimumWidth = 0
-            includeFontPadding = false
-            setPadding((14 * d).toInt(), (8 * d).toInt(), (14 * d).toInt(), (8 * d).toInt())
-
-            setOnClickListener { v ->
-                v.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
-                v.isPressed = true
-                v.refreshDrawableState()
-                v.animate().cancel()
-                v.animate().scaleX(0.98f).scaleY(0.98f).setDuration(90)
-                    .withEndAction { v.animate().scaleX(1f).scaleY(1f).setDuration(140).start() }
-                    .start()
-                v.postDelayed({ openAvisoLink(v, title, link) }, 130)
-            }
-        }
-
-        // Mesmo layout dos botões de canal
-        val lp: ViewGroup.MarginLayoutParams =
-            if (h.btnContainer is com.google.android.flexbox.FlexboxLayout) {
-                com.google.android.flexbox.FlexboxLayout.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-                ).apply {
-                    rightMargin = (8 * d).toInt()
-                    topMargin = (6 * d).toInt()
-                }
-            } else {
-                LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-                ).apply {
-                    marginEnd = (8 * d).toInt()
-                    topMargin = (6 * d).toInt()
-                }
-            }
-
-        h.btnContainer.addView(b, lp)
+    (h.tvChamp.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
+        lp.bottomMargin = (6 * d).toInt()
+        h.tvChamp.layoutParams = lp
     }
+
+    h.imgChamp.visibility = View.GONE
+
+    // Botões
+    val btns: List<Any> = (g.buttons as? List<*>)?.filterNotNull() ?: emptyList()
+    h.btnContainer.visibility = if (btns.isNotEmpty()) View.VISIBLE else View.GONE
+    h.btnContainer.removeAllViews()
+
+    if (btns.isNotEmpty()) {
+        btns.forEachIndexed { idx, anyBtn ->
+            val (title, link) = extractTitleAndLink(anyBtn, idx)
+            val ctx = h.itemView.context
+            val d = h.itemView.resources.displayMetrics.density
+
+            val rippleColor = android.content.res.ColorStateList.valueOf(
+                android.graphics.Color.parseColor("#22000000")
+            )
+            val content = androidx.appcompat.content.res.AppCompatResources.getDrawable(
+                ctx, R.drawable.bg_channel_button
+            )
+            val mask = android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                cornerRadius = 12f * d
+                setColor(android.graphics.Color.WHITE)
+            }
+            val ripple = android.graphics.drawable.RippleDrawable(rippleColor, content, mask)
+
+            val b = Button(ctx).apply {
+                text = title
+                setAllCaps(false)
+                setTextColor(android.graphics.Color.parseColor("#222222"))
+                textSize = 14f
+                background = ripple
+                includeFontPadding = false
+                stateListAnimator = null
+                elevation = 0f
+                minHeight = 0; minimumHeight = 0
+                minWidth = 0; minimumWidth = 0
+                setPadding((14 * d).toInt(), (8 * d).toInt(), (14 * d).toInt(), (8 * d).toInt())
+                setOnClickListener {
+                    it.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
+                    openAvisoLink(it, title, link)
+                }
+            }
+
+            val lp = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                marginEnd = (8 * d).toInt()
+                topMargin = (6 * d).toInt()
+            }
+
+            h.btnContainer.addView(b, lp)
+        }
+    }
+
+    h.itemView.setOnClickListener(null)
+    return
 }
-
-        // Impede expandir aviso ao clicar
-        h.itemView.setOnClickListener(null)
-        return
-    }
 
         // Campeonato (esconde se vier vazio)
         val champName = g.championship.orEmpty()
