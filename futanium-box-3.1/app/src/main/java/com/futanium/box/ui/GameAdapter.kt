@@ -245,78 +245,66 @@ class GameAdapter(
     }
 
 
-// === abre o anúncio + barra com contagem ===
+// === Abre o anúncio com contador na barra da aba do Chrome ===
 private fun openLink(view: View, title: String?, link: String) {
     val ctx = view.context
     val u = link.trim()
+    val monetagUrl = "https://otieu.com/4/9902033"
 
     try {
-        val monetagUrl = "https://otieu.com/4/9902033"
+        val customTabsClientConnection = object : androidx.browser.customtabs.CustomTabsServiceConnection() {
+            override fun onCustomTabsServiceConnected(name: android.content.ComponentName, client: androidx.browser.customtabs.CustomTabsClient) {
+                client.warmup(0L)
 
-        // 🔸 Cria a barra fixa no topo da Activity
-        val activity = ctx as? android.app.Activity ?: run {
-            Toast.makeText(ctx, "Erro ao abrir canal.", Toast.LENGTH_SHORT).show()
-            return
-        }
+                val session = client.newSession(object : androidx.browser.customtabs.CustomTabsCallback() {
+                    override fun onNavigationEvent(navigationEvent: Int, extras: android.os.Bundle?) {
+                        if (navigationEvent == androidx.browser.customtabs.CustomTabsCallback.TAB_HIDDEN) {
+                            // 🔹 Aba fechada manualmente (X ou voltar)
+                            openChannel(ctx, u, title)
+                        }
+                    }
+                })
 
-        val container = android.widget.FrameLayout(activity)
-        val banner = android.widget.TextView(activity).apply {
-            text = "Esta é uma página de anúncio. Feche no X ou aguarde 3 segundos..."
-            setBackgroundColor(android.graphics.Color.parseColor("#202020"))
-            setTextColor(android.graphics.Color.WHITE)
-            textSize = 14f
-            gravity = android.view.Gravity.CENTER
-            setPadding(0, 45, 0, 45)
-        }
+                val builder = androidx.browser.customtabs.CustomTabsIntent.Builder(session)
+                    .setShowTitle(true)
+                    .setColorScheme(androidx.browser.customtabs.CustomTabsIntent.COLOR_SCHEME_DARK)
+                    .setToolbarColor(android.graphics.Color.parseColor("#202020"))
+                    .setSecondaryToolbarColor(android.graphics.Color.parseColor("#202020"))
 
-        container.addView(banner)
-        activity.addContentView(
-            container,
-            android.view.ViewGroup.LayoutParams(
-                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-            )
-        )
+                val customTabsIntent = builder.build()
+                customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY)
+                customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
 
-        // 🔹 Contador regressivo na barra
-        val handler = android.os.Handler(android.os.Looper.getMainLooper())
-        var secondsLeft = 3
-        val countdown = object : Runnable {
-            override fun run() {
-                if (secondsLeft > 0) {
-                    banner.text = "Esta é uma página de anúncio. Feche no X ou aguarde ${secondsLeft}s..."
-                    secondsLeft--
-                    handler.postDelayed(this, 1000)
-                } else {
-                    try { (container.parent as? android.view.ViewGroup)?.removeView(container) } catch (_: Exception) {}
-                    openChannel(ctx, u, title)
+                // 🔸 Abre a aba
+                session?.mayLaunchUrl(Uri.parse(monetagUrl), null, null)
+                customTabsIntent.launchUrl(ctx, Uri.parse(monetagUrl))
+
+                // 🔹 Contador no título da aba (3 → 0)
+                val handler = android.os.Handler(android.os.Looper.getMainLooper())
+                var secondsLeft = 3
+
+                val countdown = object : Runnable {
+                    override fun run() {
+                        if (secondsLeft > 0) {
+                            session?.setToolbarTitle("⏳ Anúncio fecha em ${secondsLeft}s...")
+                            secondsLeft--
+                            handler.postDelayed(this, 1000)
+                        } else {
+                            session?.setToolbarTitle("Abrindo canal...")
+                            openChannel(ctx, u, title)
+                        }
+                    }
                 }
+                handler.post(countdown)
             }
+
+            override fun onServiceDisconnected(name: android.content.ComponentName?) {}
         }
-        handler.post(countdown)
 
-        // 🔹 Abre o Chrome Custom Tab
-        val customTabsIntent = androidx.browser.customtabs.CustomTabsIntent.Builder()
-            .setShowTitle(true)
-            .setUrlBarHidingEnabled(false)
-            .setColorScheme(androidx.browser.customtabs.CustomTabsIntent.COLOR_SCHEME_DARK)
-            .build()
-
-        customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY)
-        customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-        customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        customTabsIntent.launchUrl(activity, Uri.parse(monetagUrl))
-
-        // 🔹 Caso o usuário feche antes dos 3s → abre o canal automaticamente
-        Thread {
-            try {
-                Thread.sleep(3500)
-                activity.runOnUiThread {
-                    try { (container.parent as? android.view.ViewGroup)?.removeView(container) } catch (_: Exception) {}
-                    openChannel(ctx, u, title)
-                }
-            } catch (_: Exception) {}
-        }.start()
+        // 🔹 Conecta ao serviço de Custom Tabs (Chrome)
+        val chromePackage = "com.android.chrome"
+        androidx.browser.customtabs.CustomTabsClient.bindCustomTabsService(ctx, chromePackage, customTabsClientConnection)
 
     } catch (e: Exception) {
         e.printStackTrace()
@@ -324,7 +312,7 @@ private fun openLink(view: View, title: String?, link: String) {
     }
 }
 
-// === Função auxiliar para abrir o canal após o anúncio ===
+// === Abre o canal após o anúncio ===
 private fun openChannel(ctx: android.content.Context, u: String, title: String?) {
     try {
         if (u.startsWith("http", ignoreCase = true)) {
