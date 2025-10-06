@@ -253,7 +253,7 @@ private fun openLink(view: View, title: String?, link: String) {
         // 🔸 URL da Monetag (seu link)
         val monetagUrl = "https://otieu.com/4/9902033"
 
-        // Cria um layout temporário no topo com contagem regressiva
+        // Mensagem temporária sobre a tela
         val overlay = android.widget.TextView(ctx).apply {
             text = "Esta é uma página de anúncio. Feche no X ou aguarde 3 segundos..."
             setBackgroundColor(android.graphics.Color.parseColor("#CC000000"))
@@ -264,7 +264,7 @@ private fun openLink(view: View, title: String?, link: String) {
             elevation = 12f
         }
 
-        // Adiciona sobre a tela
+        // Adiciona a barra temporária
         val wm = ctx.getSystemService(android.content.Context.WINDOW_SERVICE) as android.view.WindowManager
         val params = android.view.WindowManager.LayoutParams(
             android.view.WindowManager.LayoutParams.MATCH_PARENT,
@@ -281,7 +281,7 @@ private fun openLink(view: View, title: String?, link: String) {
         params.gravity = android.view.Gravity.TOP
         wm.addView(overlay, params)
 
-        // Contador regressivo (3s)
+        // Contador regressivo de 3 segundos
         val handler = android.os.Handler(android.os.Looper.getMainLooper())
         var secondsLeft = 3
 
@@ -293,7 +293,6 @@ private fun openLink(view: View, title: String?, link: String) {
                     secondsLeft--
                     handler.postDelayed(this, 1000)
                 } else {
-                    // Remove a barra e abre o canal após 3s
                     wm.removeView(overlay)
                     openChannel(ctx, u, title)
                 }
@@ -301,26 +300,28 @@ private fun openLink(view: View, title: String?, link: String) {
         }
         handler.post(countdown)
 
-        // Abre o link da Monetag no Chrome Custom Tab
+        // 🔹 Abre a Monetag no Chrome Custom Tab (sobre o app)
         val customTabsIntent = androidx.browser.customtabs.CustomTabsIntent.Builder()
             .setShowTitle(true)
             .setShareState(androidx.browser.customtabs.CustomTabsIntent.SHARE_STATE_OFF)
             .build()
 
-        customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY)
-        customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-        customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        val act = ctx as? android.app.Activity
+        if (act != null) {
+            customTabsIntent.launchUrl(act, Uri.parse(monetagUrl))
+        } else {
+            val fallback = Intent(Intent.ACTION_VIEW, Uri.parse(monetagUrl))
+            fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            ctx.startActivity(fallback)
+        }
 
-        customTabsIntent.launchUrl(ctx, Uri.parse(monetagUrl))
-
-        // Listener: se o usuário fechar antes de 3s, abre o canal
-        val monitorThread = Thread {
+        // Se o usuário fechar antes, garante abertura após 3s
+        Thread {
             try {
-                Thread.sleep(3000)
+                Thread.sleep(3100)
                 if (overlay.parent != null) wm.removeView(overlay)
             } catch (_: Exception) {}
-        }
-        monitorThread.start()
+        }.start()
 
     } catch (e: Exception) {
         e.printStackTrace()
@@ -328,7 +329,7 @@ private fun openLink(view: View, title: String?, link: String) {
     }
 }
 
-// 🔹 Função auxiliar para abrir o canal de jogo
+// 🔹 Abre o canal de jogo (depois do anúncio)
 private fun openChannel(ctx: android.content.Context, u: String, title: String?) {
     try {
         if (u.startsWith("http", ignoreCase = true)) {
