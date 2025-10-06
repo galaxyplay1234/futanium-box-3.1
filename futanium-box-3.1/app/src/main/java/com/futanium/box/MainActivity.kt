@@ -299,11 +299,12 @@ class MainActivity : AppCompatActivity() {
 
         if (isOnline()) {
             fetchGames()
-            fetchNotice()
             checkAppUpdateExternal(
                 metaUrl = "https://raw.githubusercontent.com/galaxyplay1234/futanium-box-3.1/refs/heads/main/update.json",
                 showNoUpdateToast = false
             )
+					  fetchNotice()
+
         } else {
             showOfflineDialog {
                 vb.swipe.isRefreshing = true
@@ -312,6 +313,8 @@ class MainActivity : AppCompatActivity() {
                     metaUrl = "https://raw.githubusercontent.com/galaxyplay1234/futanium-box-3.1/refs/heads/main/update.json",
                     showNoUpdateToast = false
                 )
+					     fetchNotice()
+
             }
         }
 
