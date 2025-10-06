@@ -822,35 +822,44 @@ private fun fetchNotice(onFinished: (() -> Unit)? = null) {
 
             val o = JSONObject(body)
             val ativo = o.optString("ativo", "nao")
+
             if (ativo.equals("sim", true)) {
                 val icon = o.optString("icone", "⚠️")
                 val msg = o.optString("mensagem", "")
 
-                // 🔹 Cria o objeto Notice diretamente (não um Game)
-                val notice = com.futanium.box.model.Notice(
-                    ativo = ativo,
-                    icone = icon,
-                    mensagem = msg,
-                    botao1_name = o.optString("botao1_name", ""),
-                    link1 = o.optString("link1", ""),
-                    botao2_name = o.optString("botao2_name", ""),
-                    link2 = o.optString("link2", ""),
-                    botao3_name = o.optString("botao3_name", ""),
-                    link3 = o.optString("link3", ""),
-                    botao4_name = o.optString("botao4_name", ""),
-                    link4 = o.optString("link4", "")
+                val buttons = ArrayList<Map<String, String>>()
+                for (i in 1..4) {
+                    val name = o.optString("botao${i}_name", "")
+                    val link = o.optString("link${i}", "")
+                    if (name.isNotBlank() && link.isNotBlank()) {
+                        buttons.add(mapOf("name" to name, "url" to link))
+                    }
+                }
+
+                val noticeGame = Game(
+                    championship = "$icon  $msg",
+                    championshipImageUrl = null,
+                    homeName = "",
+                    homeLogo = null,
+                    awayName = "",
+                    awayLogo = null,
+                    time = "",
+                    isLive = false,
+                    isFinished = false,
+                    buttons = buttons
                 )
 
-                // 🔹 Envia o aviso pro adapter para aparecer no topo
                 runOnUiThread {
                     val adapter = vb.rvGames.adapter as GameAdapter
-                    adapter.updateNotice(notice)
-                }
-            } else {
-                // 🔹 Se o aviso estiver inativo, remove
-                runOnUiThread {
-                    val adapter = vb.rvGames.adapter as GameAdapter
-                    adapter.updateNotice(null)
+                    val current = adapter.items.toMutableList()
+
+                    // remove aviso anterior, se houver
+                    if (current.isNotEmpty() && current[0].championship.contains("⚠️"))
+                        current.removeAt(0)
+
+                    // adiciona no topo
+                    current.add(0, noticeGame)
+                    adapter.submit(current)
                 }
             }
         } catch (e: Exception) {
