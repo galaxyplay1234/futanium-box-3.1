@@ -60,6 +60,7 @@ class MainActivity : AppCompatActivity() {
     private val client = OkHttpClient()
     private val adapter = GameAdapter()
     private var onlineRefId: String? = null
+		private var isOnlineActive = false
 
     private val API_URL = "https://futaniumwebapp.vercel.app/api/games"
 
@@ -95,6 +96,25 @@ class MainActivity : AppCompatActivity() {
                 != PackageManager.PERMISSION_GRANTED) {
                 requestNotif.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
+        }
+    }
+
+    private fun setOnlineStatus(active: Boolean) {
+    val db = FirebaseDatabase.getInstance("https://futanium-web-default-rtdb.firebaseio.com/")
+    val onlineRef = db.getReference("online")
+
+    if (active) {
+        // Gera ID aleatório anônimo
+        onlineRefId = UUID.randomUUID().toString()
+        onlineRef.child(onlineRefId!!).setValue(true)
+        onlineRef.child(onlineRefId!!).onDisconnect().removeValue()
+        isOnlineActive = true
+    } else {
+        // Remove quando o app vai para segundo plano
+        onlineRefId?.let {
+            onlineRef.child(it).removeValue()
+            onlineRefId = null
+            isOnlineActive = false
         }
     }
 
@@ -292,34 +312,19 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-			// 🔹 Conecta ao Firebase e marca presença de usuário online
-val db = FirebaseDatabase.getInstance("https://futanium-web-default-rtdb.firebaseio.com/")
-val onlineRef = db.getReference("online")
-
-// Gera ID aleatório anônimo
-onlineRefId = UUID.randomUUID().toString()
-onlineRef.child(onlineRefId!!).setValue(true)
-
-// Remove automaticamente quando o app fecha ou perde conexão
-onlineRef.child(onlineRefId!!).onDisconnect().removeValue()
+			setOnlineStatus(true)
 
     } // onCreate
 
    override fun onPause() {
     super.onPause()
-    val db = FirebaseDatabase.getInstance("https://futanium-web-default-rtdb.firebaseio.com/")
-    val onlineRef = db.getReference("online")
-    onlineRefId?.let { onlineRef.child(it).removeValue() } // Saiu do app → remove
+    setOnlineStatus(false)
 }
 
 override fun onResume() {
     super.onResume()
-    val db = FirebaseDatabase.getInstance("https://futanium-web-default-rtdb.firebaseio.com/")
-    val onlineRef = db.getReference("online")
-    onlineRefId = UUID.randomUUID().toString()
-    onlineRef.child(onlineRefId!!).setValue(true)
-    onlineRef.child(onlineRefId!!).onDisconnect().removeValue()
-}
+    if (!isOnlineActive) setOnlineStatus(true)
+
 
    
 
