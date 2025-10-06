@@ -92,6 +92,10 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="futanium_channel" />
+        
+				 <meta-data
+    android:name="android.support.customtabs.trusted.DEFAULT_URL"
+    android:value="https://www.google.com" />
 
     </application>
 </manifest>
