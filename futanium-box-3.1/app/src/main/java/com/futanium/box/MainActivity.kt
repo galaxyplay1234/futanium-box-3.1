@@ -59,6 +59,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var vb: ActivityMainBinding
     private val client = OkHttpClient()
     private val adapter = GameAdapter()
+    private var onlineRefId: String? = null
 
     private val API_URL = "https://futaniumwebapp.vercel.app/api/games"
 
