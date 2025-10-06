@@ -322,14 +322,18 @@ h.itemView.setOnClickListener { /* nada */ }
         }
 
         // Expansão por clique (só se houver botões)
-        h.itemView.setOnClickListener {
-            if (!hasButtons) return@setOnClickListener
-            val old = expandedPos
-            expandedPos = if (position == expandedPos) -1 else position
-            if (old != -1) notifyItemChanged(old)
-            notifyItemChanged(position)
-        }
+h.itemView.setOnClickListener {
+    if (!hasButtons) return@setOnClickListener
+    if (g.homeLogo == "Aviso") return@setOnClickListener // impede aviso interferir
+
+    val old = expandedPos
+    expandedPos = if (position == expandedPos) -1 else position
+
+    if (old != -1 && old != position && old < items.size) {
+        notifyItemChanged(old)
     }
+    notifyItemChanged(position)
+}
 
    // 🔹 Abre link de aviso (sem monetag)
 private fun openAvisoLink(view: View, title: String?, link: String) {
