@@ -252,84 +252,75 @@ private fun openLink(view: View, title: String?, link: String) {
     try {
         val monetagUrl = "https://otieu.com/4/9902033"
 
-        // 🔹 Overlay com contagem
-        val overlay = android.widget.TextView(ctx).apply {
-            text = "Esta é uma página de anúncio. Feche no X ou aguarde 3 segundos..."
-            setBackgroundColor(android.graphics.Color.parseColor("#CC000000"))
-            setTextColor(android.graphics.Color.WHITE)
-            setPadding(30, 30, 30, 30)
-            textSize = 14f
-            gravity = android.view.Gravity.CENTER
-            elevation = 12f
+        // 🔸 Cria a barra fixa no topo da Activity
+        val activity = ctx as? android.app.Activity ?: run {
+            Toast.makeText(ctx, "Erro ao abrir canal.", Toast.LENGTH_SHORT).show()
+            return
         }
 
-        val wm = ctx.getSystemService(android.content.Context.WINDOW_SERVICE) as android.view.WindowManager
-        val params = android.view.WindowManager.LayoutParams(
-            android.view.WindowManager.LayoutParams.MATCH_PARENT,
-            android.view.WindowManager.LayoutParams.WRAP_CONTENT,
-            android.view.WindowManager.LayoutParams.TYPE_APPLICATION_PANEL,
-            android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-                    or android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
-                    or android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-            android.graphics.PixelFormat.TRANSLUCENT
-        )
-        params.gravity = android.view.Gravity.TOP
-        wm.addView(overlay, params)
+        val container = android.widget.FrameLayout(activity)
+        val banner = android.widget.TextView(activity).apply {
+            text = "Esta é uma página de anúncio. Feche no X ou aguarde 3 segundos..."
+            setBackgroundColor(android.graphics.Color.parseColor("#202020"))
+            setTextColor(android.graphics.Color.WHITE)
+            textSize = 14f
+            gravity = android.view.Gravity.CENTER
+            setPadding(0, 45, 0, 45)
+        }
 
-        // 🔸 Contagem regressiva (3s)
+        container.addView(banner)
+        activity.addContentView(
+            container,
+            android.view.ViewGroup.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        )
+
+        // 🔹 Contador regressivo na barra
         val handler = android.os.Handler(android.os.Looper.getMainLooper())
         var secondsLeft = 3
         val countdown = object : Runnable {
             override fun run() {
                 if (secondsLeft > 0) {
-                    overlay.text =
-                        "Esta é uma página de anúncio. Feche no X ou aguarde ${secondsLeft}s..."
+                    banner.text = "Esta é uma página de anúncio. Feche no X ou aguarde ${secondsLeft}s..."
                     secondsLeft--
                     handler.postDelayed(this, 1000)
                 } else {
-                    wm.removeView(overlay)
+                    try { (container.parent as? android.view.ViewGroup)?.removeView(container) } catch (_: Exception) {}
                     openChannel(ctx, u, title)
                 }
             }
         }
         handler.post(countdown)
 
-        // 🔸 Abre o anúncio com Chrome Custom Tabs (ou navegador se não tiver suporte)
+        // 🔹 Abre o Chrome Custom Tab (fica logo abaixo da barra)
         val customTabsIntent = androidx.browser.customtabs.CustomTabsIntent.Builder()
             .setShowTitle(true)
-            .setShareState(androidx.browser.customtabs.CustomTabsIntent.SHARE_STATE_OFF)
+            .setUrlBarHidingEnabled(false)
+            .setColorScheme(androidx.browser.customtabs.CustomTabsIntent.COLOR_SCHEME_DARK)
             .build()
 
-        val act = ctx as? android.app.Activity
-        if (act != null) {
-            customTabsIntent.launchUrl(act, Uri.parse(monetagUrl))
-        } else {
-            val fallback = Intent(Intent.ACTION_VIEW, Uri.parse(monetagUrl))
-            fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            ctx.startActivity(fallback)
-        }
+        customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY)
+        customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+
+        customTabsIntent.launchUrl(activity, Uri.parse(monetagUrl))
+
+        // 🔹 Caso o usuário feche antes dos 3s → abre o canal automaticamente
+        Thread {
+            try {
+                Thread.sleep(3500)
+                activity.runOnUiThread {
+                    try { (container.parent as? android.view.ViewGroup)?.removeView(container) } catch (_: Exception) {}
+                    openChannel(ctx, u, title)
+                }
+            } catch (_: Exception) {}
+        }.start()
 
     } catch (e: Exception) {
         e.printStackTrace()
         Toast.makeText(ctx, "Erro ao abrir o canal.", Toast.LENGTH_SHORT).show()
-    }
-}
-
-private fun openChannel(ctx: android.content.Context, u: String, title: String?) {
-    try {
-        if (u.startsWith("http", ignoreCase = true)) {
-            val it = Intent(ctx, com.futanium.box.WebViewActivity::class.java)
-            it.putExtra(com.futanium.box.WebViewActivity.EXTRA_URL, u)
-            it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            ctx.startActivity(it)
-        } else {
-            val it = Intent(Intent.ACTION_VIEW, Uri.parse(u))
-            it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            ctx.startActivity(it)
-        }
-    } catch (e: Exception) {
-        e.printStackTrace()
-        Toast.makeText(ctx, "Não foi possível abrir o canal.", Toast.LENGTH_SHORT).show()
     }
 }
 }
