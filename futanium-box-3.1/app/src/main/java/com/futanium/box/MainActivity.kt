@@ -49,7 +49,7 @@ import kotlin.math.max
 import kotlin.math.min
 import com.google.firebase.database.FirebaseDatabase
 import java.util.UUID
-import android.provider.Settings
+
 
 // 🔔 IMPORTES ADICIONADOS PARA NOTIFICAÇÃO
 import android.Manifest
@@ -321,7 +321,7 @@ val db = FirebaseDatabase.getInstance("https://futanium-web-default-rtdb.firebas
 val installsRef = db.getReference("instalados")
 
 // 🔹 ID único e anônimo do aparelho
-val androidId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
+val androidId = android.provider.Settings.Secure.getString(contentResolver, android.provider.Settings.Secure.ANDROID_ID)
 
 // 🔹 Marca a data/hora da última abertura
 val userData = mapOf(
