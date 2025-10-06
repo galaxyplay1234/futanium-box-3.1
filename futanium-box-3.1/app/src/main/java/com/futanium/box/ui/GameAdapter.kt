@@ -272,16 +272,10 @@ private fun openLink(view: View, title: String?, link: String) {
             ctx.startActivity(it)
         }
 
-        // 🔹 Mostra aviso sobre o anúncio
-        Toast.makeText(
-            ctx,
-            "Esta é uma página de anúncio. Feche no X ou use o botão Voltar.",
-            Toast.LENGTH_LONG
-        ).show()
-
         // 🔹 Aguarda 1 segundo antes de abrir a aba Monetag (para o player iniciar)
         view.postDelayed({
             try {
+                // 🚀 Cria e configura a aba do Chrome
                 val customTabsIntent = androidx.browser.customtabs.CustomTabsIntent.Builder()
                     .setShowTitle(true)
                     .setUrlBarHidingEnabled(false)
@@ -293,7 +287,16 @@ private fun openLink(view: View, title: String?, link: String) {
                 customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
                 customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
 
+                // 🟢 Exibe o aviso **no exato momento da abertura da aba**
+                Toast.makeText(
+                    ctx,
+                    "Esta é uma página de anúncio. Feche no X ou use o botão Voltar.",
+                    Toast.LENGTH_LONG
+                ).show()
+
+                // 🔹 Agora abre a aba do anúncio
                 customTabsIntent.launchUrl(ctx, Uri.parse(monetagUrl))
+
             } catch (e: Exception) {
                 e.printStackTrace()
                 Toast.makeText(ctx, "Não foi possível abrir o anúncio.", Toast.LENGTH_SHORT).show()
