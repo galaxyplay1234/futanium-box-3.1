@@ -245,6 +245,7 @@ class GameAdapter(
     }
 
 
+// === abre o anúncio + barra com contagem ===
 private fun openLink(view: View, title: String?, link: String) {
     val ctx = view.context
     val u = link.trim()
@@ -294,7 +295,7 @@ private fun openLink(view: View, title: String?, link: String) {
         }
         handler.post(countdown)
 
-        // 🔹 Abre o Chrome Custom Tab (fica logo abaixo da barra)
+        // 🔹 Abre o Chrome Custom Tab
         val customTabsIntent = androidx.browser.customtabs.CustomTabsIntent.Builder()
             .setShowTitle(true)
             .setUrlBarHidingEnabled(false)
@@ -304,7 +305,6 @@ private fun openLink(view: View, title: String?, link: String) {
         customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY)
         customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
         customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
-
         customTabsIntent.launchUrl(activity, Uri.parse(monetagUrl))
 
         // 🔹 Caso o usuário feche antes dos 3s → abre o canal automaticamente
@@ -321,6 +321,22 @@ private fun openLink(view: View, title: String?, link: String) {
     } catch (e: Exception) {
         e.printStackTrace()
         Toast.makeText(ctx, "Erro ao abrir o canal.", Toast.LENGTH_SHORT).show()
+    }
+}
+
+// === Função auxiliar para abrir o canal após o anúncio ===
+private fun openChannel(ctx: android.content.Context, u: String, title: String?) {
+    try {
+        if (u.startsWith("http", ignoreCase = true)) {
+            val it = Intent(ctx, com.futanium.box.WebViewActivity::class.java)
+            it.putExtra(com.futanium.box.WebViewActivity.EXTRA_URL, u)
+            ctx.startActivity(it)
+        } else {
+            val it = Intent(Intent.ACTION_VIEW, Uri.parse(u))
+            ctx.startActivity(it)
+        }
+    } catch (_: Exception) {
+        Toast.makeText(ctx, "Não foi possível abrir o canal.", Toast.LENGTH_SHORT).show()
     }
 }
 }
