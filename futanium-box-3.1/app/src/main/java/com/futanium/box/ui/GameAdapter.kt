@@ -20,6 +20,8 @@ import androidx.browser.customtabs.CustomTabsIntent
 class GameAdapter(
     private val items: MutableList<Game> = mutableListOf()
 ) : RecyclerView.Adapter<GameAdapter.VH>() {
+		// 🔹 Aviso global (primeiro card)
+private var notice: com.futanium.box.model.Notice? = null
 
     /** Callback para abrir links (Activity decide se vai WebView ou ExoPlayer) */
     var onOpenLink: ((url: String, title: String?, referer: String?, ua: String?) -> Unit)? = null
@@ -33,6 +35,12 @@ class GameAdapter(
         expandedPos = -1
         notifyDataSetChanged()
     }
+
+
+   fun setNotice(noticeData: com.futanium.box.model.Notice?) {
+    notice = noticeData
+    notifyDataSetChanged()
+}
 
     inner class VH(v: View) : RecyclerView.ViewHolder(v) {
         val imgChamp: ImageView = v.findViewById(R.id.imgChamp)
@@ -50,16 +58,32 @@ class GameAdapter(
         val btnContainer: ViewGroup = v.findViewById(R.id.btnContainer)
     }
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
-        val view = LayoutInflater.from(parent.context)
-            .inflate(R.layout.item_game, parent, false)
-        return VH(view)
-    }
+		override fun getItemViewType(position: Int): Int {
+    return if (notice != null && notice?.ativo == "sim" && position == 0) 0 else 1
+}
 
-    override fun getItemCount() = items.size
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
+    val inflater = LayoutInflater.from(parent.context)
+    val layout = if (viewType == 0)
+        R.layout.item_notice
+    else
+        R.layout.item_game
+    val view = inflater.inflate(layout, parent, false)
+    return VH(view)
+}
+
+    override fun getItemCount(): Int {
+    return items.size + if (notice != null && notice?.ativo == "sim") 1 else 0
+}
 
     override fun onBindViewHolder(h: VH, position: Int) {
-        val g = items[position]
+        if (notice != null && notice?.ativo == "sim" && position == 0) {
+    bindNotice(h)
+    return
+}
+val gameIndex = if (notice != null && notice?.ativo == "sim") position - 1 else position
+val g = items[gameIndex]
 
         // Campeonato (esconde se vier vazio)
         val champName = g.championship.orEmpty()
@@ -317,6 +341,47 @@ private fun openLink(view: View, title: String?, link: String) {
         Toast.makeText(ctx, "Erro ao abrir o canal.", Toast.LENGTH_SHORT).show()
     }
 }
+
+private fun bindNotice(h: VH) {
+    val n = notice ?: return
+    val ctx = h.itemView.context
+    val container = h.itemView.findViewById<ViewGroup>(R.id.noticeButtons)
+    val iconView = h.itemView.findViewById<TextView>(R.id.noticeIcon)
+    val msgView = h.itemView.findViewById<TextView>(R.id.noticeMessage)
+
+    iconView.text = n.icone ?: "ℹ️"
+    msgView.text = n.mensagem ?: ""
+
+    container.removeAllViews()
+    val d = ctx.resources.displayMetrics.density
+
+    val buttons = listOf(
+        n.botao1_name to n.link1,
+        n.botao2_name to n.link2,
+        n.botao3_name to n.link3,
+        n.botao4_name to n.link4
+    )
+
+    buttons.forEach { (name, link) ->
+        if (!name.isNullOrBlank() && !link.isNullOrBlank()) {
+            val b = Button(ctx).apply {
+                text = name
+                setAllCaps(false)
+                setTextColor(android.graphics.Color.parseColor("#222222"))
+                textSize = 14f
+                background = ctx.getDrawable(R.drawable.bg_channel_button)
+                setPadding((14 * d).toInt(), (8 * d).toInt(), (14 * d).toInt(), (8 * d).toInt())
+                setOnClickListener {
+                    val i = Intent(Intent.ACTION_VIEW, Uri.parse(link))
+                    ctx.startActivity(i)
+                }
+            }
+            container.addView(b)
+        }
+    }
+}
+
+
 }
 /** Opcional: tipo forte para botões */
 data class ButtonInfo(
