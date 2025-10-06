@@ -1,5 +1,6 @@
 {
-  "icone": ⚠️
+  "ativo": "sim"
+  "icone": "⚠️"
   "mensagem": "Entre no nosso grupo do whats app clicando no botão abaixo",
   "botao1_name": "Entrar",
   "link1": "https://futaniumwebapp.vercel.app/api/games"
