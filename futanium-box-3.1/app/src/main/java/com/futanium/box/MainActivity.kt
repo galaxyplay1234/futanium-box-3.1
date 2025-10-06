@@ -326,7 +326,7 @@ override fun onResume() {
     super.onResume()
     if (!isOnlineActive) setOnlineStatus(true)
 
-
+}
    
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
