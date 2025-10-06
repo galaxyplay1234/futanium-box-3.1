@@ -42,8 +42,8 @@
     android:lineSpacingExtra="1dp"
     app:layout_constraintStart_toEndOf="@id/imgChamp"
     app:layout_constraintTop_toTopOf="parent"
-app:layout_constraintStart_toEndOf="@id/imgChamp"
-app:layout_constraintEnd_toEndOf="parent" />
+    app:layout_constraintStart_toEndOf="@id/imgChamp"
+    app:layout_constraintEnd_toEndOf="parent" />
 
         <TextView
             android:id="@+id/tvHomeName"
