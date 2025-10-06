@@ -315,28 +315,31 @@ if (isAviso) {
             }
         }
 
-        // Expansão por clique (só se houver botões)
         // Expansão por clique (só se houver botões e não for aviso)
 h.itemView.setOnClickListener {
     if (g.homeLogo == "Aviso") return@setOnClickListener
     if (g.buttons.isNullOrEmpty()) return@setOnClickListener
 
     val previous = expandedPos
-    expandedPos = if (position == expandedPos) -1 else position
+    val isSameCard = (previous == position)
 
-    // 🔹 Fecha o card anterior (se existir)
+    // Atualiza o card atual (abre/fecha)
+    expandedPos = if (isSameCard) -1 else position
+
+    // 🔹 Atualiza o card anterior (se for outro)
     if (previous != -1 && previous != position && previous < items.size) {
         notifyItemChanged(previous)
     }
 
-    // 🔹 Atualiza o card atual (abre ou fecha)
+    // 🔹 Atualiza o card atual
     notifyItemChanged(position)
 
-    // 🔹 Garante fechamento visual imediato
-    if (previous != -1 && previous != position) {
+    // 🔹 Força fechamento total do antigo (garante visibilidade off)
+    if (previous != -1 && previous != position && previous < items.size) {
         h.itemView.postDelayed({
+            expandedPos = expandedPos  // apenas reseta estado interno
             notifyItemChanged(previous)
-        }, 100)
+        }, 150)
     }
 }
 }
