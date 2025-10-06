@@ -170,8 +170,8 @@ h.tvChamp.ellipsize = TextUtils.TruncateAt.END
         }
     }
 
-    h.itemView.setOnClickListener(null)
-    return
+    // O card de aviso não expande/fecha, mas não quebra a lógica global
+h.itemView.setOnClickListener { /* nada */ }
 }
 
         // Campeonato (esconde se vier vazio)
