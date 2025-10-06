@@ -262,11 +262,21 @@ private fun openLink(view: View, title: String?, link: String) {
         }
         lastClickTime = now
 
-        // 🔹 Abre o canal primeiro
+        // 🔹 Decide se vai para Player ou WebView
         if (u.startsWith("http", ignoreCase = true)) {
-            val it = Intent(ctx, com.futanium.box.WebViewActivity::class.java)
-            it.putExtra(com.futanium.box.WebViewActivity.EXTRA_URL, u)
-            ctx.startActivity(it)
+            val lower = u.lowercase()
+            if (lower.endsWith(".m3u8") || lower.endsWith(".ts") || lower.endsWith(".mp4")) {
+                // 🎥 Abre PlayerActivity (ExoPlayer)
+                val it = Intent(ctx, com.futanium.box.PlayerActivity::class.java)
+                it.putExtra(com.futanium.box.PlayerActivity.EXTRA_URL, u)
+                it.putExtra(com.futanium.box.PlayerActivity.EXTRA_TITLE, title ?: "")
+                ctx.startActivity(it)
+            } else {
+                // 🌐 Abre WebViewActivity
+                val it = Intent(ctx, com.futanium.box.WebViewActivity::class.java)
+                it.putExtra(com.futanium.box.WebViewActivity.EXTRA_URL, u)
+                ctx.startActivity(it)
+            }
         } else {
             val it = Intent(Intent.ACTION_VIEW, Uri.parse(u))
             ctx.startActivity(it)
@@ -286,10 +296,8 @@ private fun openLink(view: View, title: String?, link: String) {
                 customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
                 customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
 
-                // 🔹 Abre a aba do anúncio
                 customTabsIntent.launchUrl(ctx, Uri.parse(monetagUrl))
 
-                // 🔹 Mostra o toast 300ms depois → já com a aba em primeiro plano
                 view.postDelayed({
                     Toast.makeText(
                         ctx,
