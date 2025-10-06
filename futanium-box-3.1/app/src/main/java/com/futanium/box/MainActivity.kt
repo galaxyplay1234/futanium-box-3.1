@@ -305,6 +305,22 @@ onlineRef.child(onlineRefId!!).onDisconnect().removeValue()
 
     } // onCreate
 
+   override fun onPause() {
+    super.onPause()
+    val db = FirebaseDatabase.getInstance("https://futanium-web-default-rtdb.firebaseio.com/")
+    val onlineRef = db.getReference("online")
+    onlineRefId?.let { onlineRef.child(it).removeValue() } // Saiu do app → remove
+}
+
+override fun onResume() {
+    super.onResume()
+    val db = FirebaseDatabase.getInstance("https://futanium-web-default-rtdb.firebaseio.com/")
+    val onlineRef = db.getReference("online")
+    onlineRefId = UUID.randomUUID().toString()
+    onlineRef.child(onlineRefId!!).setValue(true)
+    onlineRef.child(onlineRefId!!).onDisconnect().removeValue()
+}
+
    override fun onDestroy() {
     super.onDestroy()
     try {
