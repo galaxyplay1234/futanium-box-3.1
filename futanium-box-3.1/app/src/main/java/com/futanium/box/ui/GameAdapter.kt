@@ -1,3 +1,5 @@
+Antes d emodificar veja se tem algo impedido o fechamento do card
+
 package com.futanium.box.ui
 
 import android.content.Intent
@@ -170,8 +172,8 @@ h.tvChamp.ellipsize = TextUtils.TruncateAt.END
         }
     }
 
-    // O card de aviso não expande/fecha, mas não quebra a lógica global
-h.itemView.setOnClickListener { /* nada */ }
+    h.itemView.setOnClickListener(null)
+    return
 }
 
         // Campeonato (esconde se vier vazio)
@@ -322,18 +324,14 @@ h.itemView.setOnClickListener { /* nada */ }
         }
 
         // Expansão por clique (só se houver botões)
-h.itemView.setOnClickListener {
-    if (!hasButtons) return@setOnClickListener
-    if (g.homeLogo == "Aviso") return@setOnClickListener // impede aviso interferir
-
-    val old = expandedPos
-    expandedPos = if (position == expandedPos) -1 else position
-
-    if (old != -1 && old != position && old < items.size) {
-        notifyItemChanged(old)
+        h.itemView.setOnClickListener {
+            if (!hasButtons) return@setOnClickListener
+            val old = expandedPos
+            expandedPos = if (position == expandedPos) -1 else position
+            if (old != -1) notifyItemChanged(old)
+            notifyItemChanged(position)
+        }
     }
-    notifyItemChanged(position)
-}
 
    // 🔹 Abre link de aviso (sem monetag)
 private fun openAvisoLink(view: View, title: String?, link: String) {
