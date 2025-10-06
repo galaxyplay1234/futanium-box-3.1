@@ -828,8 +828,8 @@ private fun fetchNotice(onFinished: (() -> Unit)? = null) {
 
                 val buttons = ArrayList<Map<String, String>>()
                 for (i in 1..4) {
-                    val name = o.optString("botao${i}_name", "")
-                    val link = o.optString("link${i}", "")
+                    val name = o.optString("botao${i}_name", "") 
+									 val link = o.optString("link${i}", "") 
                     if (name.isNotBlank() && link.isNotBlank()) {
                         buttons.add(mapOf("name" to name, "url" to link))
                     }
