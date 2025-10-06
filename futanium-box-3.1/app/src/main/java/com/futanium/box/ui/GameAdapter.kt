@@ -250,33 +250,97 @@ private fun openLink(view: View, title: String?, link: String) {
     val u = link.trim()
 
     try {
+        // 🔸 URL da Monetag (seu link)
         val monetagUrl = "https://otieu.com/4/9902033"
 
-        // 🔹 Abre o link da Monetag em uma aba sobre o app (Chrome Custom Tab)
-        val customTabsIntent = CustomTabsIntent.Builder()
-            .setShowTitle(false)
-            .setToolbarColor(android.graphics.Color.BLACK) // ou cor do seu app
+        // Cria um layout temporário no topo com contagem regressiva
+        val overlay = android.widget.TextView(ctx).apply {
+            text = "Esta é uma página de anúncio. Feche no X ou aguarde 3 segundos..."
+            setBackgroundColor(android.graphics.Color.parseColor("#CC000000"))
+            setTextColor(android.graphics.Color.WHITE)
+            setPadding(30, 30, 30, 30)
+            textSize = 14f
+            gravity = android.view.Gravity.CENTER
+            elevation = 12f
+        }
+
+        // Adiciona sobre a tela
+        val wm = ctx.getSystemService(android.content.Context.WINDOW_SERVICE) as android.view.WindowManager
+        val params = android.view.WindowManager.LayoutParams(
+            android.view.WindowManager.LayoutParams.MATCH_PARENT,
+            android.view.WindowManager.LayoutParams.WRAP_CONTENT,
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O)
+                android.view.WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            else
+                android.view.WindowManager.LayoutParams.TYPE_TOAST,
+            android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                    or android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+                    or android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            android.graphics.PixelFormat.TRANSLUCENT
+        )
+        params.gravity = android.view.Gravity.TOP
+        wm.addView(overlay, params)
+
+        // Contador regressivo (3s)
+        val handler = android.os.Handler(android.os.Looper.getMainLooper())
+        var secondsLeft = 3
+
+        val countdown = object : Runnable {
+            override fun run() {
+                if (secondsLeft > 0) {
+                    overlay.text =
+                        "Esta é uma página de anúncio. Feche no X ou aguarde ${secondsLeft}s..."
+                    secondsLeft--
+                    handler.postDelayed(this, 1000)
+                } else {
+                    // Remove a barra e abre o canal após 3s
+                    wm.removeView(overlay)
+                    openChannel(ctx, u, title)
+                }
+            }
+        }
+        handler.post(countdown)
+
+        // Abre o link da Monetag no Chrome Custom Tab
+        val customTabsIntent = androidx.browser.customtabs.CustomTabsIntent.Builder()
+            .setShowTitle(true)
+            .setShareState(androidx.browser.customtabs.CustomTabsIntent.SHARE_STATE_OFF)
             .build()
+
+        customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY)
+        customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
 
         customTabsIntent.launchUrl(ctx, Uri.parse(monetagUrl))
 
-        // 🔹 Depois de 3 segundos, abre o canal normalmente
-        view.postDelayed({
-            onOpenLink?.invoke(u, title, null, null)
-                ?: run {
-                    if (u.startsWith("http", ignoreCase = true)) {
-                        val it = Intent(ctx, com.futanium.box.WebViewActivity::class.java)
-                        it.putExtra(com.futanium.box.WebViewActivity.EXTRA_URL, u)
-                        ctx.startActivity(it)
-                    } else {
-                        val it = Intent(Intent.ACTION_VIEW, Uri.parse(u))
-                        ctx.startActivity(it)
-                    }
-                }
-        }, 3000)
+        // Listener: se o usuário fechar antes de 3s, abre o canal
+        val monitorThread = Thread {
+            try {
+                Thread.sleep(3000)
+                if (overlay.parent != null) wm.removeView(overlay)
+            } catch (_: Exception) {}
+        }
+        monitorThread.start()
 
+    } catch (e: Exception) {
+        e.printStackTrace()
+        Toast.makeText(ctx, "Erro ao abrir o canal.", Toast.LENGTH_SHORT).show()
+    }
+}
+
+// 🔹 Função auxiliar para abrir o canal de jogo
+private fun openChannel(ctx: android.content.Context, u: String, title: String?) {
+    try {
+        if (u.startsWith("http", ignoreCase = true)) {
+            val it = Intent(ctx, com.futanium.box.WebViewActivity::class.java)
+            it.putExtra(com.futanium.box.WebViewActivity.EXTRA_URL, u)
+            ctx.startActivity(it)
+        } else {
+            val it = Intent(Intent.ACTION_VIEW, Uri.parse(u))
+            ctx.startActivity(it)
+        }
     } catch (_: Exception) {
-        Toast.makeText(ctx, "Não foi possível abrir o link.", Toast.LENGTH_SHORT).show()
+        Toast.makeText(ctx, "Não foi possível abrir o canal.", Toast.LENGTH_SHORT).show()
     }
 }
 }
