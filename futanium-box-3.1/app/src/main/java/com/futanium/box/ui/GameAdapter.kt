@@ -18,7 +18,7 @@ import org.json.JSONObject
 import androidx.browser.customtabs.CustomTabsIntent
 
 class GameAdapter(
-    private val items: MutableList<Game> = mutableListOf()
+    val items: MutableList<Game> = mutableListOf()
 ) : RecyclerView.Adapter<GameAdapter.VH>() {
 		// 🔹 Aviso global (primeiro card)
 private var notice: com.futanium.box.model.Notice? = null
