@@ -298,27 +298,31 @@ class MainActivity : AppCompatActivity() {
         }
 
         if (isOnline()) {
+    // 🔹 Primeiro busca o aviso
+    fetchNotice {
+        // 🔹 Depois carrega os jogos
+        fetchGames()
+    }
+
+    checkAppUpdateExternal(
+        metaUrl = "https://raw.githubusercontent.com/galaxyplay1234/futanium-box-3.1/refs/heads/main/update.json",
+        showNoUpdateToast = false
+    )
+
+} else {
+    showOfflineDialog {
+        vb.swipe.isRefreshing = true
+
+        fetchNotice {
             fetchGames()
-						fetchNotice()
-            checkAppUpdateExternal(
-                metaUrl = "https://raw.githubusercontent.com/galaxyplay1234/futanium-box-3.1/refs/heads/main/update.json",
-                showNoUpdateToast = false
-            )
-					  
-
-        } else {
-            showOfflineDialog {
-                vb.swipe.isRefreshing = true
-                fetchGames()
-								fetchNotice()
-                checkAppUpdateExternal(
-                    metaUrl = "https://raw.githubusercontent.com/galaxyplay1234/futanium-box-3.1/refs/heads/main/update.json",
-                    showNoUpdateToast = false
-                )
-					     
-
-            }
         }
+
+        checkAppUpdateExternal(
+            metaUrl = "https://raw.githubusercontent.com/galaxyplay1234/futanium-box-3.1/refs/heads/main/update.json",
+            showNoUpdateToast = false
+        )
+    }
+}
 
 			setOnlineStatus(true)
 
@@ -798,7 +802,7 @@ override fun onResume() {
         return null
     }
 
-private fun fetchNotice() {
+private fun fetchNotice(onDone: (() -> Unit)? = null) {
     Thread {
         try {
             val req = Request.Builder()
@@ -806,7 +810,10 @@ private fun fetchNotice() {
                 .build()
             val res = client.newCall(req).execute()
             val body = res.body?.string().orEmpty()
-            if (body.isBlank()) return@Thread
+            if (body.isBlank()) {
+                onDone?.invoke()
+                return@Thread
+            }
 
             val o = JSONObject(body)
             val ativo = o.optString("ativo", "nao")
@@ -824,7 +831,7 @@ private fun fetchNotice() {
                 }
 
                 val noticeGame = Game(
-                    championship = "$icon  $msg", // 🔸 emoji + mensagem
+                    championship = "$icon  $msg",
                     championshipImageUrl = null,
                     homeName = "",
                     homeLogo = null,
@@ -839,12 +846,14 @@ private fun fetchNotice() {
                 runOnUiThread {
                     val adapter = vb.rvGames.adapter as GameAdapter
                     val current = adapter.items.toMutableList()
-                    current.add(0, noticeGame) // ✅ sempre no topo
+                    current.add(0, noticeGame)
                     adapter.submit(current)
                 }
             }
         } catch (e: Exception) {
             e.printStackTrace()
+        } finally {
+            runOnUiThread { onDone?.invoke() }
         }
     }.start()
 }
