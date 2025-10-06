@@ -103,8 +103,14 @@ h.tvChamp.ellipsize = null
 h.tvChamp.setHorizontallyScrolling(false)
 h.tvChamp.textAlignment = View.TEXT_ALIGNMENT_CENTER
 h.tvChamp.layoutParams.height = ViewGroup.LayoutParams.WRAP_CONTENT
-h.tvChamp.requestLayout()
 
+val d = h.itemView.resources.displayMetrics.density
+(h.tvChamp.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
+    lp.bottomMargin = (6 * d).toInt()
+    h.tvChamp.layoutParams = lp
+}
+
+h.tvChamp.requestLayout()
 h.imgChamp.visibility = View.GONE
 
 (h.tvChamp.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
