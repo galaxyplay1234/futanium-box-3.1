@@ -80,9 +80,8 @@ h.tvChamp.ellipsize = TextUtils.TruncateAt.END
 }
 
             // 🟨 Detecta se é um aviso especial
-    val isAviso = g.homeLogo == "Aviso"
-
-    if (isAviso) {
+val isAviso = g.homeLogo == "Aviso"
+if (isAviso) {
     // Oculta tudo que é de jogo
     h.ivHome.visibility = View.GONE
     h.ivAway.visibility = View.GONE
@@ -91,30 +90,24 @@ h.tvChamp.ellipsize = TextUtils.TruncateAt.END
     h.tvTime.visibility = View.GONE
     h.gameStatus.visibility = View.GONE
 
-    // 🔹 Texto do aviso + emoji
+    // Texto do aviso + emoji
     val emoji = g.championshipImageUrl.orEmpty()
     val texto = g.championship.orEmpty()
     h.tvChamp.text = "$emoji  $texto"
 
-    // ⚙️ Força multilinha de forma agressiva
+    // Multilinha e alinhamento
     h.tvChamp.isSingleLine = false
-    h.tvChamp.setSingleLine(false)
     h.tvChamp.maxLines = Int.MAX_VALUE
     h.tvChamp.ellipsize = null
-    h.tvChamp.setHorizontallyScrolling(false)
     h.tvChamp.textAlignment = View.TEXT_ALIGNMENT_CENTER
-    h.tvChamp.layoutParams.height = ViewGroup.LayoutParams.WRAP_CONTENT
     h.tvChamp.setLineSpacing(0f, 1.1f)
-    h.tvChamp.requestLayout()
+    h.imgChamp.visibility = View.GONE
 
-    // garante margem inferior
     val d = h.itemView.resources.displayMetrics.density
     (h.tvChamp.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
         lp.bottomMargin = (6 * d).toInt()
         h.tvChamp.layoutParams = lp
     }
-
-    h.imgChamp.visibility = View.GONE
 
     // Botões
     val btns: List<Any> = (g.buttons as? List<*>)?.filterNotNull() ?: emptyList()
@@ -125,7 +118,6 @@ h.tvChamp.ellipsize = TextUtils.TruncateAt.END
         btns.forEachIndexed { idx, anyBtn ->
             val (title, link) = extractTitleAndLink(anyBtn, idx)
             val ctx = h.itemView.context
-            val d = h.itemView.resources.displayMetrics.density
 
             val rippleColor = android.content.res.ColorStateList.valueOf(
                 android.graphics.Color.parseColor("#22000000")
@@ -165,13 +157,15 @@ h.tvChamp.ellipsize = TextUtils.TruncateAt.END
                 marginEnd = (8 * d).toInt()
                 topMargin = (6 * d).toInt()
             }
-
             h.btnContainer.addView(b, lp)
         }
     }
 
+    // ⛔ Importante: limpa qualquer clique prévio (não dá return)
     h.itemView.setOnClickListener(null)
-   return
+
+    // 🔥 Garante que não quebre o restante do bind
+    return@onBindViewHolder
 }
 
         // Campeonato (esconde se vier vazio)
