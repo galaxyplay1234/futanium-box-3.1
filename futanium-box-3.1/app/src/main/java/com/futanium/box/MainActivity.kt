@@ -826,39 +826,36 @@ private fun fetchNotice(onFinished: (() -> Unit)? = null) {
                 val icon = o.optString("icone", "⚠️")
                 val msg = o.optString("mensagem", "")
 
-                val buttons = ArrayList<Map<String, String>>()
-                for (i in 1..4) {
-                    val name = o.optString("botao${i}_name", "") 
-									 val link = o.optString("link${i}", "") 
-                    if (name.isNotBlank() && link.isNotBlank()) {
-                        buttons.add(mapOf("name" to name, "url" to link))
-                    }
-                }
-
-                val noticeGame = Game(
-                    championship = "$icon  $msg",
-                    championshipImageUrl = null,
-                    homeName = "",
-                    homeLogo = null,
-                    awayName = "",
-                    awayLogo = null,
-                    time = "",
-                    isLive = false,
-                    isFinished = false,
-                    buttons = buttons
+                // 🔹 Cria o objeto Notice diretamente (não um Game)
+                val notice = com.futanium.box.model.Notice(
+                    ativo = ativo,
+                    icone = icon,
+                    mensagem = msg,
+                    botao1_name = o.optString("botao1_name", ""),
+                    link1 = o.optString("link1", ""),
+                    botao2_name = o.optString("botao2_name", ""),
+                    link2 = o.optString("link2", ""),
+                    botao3_name = o.optString("botao3_name", ""),
+                    link3 = o.optString("link3", ""),
+                    botao4_name = o.optString("botao4_name", ""),
+                    link4 = o.optString("link4", "")
                 )
 
+                // 🔹 Envia o aviso pro adapter para aparecer no topo
                 runOnUiThread {
                     val adapter = vb.rvGames.adapter as GameAdapter
-                    val current = adapter.items.toMutableList()
-                    current.add(0, noticeGame)
-                    adapter.submit(current)
+                    adapter.setNotice(notice)
+                }
+            } else {
+                // 🔹 Se o aviso estiver inativo, remove
+                runOnUiThread {
+                    val adapter = vb.rvGames.adapter as GameAdapter
+                    adapter.setNotice(null)
                 }
             }
         } catch (e: Exception) {
             e.printStackTrace()
         } finally {
-            // 🔹 Chama o callback quando terminar
             runOnUiThread { onFinished?.invoke() }
         }
     }.start()
