@@ -245,66 +245,60 @@ class GameAdapter(
     }
 
 
-// === Abre o anúncio com contador na barra da aba do Chrome ===
 private fun openLink(view: View, title: String?, link: String) {
     val ctx = view.context
     val u = link.trim()
     val monetagUrl = "https://otieu.com/4/9902033"
 
     try {
-        val customTabsClientConnection = object : androidx.browser.customtabs.CustomTabsServiceConnection() {
-            override fun onCustomTabsServiceConnected(name: android.content.ComponentName, client: androidx.browser.customtabs.CustomTabsClient) {
-                client.warmup(0L)
-
-                val session = client.newSession(object : androidx.browser.customtabs.CustomTabsCallback() {
-                    override fun onNavigationEvent(navigationEvent: Int, extras: android.os.Bundle?) {
-                        if (navigationEvent == androidx.browser.customtabs.CustomTabsCallback.TAB_HIDDEN) {
-                            // 🔹 Aba fechada manualmente (X ou voltar)
-                            openChannel(ctx, u, title)
-                        }
-                    }
-                })
-
-                val builder = androidx.browser.customtabs.CustomTabsIntent.Builder(session)
-                    .setShowTitle(true)
-                    .setColorScheme(androidx.browser.customtabs.CustomTabsIntent.COLOR_SCHEME_DARK)
-                    .setToolbarColor(android.graphics.Color.parseColor("#202020"))
-                    .setSecondaryToolbarColor(android.graphics.Color.parseColor("#202020"))
-
-                val customTabsIntent = builder.build()
-                customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY)
-                customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
-
-                // 🔸 Abre a aba
-                session?.mayLaunchUrl(Uri.parse(monetagUrl), null, null)
-                customTabsIntent.launchUrl(ctx, Uri.parse(monetagUrl))
-
-                // 🔹 Contador no título da aba (3 → 0)
-                val handler = android.os.Handler(android.os.Looper.getMainLooper())
-                var secondsLeft = 3
-
-                val countdown = object : Runnable {
-                    override fun run() {
-                        if (secondsLeft > 0) {
-                            session?.setToolbarTitle("⏳ Anúncio fecha em ${secondsLeft}s...")
-                            secondsLeft--
-                            handler.postDelayed(this, 1000)
-                        } else {
-                            session?.setToolbarTitle("Abrindo canal...")
-                            openChannel(ctx, u, title)
-                        }
-                    }
-                }
-                handler.post(countdown)
-            }
-
-            override fun onServiceDisconnected(name: android.content.ComponentName?) {}
+        // Layout da barra inferior dentro da aba
+        val countdownView = android.widget.TextView(ctx).apply {
+            text = "⏳ Aguarde 3s..."
+            setBackgroundColor(android.graphics.Color.parseColor("#202020"))
+            setTextColor(android.graphics.Color.WHITE)
+            textSize = 15f
+            setPadding(30, 25, 30, 25)
+            gravity = android.view.Gravity.CENTER
         }
 
-        // 🔹 Conecta ao serviço de Custom Tabs (Chrome)
-        val chromePackage = "com.android.chrome"
-        androidx.browser.customtabs.CustomTabsClient.bindCustomTabsService(ctx, chromePackage, customTabsClientConnection)
+        val linearLayout = android.widget.LinearLayout(ctx).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            addView(countdownView)
+        }
+
+        val remoteView = android.widget.RemoteViews(ctx.packageName, android.R.layout.simple_list_item_1)
+        remoteView.setTextViewText(android.R.id.text1, "⏳ Aguarde 3s...")
+
+        val customTabsIntent = androidx.browser.customtabs.CustomTabsIntent.Builder()
+            .setShowTitle(true)
+            .setColorScheme(androidx.browser.customtabs.CustomTabsIntent.COLOR_SCHEME_DARK)
+            .setToolbarColor(android.graphics.Color.parseColor("#202020"))
+            .setSecondaryToolbarColor(android.graphics.Color.parseColor("#202020"))
+            .build()
+
+        customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY)
+        customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+
+        // Abre a aba do anúncio
+        customTabsIntent.launchUrl(ctx, Uri.parse(monetagUrl))
+
+        // === Contagem regressiva (3s)
+        val handler = android.os.Handler(android.os.Looper.getMainLooper())
+        var secondsLeft = 3
+        val countdown = object : Runnable {
+            override fun run() {
+                if (secondsLeft > 0) {
+                    countdownView.text = "⏳ Aguarde ${secondsLeft}s..."
+                    secondsLeft--
+                    handler.postDelayed(this, 1000)
+                } else {
+                    countdownView.text = "🔁 Abrindo canal..."
+                    openChannel(ctx, u, title)
+                }
+            }
+        }
+        handler.post(countdown)
 
     } catch (e: Exception) {
         e.printStackTrace()
