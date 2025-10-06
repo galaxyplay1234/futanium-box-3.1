@@ -810,35 +810,40 @@ adapter.submit(current)
         return null
     }
 
-private fun fetchNotice(onFinished: (() -> Unit)? = null) {
+private fun fetchGames(onFinally: (() -> Unit)? = null) {
+    if (!isOnline()) {
+        vb.swipe.isRefreshing = false
+        showOfflineDialog {
+            vb.swipe.isRefreshing = true
+            fetchGames(onFinally)
+        }
+        return
+    }
+
+    if (!vb.swipe.isRefreshing) vb.swipe.isRefreshing = true
+
     Thread {
         try {
-            val req = Request.Builder()
-                .url("https://raw.githubusercontent.com/galaxyplay1234/futanium-box-3.1/main/aviso.json")
-                .build()
+            val req = Request.Builder().url(API_URL).build()
             val res = client.newCall(req).execute()
             val body = res.body?.string().orEmpty()
             if (body.isBlank()) return@Thread
 
-            val o = JSONObject(body)
-            val ativo = o.optString("ativo", "nao")
+            val arr = JSONArray(body)
+            val games = parseGames(body).toMutableList()
 
-            if (ativo.equals("sim", true)) {
-                val icon = o.optString("icone", "⚠️")
-                val msg = o.optString("mensagem", "")
+            // 🟡 Filtra o aviso (se houver)
+            val avisoIndex = arr.indexOfFirst {
+                val obj = it as? JSONObject
+                obj?.optString("home_team_image_url") == "Aviso"
+            }
 
-                val buttons = ArrayList<Map<String, String>>()
-                for (i in 1..4) {
-                    val name = o.optString("botao${i}_name", "")
-                    val link = o.optString("link${i}", "")
-                    if (name.isNotBlank() && link.isNotBlank()) {
-                        buttons.add(mapOf("name" to name, "url" to link))
-                    }
-                }
-
-                val noticeGame = Game(
-                    championship = "$icon  $msg",
-                    championshipImageUrl = null,
+            var avisoGame: Game? = null
+            if (avisoIndex != -1) {
+                val o = arr.getJSONObject(avisoIndex)
+                avisoGame = Game(
+                    championship = o.optString("championship", ""),
+                    championshipImageUrl = o.optString("championship_image_url", ""),
                     homeName = "",
                     homeLogo = null,
                     awayName = "",
@@ -846,26 +851,41 @@ private fun fetchNotice(onFinished: (() -> Unit)? = null) {
                     time = "",
                     isLive = false,
                     isFinished = false,
-                    buttons = buttons
+                    buttons = o.optJSONArray("buttons")?.let { ja ->
+                        val tmp = ArrayList<Map<String, String>>()
+                        for (j in 0 until ja.length()) {
+                            val btn = ja.getJSONObject(j)
+                            val name = btn.optString("name", "")
+                            val url = btn.optString("url", "")
+                            tmp.add(mapOf("name" to name, "url" to url))
+                        }
+                        tmp
+                    }
                 )
 
-                runOnUiThread {
-                    val adapter = vb.rvGames.adapter as GameAdapter
-                    val current = adapter.items.toMutableList()
-
-                    // remove aviso anterior, se houver
-                    if (current.isNotEmpty() && current[0].championship.contains("⚠️"))
-                        current.removeAt(0)
-
-                    // adiciona no topo
-                    current.add(0, noticeGame)
-                    adapter.submit(current)
-                }
+                // Remove o aviso do meio da lista
+                games.removeAt(avisoIndex)
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
+
+            runOnUiThread {
+                val adapter = vb.rvGames.adapter as GameAdapter
+                val finalList = mutableListOf<Game>()
+
+                // 🧱 aviso sempre em primeiro
+                avisoGame?.let { finalList.add(it) }
+
+                finalList.addAll(games)
+                adapter.submit(finalList)
+
+                vb.rvGames.visibility = if (games.isEmpty()) View.GONE else View.VISIBLE
+                vb.emptyView.visibility = if (games.isEmpty()) View.VISIBLE else View.GONE
+            }
+        } catch (_: Exception) {
         } finally {
-            runOnUiThread { onFinished?.invoke() }
+            runOnUiThread {
+                vb.swipe.isRefreshing = false
+                onFinally?.invoke()
+            }
         }
     }.start()
 }
