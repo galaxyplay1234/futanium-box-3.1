@@ -299,21 +299,23 @@ class MainActivity : AppCompatActivity() {
 
         if (isOnline()) {
             fetchGames()
+						fetchNotice()
             checkAppUpdateExternal(
                 metaUrl = "https://raw.githubusercontent.com/galaxyplay1234/futanium-box-3.1/refs/heads/main/update.json",
                 showNoUpdateToast = false
             )
-					  fetchNotice()
+					  
 
         } else {
             showOfflineDialog {
                 vb.swipe.isRefreshing = true
                 fetchGames()
+								fetchNotice()
                 checkAppUpdateExternal(
                     metaUrl = "https://raw.githubusercontent.com/galaxyplay1234/futanium-box-3.1/refs/heads/main/update.json",
                     showNoUpdateToast = false
                 )
-					     fetchNotice()
+					     
 
             }
         }
@@ -799,16 +801,19 @@ override fun onResume() {
 private fun fetchNotice() {
     Thread {
         try {
-            val url = "https://raw.githubusercontent.com/galaxyplay1234/futanium-box-3.1/main/aviso.json"
-            val res = OkHttpClient().newCall(Request.Builder().url(url).build()).execute()
-            val json = res.body?.string().orEmpty()
-            if (json.isBlank()) return@Thread
+            val req = Request.Builder()
+                .url("https://raw.githubusercontent.com/galaxyplay1234/futanium-box-3.1/main/aviso.json")
+                .build()
+            val res = client.newCall(req).execute()
+            val body = res.body?.string().orEmpty()
+            if (body.isBlank()) return@Thread
 
-            val o = JSONObject(json)
+            val o = JSONObject(body)
             val ativo = o.optString("ativo", "nao")
             if (ativo.equals("sim", true)) {
-                val icon = o.optString("icone", "ℹ️")
+                val icon = o.optString("icone", "⚠️")
                 val msg = o.optString("mensagem", "")
+
                 val buttons = ArrayList<Map<String, String>>()
                 for (i in 1..4) {
                     val name = o.optString("botao${i}_name", "")
@@ -818,12 +823,13 @@ private fun fetchNotice() {
                     }
                 }
 
-                // Usa o mesmo modelo de Game para renderizar o aviso
                 val noticeGame = Game(
-                    championship = "$icon  $msg", // mostra emoji + mensagem
+                    championship = "$icon  $msg", // 🔸 emoji + mensagem
                     championshipImageUrl = null,
                     homeName = "",
+                    homeLogo = null,
                     awayName = "",
+                    awayLogo = null,
                     time = "",
                     isLive = false,
                     isFinished = false,
@@ -833,7 +839,7 @@ private fun fetchNotice() {
                 runOnUiThread {
                     val adapter = vb.rvGames.adapter as GameAdapter
                     val current = adapter.items.toMutableList()
-                    current.add(0, noticeGame) // sempre no topo
+                    current.add(0, noticeGame) // ✅ sempre no topo
                     adapter.submit(current)
                 }
             }
