@@ -245,70 +245,24 @@ class GameAdapter(
     }
 
 
+// === abre o canal + bloqueia múltiplos cliques + mostra anúncio ===
+private var lastClickTime = 0L // ⏱️ controle de cliques rápidos
+
 private fun openLink(view: View, title: String?, link: String) {
     val ctx = view.context
     val u = link.trim()
-    val monetagUrl = "https://otieu.com/4/9902033"
+    val monetagUrl = "https://otieu.com/4/9902033" // 🔸 Seu link Monetag
 
     try {
-        // Layout da barra inferior dentro da aba
-        val countdownView = android.widget.TextView(ctx).apply {
-            text = "⏳ Aguarde 3s..."
-            setBackgroundColor(android.graphics.Color.parseColor("#202020"))
-            setTextColor(android.graphics.Color.WHITE)
-            textSize = 15f
-            setPadding(30, 25, 30, 25)
-            gravity = android.view.Gravity.CENTER
+        // ⛔ Evita múltiplos cliques em menos de 3 segundos
+        val now = System.currentTimeMillis()
+        if (now - lastClickTime < 3000) {
+            Toast.makeText(ctx, "Aguarde um momento...", Toast.LENGTH_SHORT).show()
+            return
         }
+        lastClickTime = now
 
-        val linearLayout = android.widget.LinearLayout(ctx).apply {
-            orientation = android.widget.LinearLayout.VERTICAL
-            addView(countdownView)
-        }
-
-        val remoteView = android.widget.RemoteViews(ctx.packageName, android.R.layout.simple_list_item_1)
-        remoteView.setTextViewText(android.R.id.text1, "⏳ Aguarde 3s...")
-
-        val customTabsIntent = androidx.browser.customtabs.CustomTabsIntent.Builder()
-            .setShowTitle(true)
-            .setColorScheme(androidx.browser.customtabs.CustomTabsIntent.COLOR_SCHEME_DARK)
-            .setToolbarColor(android.graphics.Color.parseColor("#202020"))
-            .setSecondaryToolbarColor(android.graphics.Color.parseColor("#202020"))
-            .build()
-
-        customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY)
-        customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-        customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
-
-        // Abre a aba do anúncio
-        customTabsIntent.launchUrl(ctx, Uri.parse(monetagUrl))
-
-        // === Contagem regressiva (3s)
-        val handler = android.os.Handler(android.os.Looper.getMainLooper())
-        var secondsLeft = 3
-        val countdown = object : Runnable {
-            override fun run() {
-                if (secondsLeft > 0) {
-                    countdownView.text = "⏳ Aguarde ${secondsLeft}s..."
-                    secondsLeft--
-                    handler.postDelayed(this, 1000)
-                } else {
-                    countdownView.text = "🔁 Abrindo canal..."
-                    openChannel(ctx, u, title)
-                }
-            }
-        }
-        handler.post(countdown)
-
-    } catch (e: Exception) {
-        e.printStackTrace()
-        Toast.makeText(ctx, "Erro ao abrir o canal.", Toast.LENGTH_SHORT).show()
-    }
-}
-
-// === Abre o canal após o anúncio ===
-private fun openChannel(ctx: android.content.Context, u: String, title: String?) {
-    try {
+        // 🔹 Abre o canal no player imediatamente
         if (u.startsWith("http", ignoreCase = true)) {
             val it = Intent(ctx, com.futanium.box.WebViewActivity::class.java)
             it.putExtra(com.futanium.box.WebViewActivity.EXTRA_URL, u)
@@ -317,8 +271,38 @@ private fun openChannel(ctx: android.content.Context, u: String, title: String?)
             val it = Intent(Intent.ACTION_VIEW, Uri.parse(u))
             ctx.startActivity(it)
         }
-    } catch (_: Exception) {
-        Toast.makeText(ctx, "Não foi possível abrir o canal.", Toast.LENGTH_SHORT).show()
+
+        // 🔹 Mostra aviso sobre o anúncio
+        Toast.makeText(
+            ctx,
+            "Esta é uma página de anúncio. Feche no X ou use o botão Voltar.",
+            Toast.LENGTH_LONG
+        ).show()
+
+        // 🔹 Aguarda 1 segundo antes de abrir a aba Monetag (para o player iniciar)
+        view.postDelayed({
+            try {
+                val customTabsIntent = androidx.browser.customtabs.CustomTabsIntent.Builder()
+                    .setShowTitle(true)
+                    .setUrlBarHidingEnabled(false)
+                    .setToolbarColor(android.graphics.Color.parseColor("#202020"))
+                    .setColorScheme(androidx.browser.customtabs.CustomTabsIntent.COLOR_SCHEME_DARK)
+                    .build()
+
+                customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY)
+                customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+
+                customTabsIntent.launchUrl(ctx, Uri.parse(monetagUrl))
+            } catch (e: Exception) {
+                e.printStackTrace()
+                Toast.makeText(ctx, "Não foi possível abrir o anúncio.", Toast.LENGTH_SHORT).show()
+            }
+        }, 1000) // <-- 1 segundo de delay
+
+    } catch (e: Exception) {
+        e.printStackTrace()
+        Toast.makeText(ctx, "Erro ao abrir o canal.", Toast.LENGTH_SHORT).show()
     }
 }
 }
