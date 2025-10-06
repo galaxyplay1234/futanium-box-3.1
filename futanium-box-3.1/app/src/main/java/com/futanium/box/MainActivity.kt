@@ -429,7 +429,15 @@ override fun onResume() {
 
                 val games = parseGames(body)
                 runOnUiThread {
-                    (vb.rvGames.adapter as GameAdapter).submit(games)
+                    val adapter = vb.rvGames.adapter as GameAdapter
+val current = games.toMutableList()
+
+// 🔹 Garante que o aviso vem antes dos jogos
+if (adapter.items.isNotEmpty() && adapter.items[0].championship.startsWith("⚠️")) {
+    current.add(0, adapter.items[0])
+}
+
+adapter.submit(current)
 
                     if (games.isEmpty()) {
                         vb.rvGames.visibility = View.GONE
