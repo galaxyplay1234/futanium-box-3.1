@@ -92,15 +92,20 @@ h.tvChamp.ellipsize = TextUtils.TruncateAt.END
         h.gameStatus.visibility = View.GONE
 
         // Mostra o texto do aviso e emoji/ícone
-val d = h.itemView.resources.displayMetrics.density
 val emoji = g.championshipImageUrl.orEmpty()
 val texto = g.championship.orEmpty()
-
 h.tvChamp.text = "$emoji  $texto"
+
+// ⚙️ Força o TextView a quebrar e expandir verticalmente
 h.tvChamp.isSingleLine = false
-h.tvChamp.maxLines = 3
+h.tvChamp.maxLines = 5
 h.tvChamp.ellipsize = null
-h.tvChamp.includeFontPadding = true
+h.tvChamp.setHorizontallyScrolling(false)
+h.tvChamp.textAlignment = View.TEXT_ALIGNMENT_CENTER
+h.tvChamp.layoutParams.height = ViewGroup.LayoutParams.WRAP_CONTENT
+h.tvChamp.requestLayout()
+
+h.imgChamp.visibility = View.GONE
 
 (h.tvChamp.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
     lp.height = ViewGroup.LayoutParams.WRAP_CONTENT
