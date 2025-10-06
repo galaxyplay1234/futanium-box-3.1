@@ -1,5 +1,3 @@
-Antes d emodificar veja se tem algo impedido o fechamento do card
-
 package com.futanium.box.ui
 
 import android.content.Intent
