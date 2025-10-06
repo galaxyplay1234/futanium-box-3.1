@@ -80,10 +80,13 @@ class GameAdapter(
         h.gameStatus.visibility = View.GONE
 
         // Mostra o texto do aviso e emoji/ícone
-        val emoji = g.championshipImageUrl.orEmpty()
-        val texto = g.championship.orEmpty()
-        h.tvChamp.text = "$emoji  $texto"
-        h.imgChamp.visibility = View.GONE
+val emoji = g.championshipImageUrl.orEmpty()
+val texto = g.championship.orEmpty()
+h.tvChamp.text = "$emoji  $texto"
+h.tvChamp.isSingleLine = false
+h.tvChamp.maxLines = 3
+h.tvChamp.ellipsize = null
+h.imgChamp.visibility = View.GONE
 
         // Exibe os botões sempre visíveis (mesmo estilo dos cards normais)
 val btns: List<Any> = (g.buttons as? List<*>)?.filterNotNull() ?: emptyList()
