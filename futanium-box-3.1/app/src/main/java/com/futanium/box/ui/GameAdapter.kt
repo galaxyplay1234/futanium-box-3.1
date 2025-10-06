@@ -28,11 +28,17 @@ class GameAdapter(
     private var expandedPos: Int = -1
 
     fun submit(newItems: List<Game>) {
-        items.clear()
-        items.addAll(newItems)
-        expandedPos = -1
-        notifyDataSetChanged()
-    }
+    items.clear()
+
+    // 🟨 Move o aviso pro topo, se existir
+    val aviso = newItems.find { it.homeLogo == "Aviso" }
+    val restantes = newItems.filter { it.homeLogo != "Aviso" }
+    if (aviso != null) items.add(aviso)
+    items.addAll(restantes)
+
+    expandedPos = -1
+    notifyDataSetChanged()
+}
 
     inner class VH(v: View) : RecyclerView.ViewHolder(v) {
         val imgChamp: ImageView = v.findViewById(R.id.imgChamp)
@@ -60,6 +66,80 @@ class GameAdapter(
 
     override fun onBindViewHolder(h: VH, position: Int) {
         val g = items[position]
+
+            // 🟨 Detecta se é um aviso especial
+    val isAviso = g.homeLogo == "Aviso"
+
+    if (isAviso) {
+        // Oculta tudo que é de jogo
+        h.ivHome.visibility = View.GONE
+        h.ivAway.visibility = View.GONE
+        h.tvHome.visibility = View.GONE
+        h.tvAway.visibility = View.GONE
+        h.tvTime.visibility = View.GONE
+        h.gameStatus.visibility = View.GONE
+
+        // Mostra o texto do aviso e emoji/ícone
+        val emoji = g.championshipImageUrl.orEmpty()
+        val texto = g.championship.orEmpty()
+        h.tvChamp.text = "$emoji  $texto"
+        h.imgChamp.visibility = View.GONE
+
+        // Exibe os botões sempre visíveis
+        val btns: List<Any> = (g.buttons as? List<*>)?.filterNotNull() ?: emptyList()
+        h.btnContainer.visibility = if (btns.isNotEmpty()) View.VISIBLE else View.GONE
+        h.btnContainer.removeAllViews()
+
+        if (btns.isNotEmpty()) {
+            val d = h.itemView.resources.displayMetrics.density
+            btns.forEachIndexed { idx, anyBtn ->
+                val (title, link) = extractTitleAndLink(anyBtn, idx)
+                val ctx = h.itemView.context
+
+                val rippleColor = android.content.res.ColorStateList.valueOf(
+                    android.graphics.Color.parseColor("#22000000")
+                )
+                val content = androidx.appcompat.content.res.AppCompatResources.getDrawable(
+                    ctx, R.drawable.bg_channel_button
+                )
+                val mask = android.graphics.drawable.GradientDrawable().apply {
+                    shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                    cornerRadius = 12f * d
+                    setColor(android.graphics.Color.WHITE)
+                }
+                val ripple = android.graphics.drawable.RippleDrawable(rippleColor, content, mask)
+
+                val b = Button(ctx).apply {
+                    text = title
+                    setAllCaps(false)
+                    setTextColor(android.graphics.Color.parseColor("#222222"))
+                    textSize = 14f
+                    background = ripple
+                    includeFontPadding = false
+                    setPadding((14 * d).toInt(), (8 * d).toInt(), (14 * d).toInt(), (8 * d).toInt())
+
+                    setOnClickListener {
+                        it.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
+                        openAvisoLink(it, title, link)
+                    }
+                }
+
+                val lp = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    marginEnd = (8 * d).toInt()
+                    topMargin = (6 * d).toInt()
+                }
+
+                h.btnContainer.addView(b, lp)
+            }
+        }
+
+        // Impede expandir aviso ao clicar
+        h.itemView.setOnClickListener(null)
+        return
+    }
 
         // Campeonato (esconde se vier vazio)
         val champName = g.championship.orEmpty()
@@ -217,6 +297,25 @@ class GameAdapter(
             notifyItemChanged(position)
         }
     }
+
+   // 🔹 Abre link de aviso (sem monetag)
+private fun openAvisoLink(view: View, title: String?, link: String) {
+    val ctx = view.context
+    try {
+        if (link.startsWith("f:", ignoreCase = true)) {
+            val real = link.removePrefix("f:")
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(real))
+            ctx.startActivity(intent)
+        } else {
+            val it = Intent(ctx, com.futanium.box.WebViewActivity::class.java)
+            it.putExtra(com.futanium.box.WebViewActivity.EXTRA_URL, link)
+            ctx.startActivity(it)
+        }
+    } catch (_: Exception) {
+        Toast.makeText(ctx, "Erro ao abrir o link do aviso.", Toast.LENGTH_SHORT).show()
+    }
+}
+
 
     /** Extrai (título, link) de um item de botão vindo da API */
     private fun extractTitleAndLink(anyBtn: Any, index: Int): Pair<String, String> {
