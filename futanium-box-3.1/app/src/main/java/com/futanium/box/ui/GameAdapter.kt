@@ -170,8 +170,7 @@ h.tvChamp.ellipsize = TextUtils.TruncateAt.END
         }
     }
 
-    h.itemView.setOnClickListener(null)
-    return
+    
 }
 
         // Campeonato (esconde se vier vazio)
