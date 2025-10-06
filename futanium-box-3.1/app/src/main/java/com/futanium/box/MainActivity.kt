@@ -321,14 +321,7 @@ override fun onResume() {
     onlineRef.child(onlineRefId!!).onDisconnect().removeValue()
 }
 
-   override fun onDestroy() {
-    super.onDestroy()
-    try {
-        val db = FirebaseDatabase.getInstance("https://futanium-web-default-rtdb.firebaseio.com/")
-        val onlineRef = db.getReference("online")
-        onlineRef.child(onlineRefId!!).removeValue()
-    } catch (_: Exception) {}
-}
+   
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.main_menu, menu)
