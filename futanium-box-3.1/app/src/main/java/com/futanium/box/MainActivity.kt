@@ -844,13 +844,13 @@ private fun fetchNotice(onFinished: (() -> Unit)? = null) {
                 // 🔹 Envia o aviso pro adapter para aparecer no topo
                 runOnUiThread {
                     val adapter = vb.rvGames.adapter as GameAdapter
-                    adapter.setNotice(notice)
+                    adapter.updateNotice(notice)
                 }
             } else {
                 // 🔹 Se o aviso estiver inativo, remove
                 runOnUiThread {
                     val adapter = vb.rvGames.adapter as GameAdapter
-                    adapter.setNotice(null)
+                    adapter.updateNotice(null)
                 }
             }
         } catch (e: Exception) {
