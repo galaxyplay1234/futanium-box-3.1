@@ -117,6 +117,7 @@ class MainActivity : AppCompatActivity() {
             isOnlineActive = false
         }
     }
+}
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
