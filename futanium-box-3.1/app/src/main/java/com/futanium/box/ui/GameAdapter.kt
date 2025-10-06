@@ -49,7 +49,7 @@ class GameAdapter(
     // 🔹 AVISO FIXO NO TOPO
 var notice: com.futanium.box.model.Notice? = null
 
-fun setNotice(newNotice: com.futanium.box.model.Notice?) {
+fun updateNotice(newNotice: com.futanium.box.model.Notice?) {
     notice = newNotice
     notifyDataSetChanged()
 }
