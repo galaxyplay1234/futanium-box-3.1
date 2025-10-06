@@ -46,6 +46,74 @@ class GameAdapter(
         val btnContainer: ViewGroup = v.findViewById(R.id.btnContainer)
     }
 
+    // 🔹 AVISO FIXO NO TOPO
+var notice: com.futanium.box.model.Notice? = null
+
+fun setNotice(newNotice: com.futanium.box.model.Notice?) {
+    notice = newNotice
+    notifyDataSetChanged()
+}
+
+// Adiciona o suporte ao tipo de view do aviso
+override fun getItemViewType(position: Int): Int {
+    return if (notice != null && notice?.ativo == "sim" && position == 0) 0 else 1
+}
+
+// Renderiza o aviso no topo
+private fun bindNotice(h: VH) {
+    val n = notice ?: return
+    h.tvChamp.text = "${n.icone} ${n.mensagem}"
+    h.imgChamp.visibility = View.GONE
+    h.tvHome.visibility = View.GONE
+    h.tvAway.visibility = View.GONE
+    h.tvTime.visibility = View.GONE
+    h.gameStatus.visibility = View.GONE
+
+    h.btnContainer.removeAllViews()
+
+    val ctx = h.itemView.context
+    val d = ctx.resources.displayMetrics.density
+
+    fun addButton(label: String?, url: String?) {
+        if (label.isNullOrBlank() || url.isNullOrBlank()) return
+        val b = Button(ctx).apply {
+            text = label
+            setAllCaps(false)
+            textSize = 14f
+            setTextColor(android.graphics.Color.parseColor("#222222"))
+            val ripple = android.graphics.drawable.RippleDrawable(
+                android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#22000000")),
+                androidx.appcompat.content.res.AppCompatResources.getDrawable(ctx, R.drawable.bg_channel_button),
+                null
+            )
+            background = ripple
+            setPadding((14 * d).toInt(), (8 * d).toInt(), (14 * d).toInt(), (8 * d).toInt())
+            setOnClickListener {
+                try {
+                    val itn = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                    ctx.startActivity(itn)
+                } catch (e: Exception) {
+                    Toast.makeText(ctx, "Não foi possível abrir o link.", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+        val lp = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply {
+            marginEnd = (8 * d).toInt()
+            topMargin = (6 * d).toInt()
+        }
+        h.btnContainer.addView(b, lp)
+    }
+
+    addButton(n.botao1_name, n.link1)
+    addButton(n.botao2_name, n.link2)
+    addButton(n.botao3_name, n.link3)
+    addButton(n.botao4_name, n.link4)
+}
+
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
         val inflater = LayoutInflater.from(parent.context)
         val view = inflater.inflate(R.layout.item_game, parent, false)
