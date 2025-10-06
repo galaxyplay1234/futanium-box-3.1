@@ -35,14 +35,13 @@
     android:textColor="#333333"
     android:fontFamily="sans-serif-medium"
     android:layout_marginStart="6dp"
-    android:ellipsize="none"
     android:singleLine="false"
+    android:ellipsize="none"
     android:maxLines="5"
     android:scrollHorizontally="false"
     android:lineSpacingExtra="1dp"
     app:layout_constraintStart_toEndOf="@id/imgChamp"
     app:layout_constraintTop_toTopOf="parent"
-    app:layout_constraintStart_toEndOf="@id/imgChamp"
     app:layout_constraintEnd_toEndOf="parent" />
 
         <TextView
