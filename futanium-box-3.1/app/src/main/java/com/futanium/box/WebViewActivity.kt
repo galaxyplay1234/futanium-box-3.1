@@ -26,6 +26,8 @@ import okhttp3.Request
 import java.io.ByteArrayInputStream
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
+import com.google.firebase.database.FirebaseDatabase
+import java.util.UUID
 
 class WebViewActivity : AppCompatActivity() {
 
@@ -59,9 +61,33 @@ class WebViewActivity : AppCompatActivity() {
         return h == "bit.ly" || u.contains("/bit.ly/") || u.contains("://bit.ly/")
     }
 
+
+        private var webviewRefId: String? = null
+    private var isWebviewActive = false
+
+    private fun setWebviewStatus(active: Boolean) {
+        val db = FirebaseDatabase.getInstance("https://futanium-web-default-rtdb.firebaseio.com/")
+        val webviewRef = db.getReference("webview")
+
+        if (active) {
+            webviewRefId = UUID.randomUUID().toString()
+            webviewRef.child(webviewRefId!!).setValue(true)
+            webviewRef.child(webviewRefId!!).onDisconnect().removeValue()
+            isWebviewActive = true
+        } else {
+            webviewRefId?.let {
+                webviewRef.child(it).removeValue()
+                webviewRefId = null
+                isWebviewActive = false
+            }
+        }
+    }
+
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+				setWebviewStatus(true)
 
         WindowCompat.setDecorFitsSystemWindows(window, true)
         window.statusBarColor = Color.BLACK
@@ -313,7 +339,19 @@ private fun matchesAllowlist(host: String, fullUrlLower: String): Boolean {
         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         super.onDestroy()
     }
+    
+		    override fun onPause() {
+        super.onPause()
+        setWebviewStatus(false)
+    }
 
+    override fun onResume() {
+        super.onResume()
+        if (!isWebviewActive) setWebviewStatus(true)
+    }
+
+
+    
     companion object { const val EXTRA_URL = "url" }
 
     // ===== Blocklist =====
