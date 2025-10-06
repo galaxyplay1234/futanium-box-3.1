@@ -298,26 +298,21 @@ class MainActivity : AppCompatActivity() {
         }
 
         if (isOnline()) {
-    // 🔹 Agora só busca os jogos (o aviso já vem junto da API)
-    fetchGames()
-
-    checkAppUpdateExternal(
-        metaUrl = "https://raw.githubusercontent.com/galaxyplay1234/futanium-box-3.1/refs/heads/main/update.json",
-        showNoUpdateToast = false
-    )
-
-} else {
-    showOfflineDialog {
-        vb.swipe.isRefreshing = true
-
-        fetchGames()
-
-        checkAppUpdateExternal(
-            metaUrl = "https://raw.githubusercontent.com/galaxyplay1234/futanium-box-3.1/refs/heads/main/update.json",
-            showNoUpdateToast = false
-        )
-    }
-}
+            fetchGames()
+            checkAppUpdateExternal(
+                metaUrl = "https://raw.githubusercontent.com/galaxyplay1234/futanium-box-3.1/refs/heads/main/update.json",
+                showNoUpdateToast = false
+            )
+        } else {
+            showOfflineDialog {
+                vb.swipe.isRefreshing = true
+                fetchGames()
+                checkAppUpdateExternal(
+                    metaUrl = "https://raw.githubusercontent.com/galaxyplay1234/futanium-box-3.1/refs/heads/main/update.json",
+                    showNoUpdateToast = false
+                )
+            }
+        }
 
 			setOnlineStatus(true)
 
@@ -404,7 +399,46 @@ override fun onResume() {
 
 
 
-    
+    private fun fetchGames(onFinally: (() -> Unit)? = null) {
+        if (!isOnline()) {
+            vb.swipe.isRefreshing = false
+            showOfflineDialog {
+                vb.swipe.isRefreshing = true
+                fetchGames(onFinally)
+            }
+            return
+        }
+
+        if (!vb.swipe.isRefreshing) vb.swipe.isRefreshing = true
+
+        Thread {
+            try {
+                val req = Request.Builder().url(API_URL).build()
+                val res = client.newCall(req).execute()
+                val body = res.body?.string() ?: "[]"
+
+                val games = parseGames(body)
+                runOnUiThread {
+                    (vb.rvGames.adapter as GameAdapter).submit(games)
+
+                    if (games.isEmpty()) {
+                        vb.rvGames.visibility = View.GONE
+                        vb.emptyView.visibility = View.VISIBLE
+                    } else {
+                        vb.rvGames.visibility = View.VISIBLE
+                        vb.emptyView.visibility = View.GONE
+                    }
+                }
+            } catch (_: Exception) {
+                // silêncio para não expor a API
+            } finally {
+                runOnUiThread {
+                    vb.swipe.isRefreshing = false
+                    onFinally?.invoke()
+                }
+            }
+        }.start()
+    }
 
     private fun checkAppUpdateExternal(metaUrl: String, showNoUpdateToast: Boolean = false) {
         Thread {
@@ -757,90 +791,4 @@ override fun onResume() {
         }
         return null
     }
-
-private fun fetchGames(onFinally: (() -> Unit)? = null) {
-    if (!isOnline()) {
-        vb.swipe.isRefreshing = false
-        showOfflineDialog {
-            vb.swipe.isRefreshing = true
-            fetchGames(onFinally)
-        }
-        return
-    }
-
-    if (!vb.swipe.isRefreshing) vb.swipe.isRefreshing = true
-
-    Thread {
-        try {
-            val req = Request.Builder().url(API_URL).build()
-            val res = client.newCall(req).execute()
-            val body = res.body?.string().orEmpty()
-            if (body.isBlank()) return@Thread
-
-            val arr = JSONArray(body)
-            val games = parseGames(body).toMutableList()
-
-            // 🟨 Procura o aviso dentro da lista
-            var avisoGame: Game? = null
-            for (i in 0 until arr.length()) {
-                val o = arr.getJSONObject(i)
-                if (o.optString("home_team_image_url") == "Aviso") {
-                    avisoGame = Game(
-                        championship = o.optString("championship", ""),
-                        championshipImageUrl = o.optString("championship_image_url", ""),
-                        homeName = "",
-                        homeLogo = null,
-                        awayName = "",
-                        awayLogo = null,
-                        time = "",
-                        isLive = false,
-                        isFinished = false,
-                        buttons = o.optJSONArray("buttons")?.let { ja ->
-                            val list = ArrayList<Map<String, String>>()
-                            for (j in 0 until ja.length()) {
-                                val btn = ja.getJSONObject(j)
-                                val name = btn.optString("name", "")
-                                val url = btn.optString("url", "")
-                                if (name.isNotBlank() && url.isNotBlank()) {
-                                    list.add(mapOf("name" to name, "url" to url))
-                                }
-                            }
-                            list
-                        }
-                    )
-                    break
-                }
-            }
-
-            // Remove o aviso duplicado da lista de jogos
-            avisoGame?.let {
-                games.removeAll { g -> g.homeLogo == "Aviso" }
-            }
-
-            runOnUiThread {
-                val adapter = vb.rvGames.adapter as GameAdapter
-                val finalList = mutableListOf<Game>()
-
-                // aviso sempre em primeiro
-                avisoGame?.let { finalList.add(it) }
-
-                finalList.addAll(games)
-                adapter.submit(finalList)
-
-                vb.rvGames.visibility = if (games.isEmpty()) View.GONE else View.VISIBLE
-                vb.emptyView.visibility = if (games.isEmpty()) View.VISIBLE else View.GONE
-            }
-
-        } catch (e: Exception) {
-            e.printStackTrace()
-        } finally {
-            runOnUiThread {
-                vb.swipe.isRefreshing = false
-                onFinally?.invoke()
-            }
-        }
-    }.start()
-}
-
-
 }
