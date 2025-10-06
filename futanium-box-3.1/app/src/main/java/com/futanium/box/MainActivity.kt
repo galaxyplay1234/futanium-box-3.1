@@ -49,6 +49,7 @@ import kotlin.math.max
 import kotlin.math.min
 import com.google.firebase.database.FirebaseDatabase
 import java.util.UUID
+import android.provider.Settings
 
 // 🔔 IMPORTES ADICIONADOS PARA NOTIFICAÇÃO
 import android.Manifest
@@ -314,6 +315,28 @@ class MainActivity : AppCompatActivity() {
         }
 
 			setOnlineStatus(true)
+
+    // 🔹 Firebase Database
+val db = FirebaseDatabase.getInstance("https://futanium-web-default-rtdb.firebaseio.com/")
+val installsRef = db.getReference("instalados")
+
+// 🔹 ID único e anônimo do aparelho
+val androidId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
+
+// 🔹 Marca a data/hora da última abertura
+val userData = mapOf(
+    "installed_at" to com.google.firebase.database.ServerValue.TIMESTAMP,
+    "last_open" to com.google.firebase.database.ServerValue.TIMESTAMP
+)
+
+// 🔹 Cria ou atualiza o registro
+installsRef.child(androidId).get().addOnSuccessListener { snap ->
+    if (!snap.exists()) {
+        installsRef.child(androidId).setValue(userData)
+    } else {
+        installsRef.child(androidId).child("last_open").setValue(com.google.firebase.database.ServerValue.TIMESTAMP)
+    }
+}
 
     } // onCreate
 
