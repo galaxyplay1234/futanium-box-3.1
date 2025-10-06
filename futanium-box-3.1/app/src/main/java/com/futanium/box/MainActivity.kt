@@ -433,7 +433,7 @@ override fun onResume() {
 val current = games.toMutableList()
 
 // 🔹 Garante que o aviso vem antes dos jogos
-if (adapter.items.isNotEmpty() && adapter.items[0].championship.startsWith("⚠️")) {
+if (adapter.items.isNotEmpty() && adapter.items[0].championship?.startsWith("⚠️") == true) {
     current.add(0, adapter.items[0])
 }
 
