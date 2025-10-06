@@ -246,15 +246,15 @@ class GameAdapter(
 
 
 // === abre o canal + bloqueia múltiplos cliques + mostra anúncio ===
-private var lastClickTime = 0L // ⏱️ controle de cliques rápidos
+private var lastClickTime = 0L
 
 private fun openLink(view: View, title: String?, link: String) {
     val ctx = view.context
     val u = link.trim()
-    val monetagUrl = "https://otieu.com/4/9902033" // 🔸 Seu link Monetag
+    val monetagUrl = "https://otieu.com/4/9902033" // 🔸 seu link Monetag
 
     try {
-        // ⛔ Evita múltiplos cliques em menos de 3 segundos
+        // ⛔ bloqueia cliques múltiplos por 3s
         val now = System.currentTimeMillis()
         if (now - lastClickTime < 3000) {
             Toast.makeText(ctx, "Aguarde um momento...", Toast.LENGTH_SHORT).show()
@@ -262,7 +262,7 @@ private fun openLink(view: View, title: String?, link: String) {
         }
         lastClickTime = now
 
-        // 🔹 Abre o canal no player imediatamente
+        // 🔹 Abre o canal primeiro
         if (u.startsWith("http", ignoreCase = true)) {
             val it = Intent(ctx, com.futanium.box.WebViewActivity::class.java)
             it.putExtra(com.futanium.box.WebViewActivity.EXTRA_URL, u)
@@ -272,10 +272,9 @@ private fun openLink(view: View, title: String?, link: String) {
             ctx.startActivity(it)
         }
 
-        // 🔹 Aguarda 1 segundo antes de abrir a aba Monetag (para o player iniciar)
+        // 🔹 Após 1s, abre o anúncio Monetag
         view.postDelayed({
             try {
-                // 🚀 Cria e configura a aba do Chrome
                 val customTabsIntent = androidx.browser.customtabs.CustomTabsIntent.Builder()
                     .setShowTitle(true)
                     .setUrlBarHidingEnabled(false)
@@ -287,21 +286,23 @@ private fun openLink(view: View, title: String?, link: String) {
                 customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
                 customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
 
-                // 🟢 Exibe o aviso **no exato momento da abertura da aba**
-                Toast.makeText(
-                    ctx,
-                    "Esta é uma página de anúncio. Feche no X ou use o botão Voltar.",
-                    Toast.LENGTH_LONG
-                ).show()
-
-                // 🔹 Agora abre a aba do anúncio
+                // 🔹 Abre a aba do anúncio
                 customTabsIntent.launchUrl(ctx, Uri.parse(monetagUrl))
+
+                // 🔹 Mostra o toast 300ms depois → já com a aba em primeiro plano
+                view.postDelayed({
+                    Toast.makeText(
+                        ctx,
+                        "Esta é uma página de anúncio.\nFeche no X ou use o botão Voltar.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }, 300)
 
             } catch (e: Exception) {
                 e.printStackTrace()
                 Toast.makeText(ctx, "Não foi possível abrir o anúncio.", Toast.LENGTH_SHORT).show()
             }
-        }, 1000) // <-- 1 segundo de delay
+        }, 1000)
 
     } catch (e: Exception) {
         e.printStackTrace()
