@@ -299,6 +299,7 @@ class MainActivity : AppCompatActivity() {
 
         if (isOnline()) {
             fetchGames()
+            fetchNotice()
             checkAppUpdateExternal(
                 metaUrl = "https://raw.githubusercontent.com/galaxyplay1234/futanium-box-3.1/refs/heads/main/update.json",
                 showNoUpdateToast = false
@@ -791,4 +792,38 @@ override fun onResume() {
         }
         return null
     }
+
+private fun fetchNotice() {
+    Thread {
+        try {
+            val url = "https://raw.githubusercontent.com/galaxyplay1234/futanium-box-3.1/refs/heads/main/aviso.json"
+            val res = OkHttpClient().newCall(Request.Builder().url(url).build()).execute()
+            val json = res.body?.string().orEmpty()
+            if (json.isBlank()) return@Thread
+
+            val o = JSONObject(json)
+            val notice = com.futanium.box.model.Notice(
+                ativo = o.optString("ativo"),
+                icone = o.optString("icone"),
+                mensagem = o.optString("mensagem"),
+                botao1_name = o.optString("botao1_name"),
+                link1 = o.optString("link1"),
+                botao2_name = o.optString("botao2_name"),
+                link2 = o.optString("link2"),
+                botao3_name = o.optString("botao3_name"),
+                link3 = o.optString("link3"),
+                botao4_name = o.optString("botao4_name"),
+                link4 = o.optString("link4")
+            )
+
+            runOnUiThread {
+                (vb.rvGames.adapter as? com.futanium.box.ui.GameAdapter)?.setNotice(notice)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }.start()
+}
+
+
 }
