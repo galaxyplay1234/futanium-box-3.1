@@ -320,26 +320,30 @@ h.itemView.setOnClickListener {
     if (g.homeLogo == "Aviso") return@setOnClickListener
     if (g.buttons.isNullOrEmpty()) return@setOnClickListener
 
-    val previous = expandedPos
-    val isSameCard = (previous == position)
+    val previousExpanded = expandedPos
+    val sameCard = previousExpanded == position
 
-    // Atualiza o card atual (abre/fecha)
-    expandedPos = if (isSameCard) -1 else position
+    // 🔹 Se clicou no mesmo card, fecha tudo
+    expandedPos = if (sameCard) -1 else position
 
-    // 🔹 Atualiza o card anterior (se for outro)
-    if (previous != -1 && previous != position && previous < items.size) {
-        notifyItemChanged(previous)
-    }
-
-    // 🔹 Atualiza o card atual
+    // 🔹 Rebind o card atual
     notifyItemChanged(position)
 
-    // 🔹 Força fechamento total do antigo (garante visibilidade off)
-    if (previous != -1 && previous != position && previous < items.size) {
-        h.itemView.postDelayed({
-            expandedPos = expandedPos  // apenas reseta estado interno
-            notifyItemChanged(previous)
-        }, 150)
+    // 🔹 Se havia outro card aberto antes, fecha ele também
+    if (previousExpanded != -1 && previousExpanded != position) {
+        notifyItemChanged(previousExpanded)
+    }
+
+    // 🔹 Força renderização imediata para garantir o colapso visual
+    h.itemView.post {
+        if (previousExpanded != -1 && previousExpanded != position) {
+            try {
+                // Evita que o RecyclerView recicle o antigo expandido
+                val recycler = (h.itemView.parent as? RecyclerView)
+                recycler?.findViewHolderForAdapterPosition(previousExpanded)?.itemView
+                    ?.findViewById<ViewGroup>(R.id.btnContainer)?.visibility = View.GONE
+            } catch (_: Exception) { }
+        }
     }
 }
 }
