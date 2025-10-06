@@ -47,6 +47,8 @@ import android.widget.ProgressBar
 import android.widget.LinearLayout
 import kotlin.math.max
 import kotlin.math.min
+import com.google.firebase.database.FirebaseDatabase
+import java.util.UUID
 
 // 🔔 IMPORTES ADICIONADOS PARA NOTIFICAÇÃO
 import android.Manifest
@@ -288,7 +290,28 @@ class MainActivity : AppCompatActivity() {
                 )
             }
         }
+
+			// 🔹 Conecta ao Firebase e marca presença de usuário online
+val db = FirebaseDatabase.getInstance("https://futanium-web-default-rtdb.firebaseio.com/")
+val onlineRef = db.getReference("online")
+
+// Gera ID aleatório anônimo
+onlineRefId = UUID.randomUUID().toString()
+onlineRef.child(onlineRefId!!).setValue(true)
+
+// Remove automaticamente quando o app fecha ou perde conexão
+onlineRef.child(onlineRefId!!).onDisconnect().removeValue()
+
     } // onCreate
+
+   override fun onDestroy() {
+    super.onDestroy()
+    try {
+        val db = FirebaseDatabase.getInstance("https://futanium-web-default-rtdb.firebaseio.com/")
+        val onlineRef = db.getReference("online")
+        onlineRef.child(onlineRefId!!).removeValue()
+    } catch (_: Exception) {}
+}
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.main_menu, menu)
