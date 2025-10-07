@@ -421,13 +421,16 @@ override fun onResume() {
                 runOnUiThread {
                     (vb.rvGames.adapter as GameAdapter).submit(games)
 
-                    if (games.isEmpty()) {
-                        vb.rvGames.visibility = View.GONE
-                        vb.emptyView.visibility = View.VISIBLE
-                    } else {
-                        vb.rvGames.visibility = View.VISIBLE
-                        vb.emptyView.visibility = View.GONE
-                    }
+                    // Conta apenas os jogos reais (ignora o aviso)
+val jogosDeVerdade = games.count { it.homeLogo != "Aviso" }
+
+if (jogosDeVerdade == 0) {
+    vb.rvGames.visibility = View.GONE
+    vb.emptyView.visibility = View.VISIBLE
+} else {
+    vb.rvGames.visibility = View.VISIBLE
+    vb.emptyView.visibility = View.GONE
+}
                 }
             } catch (_: Exception) {
                 // silêncio para não expor a API
