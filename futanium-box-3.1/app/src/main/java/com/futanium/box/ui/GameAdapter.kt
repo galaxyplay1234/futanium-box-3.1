@@ -27,6 +27,10 @@ class GameAdapter(
 
     /** posição atualmente expandida; -1 = nenhuma */
     private var expandedPos: Int = -1
+    // 🔧 Configuração remota do Monetag (via JSON no GitHub)
+private var monetagEnabledRemote = true
+private var monetagLinkRemote: String = "https://otieu.com/4/9902033"
+private var adsConfigLoaded = false
 
     fun submit(newItems: List<Game>) {
     items.clear()
@@ -66,6 +70,7 @@ class GameAdapter(
     override fun getItemCount() = items.size
 
     override fun onBindViewHolder(h: VH, position: Int) {
+			 fetchAdsConfig()
         val g = items[position]
 
 
@@ -351,6 +356,31 @@ h.tvChamp.setPadding(0, 0, 0, 0)
         }
     }
 }
+
+   // 🔹 Busca configuração de anúncios remota (carrega uma vez)
+private fun fetchAdsConfig() {
+    if (adsConfigLoaded) return
+    adsConfigLoaded = true
+
+    Thread {
+        try {
+            val url = java.net.URL("https://raw.githubusercontent.com/galaxyplay1234/futanium-box-3.1/refs/heads/main/ads.json")
+            val json = url.readText(Charsets.UTF_8)
+            val obj = org.json.JSONObject(json)
+
+            val ativo = obj.optString("ativo", "sim")
+            monetagEnabledRemote = ativo.equals("sim", ignoreCase = true)
+            monetagLinkRemote = obj.optString("link", monetagLinkRemote)
+
+            android.util.Log.d("FutaniumAds", "Config carregada: ativo=$monetagEnabledRemote link=$monetagLinkRemote")
+        } catch (e: Exception) {
+            e.printStackTrace()
+            android.util.Log.e("FutaniumAds", "Falha ao carregar ads.json: ${e.message}")
+        }
+    }.start()
+}
+
+
    // 🔹 Abre link de aviso (sem monetag)
 private fun openAvisoLink(view: View, title: String?, link: String) {
     val ctx = view.context
@@ -403,7 +433,7 @@ private var lastClickTime = 0L
 private fun openLink(view: View, title: String?, link: String) {
     val ctx = view.context
     val u = link.trim()
-    val monetagUrl = "https://otieu.com/4/9902033" // 🔸 seu link Monetag
+    val monetagUrl = monetagLinkRemote
 
     try {
         // ⛔ bloqueia cliques múltiplos por 3s
@@ -434,35 +464,36 @@ private fun openLink(view: View, title: String?, link: String) {
             ctx.startActivity(it)
         }
 
-        // 🔹 Após 1s, abre o anúncio Monetag
-        view.postDelayed({
-            try {
-                val customTabsIntent = androidx.browser.customtabs.CustomTabsIntent.Builder()
-                    .setShowTitle(true)
-                    .setUrlBarHidingEnabled(false)
-                    .setToolbarColor(android.graphics.Color.parseColor("#202020"))
-                    .setColorScheme(androidx.browser.customtabs.CustomTabsIntent.COLOR_SCHEME_DARK)
-                    .build()
+        // 🔹 Após 1s, abre o anúncio Monetag (se ativo remotamente)
+if (monetagEnabledRemote && monetagLinkRemote.isNotBlank()) {
+    view.postDelayed({
+        try {
+            val customTabsIntent = androidx.browser.customtabs.CustomTabsIntent.Builder()
+                .setShowTitle(true)
+                .setUrlBarHidingEnabled(false)
+                .setToolbarColor(android.graphics.Color.parseColor("#202020"))
+                .setColorScheme(androidx.browser.customtabs.CustomTabsIntent.COLOR_SCHEME_DARK)
+                .build()
 
-                customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY)
-                customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY)
+            customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
 
-                customTabsIntent.launchUrl(ctx, Uri.parse(monetagUrl))
+            customTabsIntent.launchUrl(ctx, Uri.parse(monetagLinkRemote))
 
-                view.postDelayed({
-                    Toast.makeText(
-                        ctx,
-                        "Esta é uma página de anúncio.\nFeche no X ou use o botão Voltar.",
-                        Toast.LENGTH_LONG
-                    ).show()
-                }, 300)
+            view.postDelayed({
+                Toast.makeText(
+                    ctx,
+                    "Esta é uma página de anúncio.\nFeche no X ou use o botão Voltar.",
+                    Toast.LENGTH_LONG
+                ).show()
+            }, 300)
 
-            } catch (e: Exception) {
-                e.printStackTrace()
-                Toast.makeText(ctx, "Não foi possível abrir o anúncio.", Toast.LENGTH_SHORT).show()
-            }
-        }, 1000)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Toast.makeText(ctx, "Não foi possível abrir o anúncio.", Toast.LENGTH_SHORT).show()
+        }
+    }, 1000)
 
     } catch (e: Exception) {
         e.printStackTrace()
