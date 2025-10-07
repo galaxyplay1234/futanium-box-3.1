@@ -494,6 +494,7 @@ if (monetagEnabledRemote && monetagLinkRemote.isNotBlank()) {
             Toast.makeText(ctx, "Não foi possível abrir o anúncio.", Toast.LENGTH_SHORT).show()
         }
     }, 1000)
+}
 
     } catch (e: Exception) {
         e.printStackTrace()
