@@ -93,41 +93,41 @@ if (isAviso) {
     val d = h.itemView.resources.displayMetrics.density
 
     // --- Ícone do aviso (emoji ou URL) ---
-    val iconValue = g.championshipImageUrl.orEmpty()
-    h.imgChamp.visibility = View.VISIBLE
+val iconValue = g.championshipImageUrl.orEmpty()
 
-    if (iconValue.startsWith("http", true)) {
-        // URL → exibe imagem (ex: futura logo)
-        h.imgChamp.load(iconValue) { crossfade(true) }
-    } else {
-        // Emoji → mantém cor original e tamanho natural
-        h.imgChamp.setImageDrawable(null)
-        h.tvChamp.text = "$iconValue  ${g.championship.orEmpty()}"
-    }
+// Mostra o ícone visível e alinhado igual aos outros cards
+h.imgChamp.visibility = View.VISIBLE
 
-    // 🔹 Alinha o ícone exatamente igual ao dos outros cards
-    (h.imgChamp.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
-        lp.marginStart = (12 * d).toInt() // mesmo alinhamento lateral dos outros ícones
-        lp.topMargin = 0
-        lp.bottomMargin = 0
-        h.imgChamp.layoutParams = lp
-    }
+if (iconValue.startsWith("http", true)) {
+    // Se for imagem (URL)
+    h.imgChamp.load(iconValue) { crossfade(true) }
+} else {
+    // Se for emoji
+    h.imgChamp.setImageDrawable(null)
+    h.tvChamp.text = "$iconValue  ${g.championship.orEmpty()}"
+}
 
-    // --- Configura o texto ---
-    h.tvChamp.isSingleLine = false
-    h.tvChamp.maxLines = Int.MAX_VALUE
-    h.tvChamp.ellipsize = null
-    h.tvChamp.textAlignment = View.TEXT_ALIGNMENT_TEXT_START
-    h.tvChamp.setLineSpacing(0f, 1.1f)
-    h.tvChamp.setPadding(0, 0, 0, 0)
+// 🔹 Copia exatamente as mesmas margens do layout normal (sem alterar nada)
+(h.imgChamp.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
+    lp.marginStart = (8 * d).toInt()   // mesmo valor usado nos cards de campeonato
+    lp.topMargin = 0
+    h.imgChamp.layoutParams = lp
+}
 
-    // 🔹 Ajusta o texto pra permitir passar por baixo do ícone
-    (h.tvChamp.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
-        lp.marginStart = (-4 * d).toInt()  // leve recuo p/ alinhar perfeitamente
-        lp.topMargin = 0
-        lp.bottomMargin = (6 * d).toInt()
-        h.tvChamp.layoutParams = lp
-    }
+// 🔹 Texto multilinha e alinhamento natural
+h.tvChamp.isSingleLine = false
+h.tvChamp.maxLines = Int.MAX_VALUE
+h.tvChamp.ellipsize = null
+h.tvChamp.textAlignment = View.TEXT_ALIGNMENT_TEXT_START
+h.tvChamp.setLineSpacing(0f, 1.1f)
+h.tvChamp.setPadding(0, 0, 0, 0)
+
+// 🔹 Mantém o mesmo alinhamento lateral do texto dos outros cards
+(h.tvChamp.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
+    lp.marginStart = (8 * d).toInt()   // 🔸 este valor deixa igual ao anterior que funcionava
+    lp.bottomMargin = (6 * d).toInt()
+    h.tvChamp.layoutParams = lp
+}
 
     // --- Botões do aviso ---
     val btns: List<Any> = (g.buttons as? List<*>)?.filterNotNull() ?: emptyList()
