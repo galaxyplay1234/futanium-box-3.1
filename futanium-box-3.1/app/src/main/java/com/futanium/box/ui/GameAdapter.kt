@@ -93,44 +93,25 @@ if (isAviso) {
     val d = h.itemView.resources.displayMetrics.density
 
     // --- Ícone do aviso (emoji ou URL) ---
-val iconValue = g.championshipImageUrl.orEmpty()
-if (iconValue.startsWith("http", true)) {
-    // É uma URL → mostra imagem alinhada igual aos outros cards
+    val iconValue = g.championshipImageUrl.orEmpty()
     h.imgChamp.visibility = View.VISIBLE
-    h.imgChamp.load(iconValue) { crossfade(true) }
 
-    // 🔹 Alinha exatamente igual aos ícones dos jogos
+    if (iconValue.startsWith("http", true)) {
+        // URL → exibe imagem (ex: futura logo)
+        h.imgChamp.load(iconValue) { crossfade(true) }
+    } else {
+        // Emoji → mantém cor original e tamanho natural
+        h.imgChamp.setImageDrawable(null)
+        h.tvChamp.text = "$iconValue  ${g.championship.orEmpty()}"
+    }
+
+    // 🔹 Alinha o ícone exatamente igual ao dos outros cards
     (h.imgChamp.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
-        lp.marginStart = (16 * d).toInt() // mesmo valor usado nos outros cards
+        lp.marginStart = (12 * d).toInt() // mesmo alinhamento lateral dos outros ícones
         lp.topMargin = 0
+        lp.bottomMargin = 0
         h.imgChamp.layoutParams = lp
     }
-
-    h.tvChamp.text = g.championship.orEmpty()
-} else if (iconValue.isNotBlank()) {
-    // É um emoji → mostra no texto mas alinhado com os ícones dos jogos
-    h.imgChamp.visibility = View.VISIBLE
-    h.imgChamp.setImageDrawable(null)
-    h.tvChamp.text = "$iconValue  ${g.championship.orEmpty()}"
-
-    // 🔹 Corrige o deslocamento horizontal e vertical
-    (h.imgChamp.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
-        lp.marginStart = (16 * d).toInt() // mesmo alinhamento lateral dos ícones
-        lp.topMargin = (1 * d).toInt()    // ajusta altura visual
-        h.imgChamp.layoutParams = lp
-    }
-
-    // 🔹 Ajusta o texto para alinhar com os demais
-    (h.tvChamp.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
-        lp.marginStart = (-4 * d).toInt() // puxa levemente pra esquerda pra compensar o emoji
-        lp.bottomMargin = (6 * d).toInt()
-        h.tvChamp.layoutParams = lp
-    }
-} else {
-    // Nenhum ícone
-    h.imgChamp.visibility = View.GONE
-    h.tvChamp.text = g.championship.orEmpty()
-}
 
     // --- Configura o texto ---
     h.tvChamp.isSingleLine = false
@@ -140,9 +121,9 @@ if (iconValue.startsWith("http", true)) {
     h.tvChamp.setLineSpacing(0f, 1.1f)
     h.tvChamp.setPadding(0, 0, 0, 0)
 
-    // --- Margens e sobreposição: segunda linha passa por baixo do ícone ---
+    // 🔹 Ajusta o texto pra permitir passar por baixo do ícone
     (h.tvChamp.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
-        lp.marginStart = (-8 * d).toInt() // puxa o texto pra esquerda
+        lp.marginStart = (-4 * d).toInt()  // leve recuo p/ alinhar perfeitamente
         lp.topMargin = 0
         lp.bottomMargin = (6 * d).toInt()
         h.tvChamp.layoutParams = lp
