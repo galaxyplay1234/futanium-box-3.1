@@ -318,42 +318,22 @@ if (isAviso) {
             }
         }
 
-        // Expansão por clique (só se houver botões e não for aviso)
-h.itemView.setOnClickListener {
-    if (g.homeLogo == "Aviso") return@setOnClickListener
-    if (g.buttons.isNullOrEmpty()) return@setOnClickListener
+        // ----- CLIQUE PARA EXPANDIR / FECHAR -----
+    h.itemView.setOnClickListener {
+        if (g.homeLogo == "Aviso" || g.buttons.isNullOrEmpty()) return@setOnClickListener
+        val current = h.bindingAdapterPosition
+        if (current == RecyclerView.NO_POSITION) return@setOnClickListener
 
-    val previousExpanded = expandedPos
-    val sameCard = previousExpanded == position
-
-    // 🔹 Se clicou no mesmo card, fecha tudo
-    expandedPos = if (sameCard) -1 else position
-
-    // 🔹 Rebind o card atual
-    notifyItemChanged(position)
-
-    // 🔹 Se havia outro card aberto antes, fecha ele também
-    if (previousExpanded != -1 && previousExpanded != position) {
-        notifyItemChanged(previousExpanded)
-    }
-
-    // 🔹 Força renderização imediata para garantir o colapso visual
-    h.itemView.post {
-        if (previousExpanded != -1 && previousExpanded != position) {
-            try {
-                val recycler = (h.itemView.parent as? RecyclerView)
-                recycler?.findViewHolderForAdapterPosition(previousExpanded)?.itemView
-                    ?.findViewById<ViewGroup>(R.id.btnContainer)?.visibility = View.GONE
-            } catch (_: Exception) { }
+        val prev = expandedPos
+        if (prev == current) {
+            expandedPos = -1
+            notifyItemChanged(current)
+        } else {
+            expandedPos = current
+            if (prev != -1) notifyItemChanged(prev)
+            notifyItemChanged(current)
         }
     }
-}
-
-// 🔹 Garante que só um card permaneça expandido visualmente
-if (!isExpanded && h.btnContainer.visibility == View.VISIBLE) {
-    h.btnContainer.visibility = View.GONE
-    h.btnContainer.removeAllViews()
-}
 }
    // 🔹 Abre link de aviso (sem monetag)
 private fun openAvisoLink(view: View, title: String?, link: String) {
