@@ -291,6 +291,18 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+				// 🔹 Espaço extra no final da lista (sem afetar os cards)
+val bottomSpace = (40 * resources.displayMetrics.density).toInt()
+vb.rvGames.setPadding(
+    vb.rvGames.paddingLeft,
+    vb.rvGames.paddingTop,
+    vb.rvGames.paddingRight,
+    bottomSpace
+)
+vb.rvGames.clipToPadding = false
+
+
+
         vb.swipe.setOnRefreshListener {
             if (!vb.swipe.isRefreshing) vb.swipe.isRefreshing = true
             startRefreshSpin()
