@@ -92,28 +92,40 @@ if (isAviso) {
 
     val d = h.itemView.resources.displayMetrics.density
 
-    // Mostra o ícone de aviso alinhado com os outros ícones da esquerda
-    h.imgChamp.visibility = View.VISIBLE
-    h.imgChamp.load(android.R.drawable.ic_dialog_alert) {
-        crossfade(true)
+    // --- Ícone do aviso (emoji ou URL) ---
+    val iconValue = g.championshipImageUrl.orEmpty()
+    if (iconValue.startsWith("http", true)) {
+        // É uma URL → mostra imagem
+        h.imgChamp.visibility = View.VISIBLE
+        h.imgChamp.load(iconValue) { crossfade(true) }
+    } else if (iconValue.isNotBlank()) {
+        // É um emoji → mostra como texto dentro de uma imagem invisível (pra manter alinhamento)
+        h.imgChamp.visibility = View.VISIBLE
+        h.imgChamp.setImageDrawable(null)
+        h.tvChamp.text = "$iconValue  ${g.championship.orEmpty()}"
+    } else {
+        // Nenhum ícone
+        h.imgChamp.visibility = View.GONE
+        h.tvChamp.text = g.championship.orEmpty()
     }
 
-    // Texto do aviso (sem emoji embutido)
-    h.tvChamp.text = g.championship.orEmpty()
+    // --- Configura o texto ---
     h.tvChamp.isSingleLine = false
     h.tvChamp.maxLines = Int.MAX_VALUE
     h.tvChamp.ellipsize = null
     h.tvChamp.textAlignment = View.TEXT_ALIGNMENT_TEXT_START
     h.tvChamp.setLineSpacing(0f, 1.1f)
+    h.tvChamp.setPadding(0, 0, 0, 0)
 
-    // Ajusta margens para alinhar igual aos outros cards
+    // --- Margens e sobreposição: segunda linha passa por baixo do ícone ---
     (h.tvChamp.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
+        lp.marginStart = (-8 * d).toInt() // puxa o texto pra esquerda
+        lp.topMargin = 0
         lp.bottomMargin = (6 * d).toInt()
-        lp.marginStart = (8 * d).toInt()
         h.tvChamp.layoutParams = lp
     }
 
-    // Botões do aviso
+    // --- Botões do aviso ---
     val btns: List<Any> = (g.buttons as? List<*>)?.filterNotNull() ?: emptyList()
     h.btnContainer.removeAllViews()
     h.btnContainer.visibility = if (btns.isNotEmpty()) View.VISIBLE else View.GONE
