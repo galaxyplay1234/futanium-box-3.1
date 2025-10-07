@@ -95,29 +95,36 @@ if (isAviso) {
     // --- Ícone do aviso (emoji ou URL) ---
 val iconValue = g.championshipImageUrl.orEmpty()
 if (iconValue.startsWith("http", true)) {
-    // É uma URL → mostra imagem no mesmo alinhamento dos outros cards
+    // É uma URL → mostra imagem alinhada igual aos outros cards
     h.imgChamp.visibility = View.VISIBLE
     h.imgChamp.load(iconValue) { crossfade(true) }
 
-    // Garante que o ícone fique alinhado com os outros
+    // 🔹 Alinha exatamente igual aos ícones dos jogos
     (h.imgChamp.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
-        lp.marginStart = (8 * d).toInt()
+        lp.marginStart = (16 * d).toInt() // mesmo valor usado nos outros cards
         lp.topMargin = 0
         h.imgChamp.layoutParams = lp
     }
 
     h.tvChamp.text = g.championship.orEmpty()
 } else if (iconValue.isNotBlank()) {
-    // É um emoji → mostra dentro do texto, mas mantém alinhamento visual
+    // É um emoji → mostra no texto mas alinhado com os ícones dos jogos
     h.imgChamp.visibility = View.VISIBLE
     h.imgChamp.setImageDrawable(null)
     h.tvChamp.text = "$iconValue  ${g.championship.orEmpty()}"
 
-    // 🔹 Corrige o deslocamento horizontal do emoji
+    // 🔹 Corrige o deslocamento horizontal e vertical
     (h.imgChamp.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
-        lp.marginStart = (8 * d).toInt()
-        lp.topMargin = 0
+        lp.marginStart = (16 * d).toInt() // mesmo alinhamento lateral dos ícones
+        lp.topMargin = (1 * d).toInt()    // ajusta altura visual
         h.imgChamp.layoutParams = lp
+    }
+
+    // 🔹 Ajusta o texto para alinhar com os demais
+    (h.tvChamp.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
+        lp.marginStart = (-4 * d).toInt() // puxa levemente pra esquerda pra compensar o emoji
+        lp.bottomMargin = (6 * d).toInt()
+        h.tvChamp.layoutParams = lp
     }
 } else {
     // Nenhum ícone
