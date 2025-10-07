@@ -107,7 +107,7 @@ if (isAviso) {
 
     // 🔹 Corrige alinhamento lateral exato com os ícones dos cards normais
 (h.imgChamp.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
-    lp.marginStart = (-10 * d).toInt()
+    lp.marginStart = (-14 * d).toInt()
     lp.topMargin = 0
     h.imgChamp.layoutParams = lp
 }
