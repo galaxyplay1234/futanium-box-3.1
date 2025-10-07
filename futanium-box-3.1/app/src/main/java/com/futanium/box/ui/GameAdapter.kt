@@ -93,21 +93,37 @@ if (isAviso) {
     val d = h.itemView.resources.displayMetrics.density
 
     // --- Ícone do aviso (emoji ou URL) ---
-    val iconValue = g.championshipImageUrl.orEmpty()
-    if (iconValue.startsWith("http", true)) {
-        // É uma URL → mostra imagem
-        h.imgChamp.visibility = View.VISIBLE
-        h.imgChamp.load(iconValue) { crossfade(true) }
-    } else if (iconValue.isNotBlank()) {
-        // É um emoji → mostra como texto dentro de uma imagem invisível (pra manter alinhamento)
-        h.imgChamp.visibility = View.VISIBLE
-        h.imgChamp.setImageDrawable(null)
-        h.tvChamp.text = "$iconValue  ${g.championship.orEmpty()}"
-    } else {
-        // Nenhum ícone
-        h.imgChamp.visibility = View.GONE
-        h.tvChamp.text = g.championship.orEmpty()
+val iconValue = g.championshipImageUrl.orEmpty()
+if (iconValue.startsWith("http", true)) {
+    // É uma URL → mostra imagem no mesmo alinhamento dos outros cards
+    h.imgChamp.visibility = View.VISIBLE
+    h.imgChamp.load(iconValue) { crossfade(true) }
+
+    // Garante que o ícone fique alinhado com os outros
+    (h.imgChamp.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
+        lp.marginStart = (8 * d).toInt()
+        lp.topMargin = 0
+        h.imgChamp.layoutParams = lp
     }
+
+    h.tvChamp.text = g.championship.orEmpty()
+} else if (iconValue.isNotBlank()) {
+    // É um emoji → mostra dentro do texto, mas mantém alinhamento visual
+    h.imgChamp.visibility = View.VISIBLE
+    h.imgChamp.setImageDrawable(null)
+    h.tvChamp.text = "$iconValue  ${g.championship.orEmpty()}"
+
+    // 🔹 Corrige o deslocamento horizontal do emoji
+    (h.imgChamp.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
+        lp.marginStart = (8 * d).toInt()
+        lp.topMargin = 0
+        h.imgChamp.layoutParams = lp
+    }
+} else {
+    // Nenhum ícone
+    h.imgChamp.visibility = View.GONE
+    h.tvChamp.text = g.championship.orEmpty()
+}
 
     // --- Configura o texto ---
     h.tvChamp.isSingleLine = false
