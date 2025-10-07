@@ -90,22 +90,26 @@ if (isAviso) {
     h.tvTime.visibility = View.GONE
     h.gameStatus.visibility = View.GONE
 
-    // Texto do aviso + emoji
-    val emoji = g.championshipImageUrl.orEmpty()
-    val texto = g.championship.orEmpty()
-    h.tvChamp.text = "$emoji  $texto"
+    val d = h.itemView.resources.displayMetrics.density
 
-    // Multilinha e alinhamento
+    // Mostra o ícone de aviso alinhado com os outros ícones da esquerda
+    h.imgChamp.visibility = View.VISIBLE
+    h.imgChamp.load(android.R.drawable.ic_dialog_alert) {
+        crossfade(true)
+    }
+
+    // Texto do aviso (sem emoji embutido)
+    h.tvChamp.text = g.championship.orEmpty()
     h.tvChamp.isSingleLine = false
     h.tvChamp.maxLines = Int.MAX_VALUE
     h.tvChamp.ellipsize = null
-    h.tvChamp.textAlignment = View.TEXT_ALIGNMENT_CENTER
+    h.tvChamp.textAlignment = View.TEXT_ALIGNMENT_TEXT_START
     h.tvChamp.setLineSpacing(0f, 1.1f)
-    h.imgChamp.visibility = View.GONE
 
-    val d = h.itemView.resources.displayMetrics.density
+    // Ajusta margens para alinhar igual aos outros cards
     (h.tvChamp.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
         lp.bottomMargin = (6 * d).toInt()
+        lp.marginStart = (8 * d).toInt()
         h.tvChamp.layoutParams = lp
     }
 
@@ -161,10 +165,8 @@ if (isAviso) {
         }
     }
 
-    // 🔹 Garante que o aviso nunca interfira no estado de expansão
+    // 🔹 Evita expansão e reseta estado
     h.itemView.setOnClickListener(null)
-
-    // 🔥 Evita que o aviso seja considerado “expandido”
     if (expandedPos == position) expandedPos = -1
 
     // ✅ Retorna sem afetar os outros cards
