@@ -338,13 +338,18 @@ h.itemView.setOnClickListener {
     h.itemView.post {
         if (previousExpanded != -1 && previousExpanded != position) {
             try {
-                // Evita que o RecyclerView recicle o antigo expandido
                 val recycler = (h.itemView.parent as? RecyclerView)
                 recycler?.findViewHolderForAdapterPosition(previousExpanded)?.itemView
                     ?.findViewById<ViewGroup>(R.id.btnContainer)?.visibility = View.GONE
             } catch (_: Exception) { }
         }
     }
+}
+
+// 🔹 Garante que só um card permaneça expandido visualmente
+if (!isExpanded && h.btnContainer.visibility == View.VISIBLE) {
+    h.btnContainer.visibility = View.GONE
+    h.btnContainer.removeAllViews()
 }
 }
    // 🔹 Abre link de aviso (sem monetag)
