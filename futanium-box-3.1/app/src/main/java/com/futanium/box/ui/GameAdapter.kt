@@ -109,10 +109,10 @@ if (isAviso) {
         h.tvChamp.layoutParams = lp
     }
 
-    // Botões
+    // Botões do aviso
     val btns: List<Any> = (g.buttons as? List<*>)?.filterNotNull() ?: emptyList()
-    h.btnContainer.visibility = if (btns.isNotEmpty()) View.VISIBLE else View.GONE
     h.btnContainer.removeAllViews()
+    h.btnContainer.visibility = if (btns.isNotEmpty()) View.VISIBLE else View.GONE
 
     if (btns.isNotEmpty()) {
         btns.forEachIndexed { idx, anyBtn ->
@@ -161,11 +161,14 @@ if (isAviso) {
         }
     }
 
-    // ⛔ Importante: limpa qualquer clique prévio (não dá return)
-h.itemView.setOnClickListener(null)
+    // 🔹 Garante que o aviso nunca interfira no estado de expansão
+    h.itemView.setOnClickListener(null)
 
-// 🔥 Garante que não quebre o restante do bind
-return@onBindViewHolder
+    // 🔥 Evita que o aviso seja considerado “expandido”
+    if (expandedPos == position) expandedPos = -1
+
+    // ✅ Retorna sem afetar os outros cards
+    return@onBindViewHolder
 }
 
         // Campeonato (esconde se vier vazio)
