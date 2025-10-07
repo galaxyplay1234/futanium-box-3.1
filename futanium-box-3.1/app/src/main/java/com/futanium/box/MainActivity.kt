@@ -421,15 +421,18 @@ override fun onResume() {
                 runOnUiThread {
                     (vb.rvGames.adapter as GameAdapter).submit(games)
 
-                    // Conta apenas os jogos reais (ignora o aviso)
-val jogosDeVerdade = games.count { it.homeLogo != "Aviso" }
+                    // Conta os tipos de item
+val temAviso = games.any { it.homeLogo == "Aviso" }
+val temJogo = games.any { it.homeLogo != "Aviso" }
 
-if (jogosDeVerdade == 0) {
+// Caso não tenha nada mesmo (nem aviso)
+if (!temAviso && !temJogo) {
     vb.rvGames.visibility = View.GONE
     vb.emptyView.visibility = View.VISIBLE
 } else {
     vb.rvGames.visibility = View.VISIBLE
-    vb.emptyView.visibility = View.GONE
+    // Se não houver jogos reais, mostra mensagem junto com o aviso
+    vb.emptyView.visibility = if (!temJogo) View.VISIBLE else View.GONE
 }
                 }
             } catch (_: Exception) {
