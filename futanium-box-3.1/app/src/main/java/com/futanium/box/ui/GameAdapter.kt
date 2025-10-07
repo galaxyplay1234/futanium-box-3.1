@@ -92,44 +92,43 @@ if (isAviso) {
 
     val d = h.itemView.resources.displayMetrics.density
 
-    // --- Ícone do aviso (emoji ou URL) ---
-val iconValue = g.championshipImageUrl.orEmpty()
+    // --- ÍCONE DO AVISO (emoji ou URL) ---
+    val iconValue = g.championshipImageUrl.orEmpty()
+    h.imgChamp.visibility = View.VISIBLE
 
-// Mostra o ícone visível e alinhado igual aos outros cards
-h.imgChamp.visibility = View.VISIBLE
+    if (iconValue.startsWith("http", true)) {
+        // Se for imagem, carrega normalmente
+        h.imgChamp.load(iconValue) { crossfade(true) }
+    } else {
+        // Se for emoji (como ⚠️), exibe via texto
+        h.imgChamp.setImageDrawable(null)
+        h.tvChamp.text = "$iconValue  ${g.championship.orEmpty()}"
+    }
 
-if (iconValue.startsWith("http", true)) {
-    // Se for imagem (URL)
-    h.imgChamp.load(iconValue) { crossfade(true) }
-} else {
-    // Se for emoji
-    h.imgChamp.setImageDrawable(null)
-    h.tvChamp.text = "$iconValue  ${g.championship.orEmpty()}"
-}
+    // 🔹 Mantém o mesmo alinhamento lateral dos outros cards
+    (h.imgChamp.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
+        lp.marginStart = (8 * d).toInt() // mesmo valor do layout padrão
+        lp.topMargin = 0
+        h.imgChamp.layoutParams = lp
+    }
 
-// 🔹 Copia exatamente as mesmas margens do layout normal (sem alterar nada)
-(h.imgChamp.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
-    lp.marginStart = (8 * d).toInt()   // mesmo valor usado nos cards de campeonato
-    lp.topMargin = 0
-    h.imgChamp.layoutParams = lp
-}
+    // --- TEXTO DO AVISO ---
+    h.tvChamp.isSingleLine = false
+    h.tvChamp.maxLines = Int.MAX_VALUE
+    h.tvChamp.ellipsize = null
+    h.tvChamp.textAlignment = View.TEXT_ALIGNMENT_TEXT_START
+    h.tvChamp.setLineSpacing(0f, 1.1f)
+    h.tvChamp.setPadding(0, 0, 0, 0)
 
-// 🔹 Texto multilinha e alinhamento natural
-h.tvChamp.isSingleLine = false
-h.tvChamp.maxLines = Int.MAX_VALUE
-h.tvChamp.ellipsize = null
-h.tvChamp.textAlignment = View.TEXT_ALIGNMENT_TEXT_START
-h.tvChamp.setLineSpacing(0f, 1.1f)
-h.tvChamp.setPadding(0, 0, 0, 0)
+    // 🔹 Alinha com os outros cards e permite texto passar sob o ícone
+    (h.tvChamp.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
+        lp.marginStart = (8 * d).toInt()   // mesmo alinhamento lateral
+        lp.bottomMargin = (6 * d).toInt()
+        lp.topMargin = 0
+        h.tvChamp.layoutParams = lp
+    }
 
-// 🔹 Mantém o mesmo alinhamento lateral do texto dos outros cards
-(h.tvChamp.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
-    lp.marginStart = (8 * d).toInt()   // 🔸 este valor deixa igual ao anterior que funcionava
-    lp.bottomMargin = (6 * d).toInt()
-    h.tvChamp.layoutParams = lp
-}
-
-    // --- Botões do aviso ---
+    // --- BOTÕES DO AVISO ---
     val btns: List<Any> = (g.buttons as? List<*>)?.filterNotNull() ?: emptyList()
     h.btnContainer.removeAllViews()
     h.btnContainer.visibility = if (btns.isNotEmpty()) View.VISIBLE else View.GONE
