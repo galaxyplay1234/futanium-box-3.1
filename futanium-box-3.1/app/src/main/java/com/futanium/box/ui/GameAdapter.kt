@@ -161,11 +161,18 @@ if (isAviso) {
         }
     }
 
-    // ⛔ Importante: limpa qualquer clique prévio (não dá return)
-    h.itemView.setOnClickListener(null)
+    // 🔹 Garante que o aviso nunca interfira no estado de expansão
+h.itemView.setOnClickListener(null)
+h.btnContainer.removeAllViews()
+h.btnContainer.visibility = View.GONE
 
-    // 🔥 Garante que não quebre o restante do bind
-    return@onBindViewHolder
+// 🔥 Importante: reseta o estado visual do holder antes de retornar
+if (expandedPos == position) {
+    expandedPos = -1
+}
+
+// ✅ Retorna sem quebrar o resto
+return@onBindViewHolder
 }
 
         // Campeonato (esconde se vier vazio)
