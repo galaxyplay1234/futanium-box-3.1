@@ -12,6 +12,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.recyclerview.widget.RecyclerView
 import coil.load
+import coil.clear
 import com.futanium.box.R
 import com.futanium.box.model.Game
 import org.json.JSONObject
