@@ -13,6 +13,7 @@ import android.widget.Toast
 import androidx.recyclerview.widget.RecyclerView
 import coil.dispose
 import coil.load
+import coil.clear
 import coil.imageLoader
 import coil.request.ImageRequest
 import com.futanium.box.R
@@ -217,20 +218,16 @@ h.tvChamp.setPadding(0, 0, 0, 0)
         h.tvChamp.visibility = if (champName.isBlank()) View.GONE else View.VISIBLE
 
         val champLogo = g.championshipImageUrl
+val champLogo = g.championshipImageUrl
+h.imgChamp.clear() // ⛔ cancela qualquer imagem pendente antes de carregar outra
+
 if (champLogo.isNullOrBlank()) {
     h.imgChamp.setImageDrawable(null)
     h.imgChamp.visibility = View.GONE
 } else {
     h.imgChamp.visibility = View.VISIBLE
-    h.imgChamp.alpha = 1f
-    h.imgChamp.setImageDrawable(null)
-
     h.imgChamp.load(champLogo) {
-        // ✅ sem crossfade para não “travar” transparente em reciclagem
-        crossfade(false)
-        // ✅ evita “buracos” se falhar
-        placeholder(android.R.color.transparent)
-        error(android.R.color.transparent)
+        crossfade(false) // 🔹 sem animação
         allowHardware(false)
     }
 }
