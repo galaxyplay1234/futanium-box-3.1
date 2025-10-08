@@ -13,11 +13,14 @@ import android.widget.Toast
 import androidx.recyclerview.widget.RecyclerView
 import coil.dispose
 import coil.load
+import coil.imageLoader
+import coil.request.ImageRequest
 import com.futanium.box.R
 import com.futanium.box.model.Game
 import org.json.JSONObject
 import androidx.browser.customtabs.CustomTabsIntent
 import android.text.TextUtils
+
 
 class GameAdapter(
     private val items: MutableList<Game> = mutableListOf()
@@ -215,22 +218,33 @@ h.tvChamp.setPadding(0, 0, 0, 0)
 
         val champLogo = g.championshipImageUrl
 if (champLogo.isNullOrBlank()) {
-    h.imgChamp.visibility = View.GONE
     h.imgChamp.setImageDrawable(null)
+    h.imgChamp.visibility = View.GONE
 } else {
     h.imgChamp.visibility = View.VISIBLE
 
-    // 🔹 limpa carregamento anterior (evita bug de ícone sumindo)
-    h.imgChamp.dispose()
-
-    h.imgChamp.load(champLogo) {
-        crossfade(true)
-        allowHardware(false)
-        listener(
-            onError = { _, _ -> h.imgChamp.visibility = View.VISIBLE },
-            onSuccess = { _, _ -> h.imgChamp.visibility = View.VISIBLE }
-        )
-    }
+    // 🔹 Cancela qualquer job anterior de imagem (evita conflito de reciclagem)
+    coil.imageLoader(h.imgChamp.context).enqueue(
+        coil.request.ImageRequest.Builder(h.imgChamp.context)
+            .data(champLogo)
+            .target(
+                onStart = {
+                    // placeholder leve (corrige “ícone sumido” antes do load)
+                    h.imgChamp.setImageResource(android.R.color.transparent)
+                },
+                onSuccess = { result ->
+                    h.imgChamp.setImageDrawable(result)
+                    h.imgChamp.visibility = View.VISIBLE
+                },
+                onError = {
+                    h.imgChamp.setImageDrawable(null)
+                    h.imgChamp.visibility = View.VISIBLE
+                }
+            )
+            .allowHardware(false)
+            .crossfade(true)
+            .build()
+    )
 }
 
         // Times / hora
