@@ -223,28 +223,28 @@ if (champLogo.isNullOrBlank()) {
 } else {
     h.imgChamp.visibility = View.VISIBLE
 
-    // 🔹 Cancela qualquer job anterior de imagem (evita conflito de reciclagem)
-    coil.imageLoader(h.imgChamp.context).enqueue(
-        coil.request.ImageRequest.Builder(h.imgChamp.context)
-            .data(champLogo)
-            .target(
-                onStart = {
-                    // placeholder leve (corrige “ícone sumido” antes do load)
-                    h.imgChamp.setImageResource(android.R.color.transparent)
-                },
-                onSuccess = { result ->
-                    h.imgChamp.setImageDrawable(result)
-                    h.imgChamp.visibility = View.VISIBLE
-                },
-                onError = {
-                    h.imgChamp.setImageDrawable(null)
-                    h.imgChamp.visibility = View.VISIBLE
-                }
-            )
-            .allowHardware(false)
-            .crossfade(true)
-            .build()
-    )
+    // 🔹 Cancela requisição anterior e força placeholder
+    val ctx = h.imgChamp.context
+    val req = coil.request.ImageRequest.Builder(ctx)
+        .data(champLogo)
+        .crossfade(true)
+        .allowHardware(false)
+        .target(
+            onStart = {
+                h.imgChamp.setImageResource(android.R.color.transparent)
+            },
+            onSuccess = { result ->
+                h.imgChamp.setImageDrawable(result)
+                h.imgChamp.visibility = View.VISIBLE
+            },
+            onError = {
+                h.imgChamp.setImageDrawable(null)
+                h.imgChamp.visibility = View.VISIBLE
+            }
+        )
+        .build()
+
+    coil.ImageLoader(ctx).enqueue(req)
 }
 
         // Times / hora
