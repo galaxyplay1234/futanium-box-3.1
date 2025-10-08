@@ -213,12 +213,24 @@ h.tvChamp.setPadding(0, 0, 0, 0)
         h.tvChamp.visibility = if (champName.isBlank()) View.GONE else View.VISIBLE
 
         val champLogo = g.championshipImageUrl
-        if (champLogo.isNullOrBlank()) {
-            h.imgChamp.visibility = View.GONE
-        } else {
-            h.imgChamp.visibility = View.VISIBLE
-            h.imgChamp.load(champLogo) { crossfade(true) }
-        }
+if (champLogo.isNullOrBlank()) {
+    h.imgChamp.visibility = View.GONE
+    h.imgChamp.setImageDrawable(null)
+} else {
+    h.imgChamp.visibility = View.VISIBLE
+
+    // 🔹 limpa carregamento anterior (evita bug de ícone sumindo)
+    h.imgChamp.clear()
+
+    h.imgChamp.load(champLogo) {
+        crossfade(true)
+        allowHardware(false)
+        listener(
+            onError = { _, _ -> h.imgChamp.visibility = View.VISIBLE },
+            onSuccess = { _, _ -> h.imgChamp.visibility = View.VISIBLE }
+        )
+    }
+}
 
         // Times / hora
         h.tvHome.text = g.homeName.orEmpty()
