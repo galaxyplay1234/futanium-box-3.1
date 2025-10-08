@@ -70,6 +70,18 @@ private var adsConfigLoaded = false
     override fun getItemCount() = items.size
 
     override fun onBindViewHolder(h: VH, position: Int) {
+       // 🔹 Resetar visual do card antes de aplicar dados
+h.ivHome.visibility = View.VISIBLE
+h.ivAway.visibility = View.VISIBLE
+h.tvHome.visibility = View.VISIBLE
+h.tvAway.visibility = View.VISIBLE
+h.tvTime.visibility = View.VISIBLE
+h.gameStatus.visibility = View.GONE
+h.btnContainer.visibility = View.GONE
+h.btnContainer.removeAllViews()
+h.tvChamp.isSingleLine = true
+h.tvChamp.maxLines = 1
+h.tvChamp.ellipsize = TextUtils.TruncateAt.END
 			 fetchAdsConfig()
         val g = items[position]
 
