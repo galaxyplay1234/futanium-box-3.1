@@ -222,6 +222,7 @@ h.tvChamp.setPadding(0, 0, 0, 0)
         val champName = g.championship.orEmpty()
 h.tvChamp.text = champName
 h.tvChamp.visibility = if (champName.isBlank()) View.GONE else View.VISIBLE
+h.tvChamp.setTextColor(android.graphics.Color.parseColor("#9EA2AF"))
 
 val champLogo = g.championshipImageUrl
 h.imgChamp.dispose()
