@@ -11,8 +11,8 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.recyclerview.widget.RecyclerView
+import coil.dispose
 import coil.load
-import coil.clear
 import com.futanium.box.R
 import com.futanium.box.model.Game
 import org.json.JSONObject
@@ -221,7 +221,7 @@ if (champLogo.isNullOrBlank()) {
     h.imgChamp.visibility = View.VISIBLE
 
     // 🔹 limpa carregamento anterior (evita bug de ícone sumindo)
-    h.imgChamp.clear()
+    h.imgChamp.dispose()
 
     h.imgChamp.load(champLogo) {
         crossfade(true)
