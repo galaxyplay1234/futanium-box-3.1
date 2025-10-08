@@ -13,7 +13,6 @@ import android.widget.Toast
 import androidx.recyclerview.widget.RecyclerView
 import coil.dispose
 import coil.load
-import coil.clear
 import coil.imageLoader
 import coil.request.ImageRequest
 import com.futanium.box.R
@@ -218,19 +217,26 @@ h.tvChamp.setPadding(0, 0, 0, 0)
         h.tvChamp.visibility = if (champName.isBlank()) View.GONE else View.VISIBLE
 
         val champLogo = g.championshipImageUrl
-val champLogo = g.championshipImageUrl
-h.imgChamp.clear() // ⛔ cancela qualquer imagem pendente antes de carregar outra
+h.imgChamp.dispose() // cancela qualquer requisição anterior
 
 if (champLogo.isNullOrBlank()) {
     h.imgChamp.setImageDrawable(null)
     h.imgChamp.visibility = View.GONE
 } else {
     h.imgChamp.visibility = View.VISIBLE
-    h.imgChamp.load(champLogo) {
-        crossfade(false) // 🔹 sem animação
-        allowHardware(false)
-    }
+
+    val request = ImageRequest.Builder(h.itemView.context)
+        .data(champLogo)
+        .crossfade(false)
+        .allowHardware(false)
+        .memoryCacheKey(champLogo + position) // 🔹 força cache individual
+        .target(h.imgChamp)
+        .build()
+
+    h.itemView.context.imageLoader.enqueue(request)
 }
+
+
 
         // Times / hora
         h.tvHome.text = g.homeName.orEmpty()
