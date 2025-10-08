@@ -211,13 +211,11 @@ h.tvChamp.setPadding(0, 0, 0, 0)
     return@onBindViewHolder
 }
 
-        // Campeonato (esconde se vier vazio)
         val champName = g.championship.orEmpty()
-        h.tvChamp.text = champName
-        h.tvChamp.visibility = if (champName.isBlank()) View.GONE else View.VISIBLE
+h.tvChamp.text = champName
+h.tvChamp.visibility = if (champName.isBlank()) View.GONE else View.VISIBLE
 
-        val champLogo = g.championshipImageUrl
-h.imgChamp.dispose() // cancela qualquer requisição anterior
+val champLogo = g.championshipImageUrl
 
 if (champLogo.isNullOrBlank()) {
     h.imgChamp.setImageDrawable(null)
@@ -225,15 +223,19 @@ if (champLogo.isNullOrBlank()) {
 } else {
     h.imgChamp.visibility = View.VISIBLE
 
-    val request = ImageRequest.Builder(h.itemView.context)
-        .data(champLogo)
-        .crossfade(false)
-        .allowHardware(false)
-        .memoryCacheKey(champLogo + position) // 🔹 força cache individual
-        .target(h.imgChamp)
-        .build()
+    // Cancela qualquer carregamento anterior pra evitar conflito de reciclagem
+    h.imgChamp.dispose()
 
-    h.itemView.context.imageLoader.enqueue(request)
+    // Recarrega forçando cache local
+    h.imgChamp.load(champLogo) {
+        crossfade(false)
+        allowHardware(false)
+        memoryCachePolicy(coil.request.CachePolicy.ENABLED)
+        diskCachePolicy(coil.request.CachePolicy.ENABLED)
+        networkCachePolicy(coil.request.CachePolicy.ENABLED)
+        placeholder(android.R.color.transparent)
+        error(android.R.color.transparent)
+    }
 }
 
 
