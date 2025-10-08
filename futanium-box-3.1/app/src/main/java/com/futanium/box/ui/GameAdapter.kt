@@ -92,12 +92,11 @@ private var adsConfigLoaded = false
     h.imgChamp.visibility = View.GONE
 
     // ✅ Corrige margem caso tenha sido alterada no "Aviso"
-    val d = h.itemView.resources.displayMetrics.density
     (h.imgChamp.layoutParams as? ViewGroup.MarginLayoutParams)?.apply {
-        marginStart = (8 * d).toInt()   // mesmo valor padrão do XML
-        topMargin = 0
-        h.imgChamp.layoutParams = this
-    }
+    marginStart = 0 // posição original
+    topMargin = 0
+    h.imgChamp.layoutParams = this
+}
 
     fetchAdsConfig()
     val g = items[position]
