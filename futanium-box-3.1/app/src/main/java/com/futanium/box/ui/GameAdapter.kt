@@ -135,6 +135,7 @@ if (isAviso) {
         // Se for emoji (como ⚠️), exibe via texto
         h.imgChamp.setImageDrawable(null)
         h.tvChamp.text = "$iconValue  ${g.championship.orEmpty()}"
+h.tvChamp.setTextColor(android.graphics.Color.parseColor("#222222"))
     }
 
     // 🔹 Corrige alinhamento lateral exato com os ícones dos cards normais
@@ -222,7 +223,7 @@ h.tvChamp.setPadding(0, 0, 0, 0)
         val champName = g.championship.orEmpty()
 h.tvChamp.text = champName
 h.tvChamp.visibility = if (champName.isBlank()) View.GONE else View.VISIBLE
-h.tvChamp.setTextColor(android.graphics.Color.parseColor("#9EA2AF"))
+h.tvChamp.setTextColor(android.graphics.Color.parseColor("#888B96"))
 
 val champLogo = g.championshipImageUrl
 h.imgChamp.dispose()
