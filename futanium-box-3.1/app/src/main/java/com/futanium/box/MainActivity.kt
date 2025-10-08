@@ -164,6 +164,13 @@ class MainActivity : AppCompatActivity() {
 
         vb.rvGames.layoutManager = LinearLayoutManager(this)
         vb.rvGames.adapter = adapter
+        vb.rvGames.layoutManager = LinearLayoutManager(this)
+vb.rvGames.adapter = adapter
+
+// 🔧 Evita que o RecyclerView feche ou anime cards ao atualizar
+vb.rvGames.setHasFixedSize(false)
+vb.rvGames.itemAnimator = null
+
 
         // ======= Largura máx. 600dp em telas grandes / TV =======
         val isTv = packageManager.hasSystemFeature("android.software.leanback") ||
