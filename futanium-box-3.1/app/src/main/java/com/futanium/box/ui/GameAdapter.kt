@@ -74,34 +74,43 @@ private var adsConfigLoaded = false
     override fun getItemCount() = items.size
 
     override fun onBindViewHolder(h: VH, position: Int) {
-       // 🔹 Resetar visual do card antes de aplicar dados
-h.ivHome.visibility = View.VISIBLE
-h.ivAway.visibility = View.VISIBLE
-h.tvHome.visibility = View.VISIBLE
-h.tvAway.visibility = View.VISIBLE
-h.tvTime.visibility = View.VISIBLE
-h.gameStatus.visibility = View.GONE
-h.btnContainer.visibility = View.GONE
-h.btnContainer.removeAllViews()
-h.tvChamp.isSingleLine = true
-h.tvChamp.maxLines = 1
-h.tvChamp.ellipsize = TextUtils.TruncateAt.END
-// 🔹 Resetar ícone do campeonato para evitar sumiço
-h.imgChamp.setImageDrawable(null)
-h.imgChamp.visibility = View.GONE
-			 fetchAdsConfig()
-        val g = items[position]
+    // 🔹 Resetar visual do card antes de aplicar dados
+    h.ivHome.visibility = View.VISIBLE
+    h.ivAway.visibility = View.VISIBLE
+    h.tvHome.visibility = View.VISIBLE
+    h.tvAway.visibility = View.VISIBLE
+    h.tvTime.visibility = View.VISIBLE
+    h.gameStatus.visibility = View.GONE
+    h.btnContainer.visibility = View.GONE
+    h.btnContainer.removeAllViews()
+    h.tvChamp.isSingleLine = true
+    h.tvChamp.maxLines = 1
+    h.tvChamp.ellipsize = TextUtils.TruncateAt.END
 
+    // 🔹 Resetar ícone do campeonato para evitar sumiço
+    h.imgChamp.setImageDrawable(null)
+    h.imgChamp.visibility = View.GONE
 
-      // estado padrão (jogos comuns)
-h.tvChamp.isSingleLine = true
-h.tvChamp.maxLines = 1
-h.tvChamp.ellipsize = TextUtils.TruncateAt.END
-(h.tvChamp.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
-    lp.height = ViewGroup.LayoutParams.WRAP_CONTENT
-    lp.bottomMargin = 0
-    h.tvChamp.layoutParams = lp
-}
+    // ✅ Corrige margem caso tenha sido alterada no "Aviso"
+    val d = h.itemView.resources.displayMetrics.density
+    (h.imgChamp.layoutParams as? ViewGroup.MarginLayoutParams)?.apply {
+        marginStart = (8 * d).toInt()   // mesmo valor padrão do XML
+        topMargin = 0
+        h.imgChamp.layoutParams = this
+    }
+
+    fetchAdsConfig()
+    val g = items[position]
+
+    // estado padrão (jogos comuns)
+    h.tvChamp.isSingleLine = true
+    h.tvChamp.maxLines = 1
+    h.tvChamp.ellipsize = TextUtils.TruncateAt.END
+    (h.tvChamp.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
+        lp.height = ViewGroup.LayoutParams.WRAP_CONTENT
+        lp.bottomMargin = 0
+        h.tvChamp.layoutParams = lp
+    }
 
             // 🟨 Detecta se é um aviso especial
 val isAviso = g.homeLogo == "Aviso"
@@ -216,23 +225,16 @@ h.tvChamp.text = champName
 h.tvChamp.visibility = if (champName.isBlank()) View.GONE else View.VISIBLE
 
 val champLogo = g.championshipImageUrl
+h.imgChamp.dispose()
 
 if (champLogo.isNullOrBlank()) {
     h.imgChamp.setImageDrawable(null)
     h.imgChamp.visibility = View.GONE
 } else {
     h.imgChamp.visibility = View.VISIBLE
-
-    // Cancela qualquer carregamento anterior pra evitar conflito de reciclagem
-    h.imgChamp.dispose()
-
-    // Recarrega forçando cache local
     h.imgChamp.load(champLogo) {
         crossfade(false)
         allowHardware(false)
-        memoryCachePolicy(coil.request.CachePolicy.ENABLED)
-        diskCachePolicy(coil.request.CachePolicy.ENABLED)
-        networkCachePolicy(coil.request.CachePolicy.ENABLED)
         placeholder(android.R.color.transparent)
         error(android.R.color.transparent)
     }
