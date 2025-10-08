@@ -222,29 +222,17 @@ if (champLogo.isNullOrBlank()) {
     h.imgChamp.visibility = View.GONE
 } else {
     h.imgChamp.visibility = View.VISIBLE
+    h.imgChamp.alpha = 1f
+    h.imgChamp.setImageDrawable(null)
 
-    // 🔹 Cancela requisição anterior e força placeholder
-    val ctx = h.imgChamp.context
-    val req = coil.request.ImageRequest.Builder(ctx)
-        .data(champLogo)
-        .crossfade(true)
-        .allowHardware(false)
-        .target(
-            onStart = {
-                h.imgChamp.setImageResource(android.R.color.transparent)
-            },
-            onSuccess = { result ->
-                h.imgChamp.setImageDrawable(result)
-                h.imgChamp.visibility = View.VISIBLE
-            },
-            onError = {
-                h.imgChamp.setImageDrawable(null)
-                h.imgChamp.visibility = View.VISIBLE
-            }
-        )
-        .build()
-
-    coil.ImageLoader(ctx).enqueue(req)
+    h.imgChamp.load(champLogo) {
+        // ✅ sem crossfade para não “travar” transparente em reciclagem
+        crossfade(false)
+        // ✅ evita “buracos” se falhar
+        placeholder(android.R.color.transparent)
+        error(android.R.color.transparent)
+        allowHardware(false)
+    }
 }
 
         // Times / hora
