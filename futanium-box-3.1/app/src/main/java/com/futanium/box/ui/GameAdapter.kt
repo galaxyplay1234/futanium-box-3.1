@@ -82,6 +82,9 @@ h.btnContainer.removeAllViews()
 h.tvChamp.isSingleLine = true
 h.tvChamp.maxLines = 1
 h.tvChamp.ellipsize = TextUtils.TruncateAt.END
+// 🔹 Resetar ícone do campeonato para evitar sumiço
+h.imgChamp.setImageDrawable(null)
+h.imgChamp.visibility = View.GONE
 			 fetchAdsConfig()
         val g = items[position]
 
