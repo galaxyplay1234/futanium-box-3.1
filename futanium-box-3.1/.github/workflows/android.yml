@@ -1,4 +1,4 @@
-ndname: Build Android (Release)
+name: Build Android (Release)
 
 on:
   push:
