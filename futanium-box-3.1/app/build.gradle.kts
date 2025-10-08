@@ -1,9 +1,3 @@
-plugins {
-    id("com.android.application")
-    kotlin("android")
-    id("com.google.gms.google-services") // <-- ADICIONE
-}
-
 android {
     namespace = "com.futanium.box"
     compileSdk = 34
@@ -16,13 +10,29 @@ android {
         versionName = "1.1"
     }
 
+    signingConfigs {
+        release {
+            storeFile = file(System.getProperty("user.home") + "/.android/futanium.keystore")
+            storePassword = "futanium123"
+            keyAlias = "futanium"
+            keyPassword = "futanium123"
+        }
+    }
+
     buildTypes {
         release {
+            // 🔐 Assina o APK automaticamente com a keystore gerada no workflow
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
+            isShrinkResources = false
+            isDebuggable = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+        }
+        debug {
+            isDebuggable = true
         }
     }
 
