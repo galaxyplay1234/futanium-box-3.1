@@ -32,10 +32,7 @@ jobs:
                      "platforms;android-34" \
                      "build-tools;34.0.0"
 
-      # 🔧 entra na pasta do projeto Android antes de buildar
-      - name: ⚙️ Make gradlew executable
-        run: chmod +x futanium-box-3.1/gradlew
-
+      # 🔐 Gera ou restaura a keystore fixa (para assinatura)
       - name: 🔐 Gerar ou restaurar keystore fixa
         run: |
           mkdir -p ~/.android
@@ -43,18 +40,22 @@ jobs:
             keytool -genkeypair -v -keystore ~/.android/futanium.keystore -keyalg RSA -keysize 2048 -validity 10000 -alias futanium -storepass futanium123 -keypass futanium123 -dname "CN=Futanium,O=Box,C=BR"
           fi
 
+      # 🏗️ Compila o app em modo RELEASE dentro da pasta certa
       - name: 🏗️ Build Release APK
         run: |
           cd futanium-box-3.1
+          chmod +x ./gradlew
           ./gradlew clean
           ./gradlew :app:assembleRelease --stacktrace
 
+      # 📦 Faz upload do APK
       - name: 📦 Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-release
           path: futanium-box-3.1/app/build/outputs/apk/release/app-release.apk
 
+      # 🚀 Publica automaticamente na aba Releases do GitHub
       - name: 🚀 Publicar APK no GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
