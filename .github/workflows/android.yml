@@ -1,0 +1,71 @@
+name: Build Android (Release)
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🧩 Checkout
+        uses: actions/checkout@v4
+
+      - name: ☕ Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: 📦 Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: ✅ Accept SDK licenses
+        run: yes | sdkmanager --licenses
+
+      - name: 📲 Install platform & build-tools
+        run: |
+          sdkmanager "platform-tools" \
+                     "platforms;android-34" \
+                     "build-tools;34.0.0"
+
+      # 🔐 Gera ou restaura a keystore fixa (para assinatura)
+      - name: 🔐 Gerar ou restaurar keystore fixa
+        run: |
+          mkdir -p ~/.android
+          if [ ! -f ~/.android/futanium.keystore ]; then
+            keytool -genkeypair -v -keystore ~/.android/futanium.keystore -keyalg RSA -keysize 2048 -validity 10000 -alias futanium -storepass futanium123 -keypass futanium123 -dname "CN=Futanium,O=Box,C=BR"
+          fi
+
+      # 🏗️ Compila o app em modo RELEASE dentro da pasta certa
+      - name: 🏗️ Build Release APK
+        run: |
+          cd futanium-box-3.1
+          chmod +x ./gradlew
+          ./gradlew clean
+          ./gradlew :app:assembleRelease --stacktrace
+
+      # 📦 Faz upload do APK
+      - name: 📦 Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release
+          path: futanium-box-3.1/app/build/outputs/apk/release/app-release.apk
+
+      # 🚀 Publica automaticamente na aba Releases do GitHub
+      - name: 🚀 Publicar APK no GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: "Build ${{ github.run_number }}"
+          body: |
+            🆕 Nova versão do app Futanium Box!
+            🔸 Compilação: ${{ github.run_number }}
+            🔸 Tipo: Release assinada automaticamente
+            🔸 Data: ${{ github.event.head_commit.timestamp }}
+          files: futanium-box-3.1/app/build/outputs/apk/release/app-release.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
