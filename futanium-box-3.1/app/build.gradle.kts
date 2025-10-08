@@ -1,3 +1,9 @@
+plugins {
+    id("com.android.application")
+    kotlin("android")
+    id("com.google.gms.google-services")
+}
+
 android {
     namespace = "com.futanium.box"
     compileSdk = 34
@@ -11,7 +17,7 @@ android {
     }
 
     signingConfigs {
-        release {
+        create("release") {
             storeFile = file(System.getProperty("user.home") + "/.android/futanium.keystore")
             storePassword = "futanium123"
             keyAlias = "futanium"
@@ -20,8 +26,7 @@ android {
     }
 
     buildTypes {
-        release {
-            // 🔐 Assina o APK automaticamente com a keystore gerada no workflow
+        getByName("release") {
             signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             isShrinkResources = false
@@ -31,7 +36,7 @@ android {
                 "proguard-rules.pro"
             )
         }
-        debug {
+        getByName("debug") {
             isDebuggable = true
         }
     }
@@ -40,13 +45,17 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions { jvmTarget = "17" }
 
-    buildFeatures { viewBinding = true }
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
+    buildFeatures {
+        viewBinding = true
+    }
 }
 
 dependencies {
-    // AndroidX / UI
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("com.google.android.material:material:1.12.0")
@@ -56,27 +65,22 @@ dependencies {
     implementation("androidx.cardview:cardview:1.0.0")
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
     implementation("com.google.android.flexbox:flexbox:3.0.0")
-		implementation ("androidx.browser:browser:1.8.0")
+    implementation("androidx.browser:browser:1.8.0")
 
-    // Media3 (ExoPlayer moderno + UI + HLS)
     implementation("androidx.media3:media3-exoplayer:1.4.1")
     implementation("androidx.media3:media3-ui:1.4.1")
     implementation("androidx.media3:media3-exoplayer-hls:1.4.1")
 
-    // Imagens
     implementation("io.coil-kt:coil:2.6.0")
 
-    // HTTP + JSON
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")
     implementation("com.google.code.gson:gson:2.11.0")
 
-    // Coroutines (opcional)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 
-    // Firebase (BOM + Messaging)  ⬇⬇⬇
-    implementation("com.google.firebase:firebase-database:20.3.0")
     implementation(platform("com.google.firebase:firebase-bom:33.2.0"))
+    implementation("com.google.firebase:firebase-database:20.3.0")
     implementation("com.google.firebase:firebase-messaging")
 }
