@@ -235,9 +235,8 @@ class WebViewActivity : AppCompatActivity() {
                     // val same = allow != null && (host == allow || host.endsWith(".$allow"))
                     // if (!same) return true
 
-										val allow = allowHost
-
-// permite subdomínios do principal
+										// permite subdomínios do principal
+val allow = allowHost
 if (allow != null && (host == allow || host.endsWith(".$allow"))) {
     return false
 }
@@ -247,28 +246,26 @@ if (matchesAllowlist(host, u.lowercase(Locale.ROOT))) {
     return false
 }
 
-// bloqueia redirecionamento de navegação principal para outro domínio
-if (request.isForMainFrame) {
-    return true
-}
-
-
-
-                    // controle inteligente de redirecionamento principal
+// controle inteligente de redirecionamento principal
 if (request.isForMainFrame) {
 
-    // se estiver bloqueado pela blocklist, bloqueia
     if (blockReady.get() && isBlocked(host, u.lowercase(Locale.ROOT))) {
         return true
     }
 
-    // permite redirecionamento legítimo
     allowHost = host
     return false
 }
 
 return false
+                }
+
+                return false
             }
+
+
+
+        
 
             // >>> checa se a URL/host está permitida pela allowlist (per:)
 private fun matchesAllowlist(host: String, fullUrlLower: String): Boolean {
