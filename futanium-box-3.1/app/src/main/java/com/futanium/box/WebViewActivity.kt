@@ -235,6 +235,25 @@ class WebViewActivity : AppCompatActivity() {
                     // val same = allow != null && (host == allow || host.endsWith(".$allow"))
                     // if (!same) return true
 
+										val allow = allowHost
+
+// permite subdomínios do principal
+if (allow != null && (host == allow || host.endsWith(".$allow"))) {
+    return false
+}
+
+// permite se estiver na allowlist
+if (matchesAllowlist(host, u.lowercase(Locale.ROOT))) {
+    return false
+}
+
+// bloqueia redirecionamento de navegação principal para outro domínio
+if (request.isForMainFrame) {
+    return true
+}
+
+
+
                     if (request.isForMainFrame && blockReady.get() && isBlocked(host, u.lowercase(Locale.ROOT))) {
                         return true
                     }
