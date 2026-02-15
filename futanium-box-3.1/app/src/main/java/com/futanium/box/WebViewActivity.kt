@@ -1,8 +1,3 @@
-Isso removeu mesmo o sem conexão so que links que abriam canais diretos, agora direcionam para o site donos dos canais
-
-Ou seja o webview não ta fazendo intender alguma coisa, antes abria o link normal de uns, e não direcionava pro site mas tava sem conexão pra outros, agr saiu o sem
-Conexão mas direciona pro os sites fornecedores
-
 package com.futanium.box
 
 import android.annotation.SuppressLint
