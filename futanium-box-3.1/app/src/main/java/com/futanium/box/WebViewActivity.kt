@@ -397,6 +397,16 @@ class WebViewActivity : AppCompatActivity() {
         return false
     }
 
+		private fun matchesAllowlist(host: String, fullUrlLower: String): Boolean {
+    for (d in allowDomainRules) {
+        if (host == d || host.endsWith(".$d")) return true
+    }
+    for (p in allowSubstringRules) {
+        if (p.isNotEmpty() && fullUrlLower.contains(p)) return true
+    }
+    return false
+}
+
     private fun isMediaUrl(u: String): Boolean {
         val x = u.lowercase(Locale.ROOT)
         return x.endsWith(".m3u8") || x.endsWith(".mp4") || x.endsWith(".webm") ||
