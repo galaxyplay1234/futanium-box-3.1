@@ -1,3 +1,8 @@
+Isso removeu mesmo o sem conexão so que links que abriam canais diretos, agora direcionam para o site donos dos canais
+
+Ou seja o webview não ta fazendo intender alguma coisa, antes abria o link normal de uns, e não direcionava pro site mas tava sem conexão pra outros, agr saiu o sem
+Conexão mas direciona pro os sites fornecedores
+
 package com.futanium.box
 
 import android.annotation.SuppressLint
@@ -235,32 +240,22 @@ class WebViewActivity : AppCompatActivity() {
                     // val same = allow != null && (host == allow || host.endsWith(".$allow"))
                     // if (!same) return true
 
-										// controla redirecionamento principal
-if (request.isForMainFrame) {
+                    val allow = allowHost
 
-    val allow = allowHost
-
-    // permite subdomínio do domínio inicial
-    if (allow != null && (host == allow || host.endsWith(".$allow"))) {
-        return false
-    }
-
-    // permite se estiver na allowlist (per:)
-    if (matchesAllowlist(host, u.lowercase(Locale.ROOT))) {
-        allowHost = host
-        return false
-    }
-
-    // bloqueia qualquer outro redirecionamento principal
-    return true
+// permite subdomínios do principal
+if (allow != null && (host == allow || host.endsWith(".$allow"))) {
+    return false
 }
 
-return false
-}          
+// permite se estiver na allowlist
+if (matchesAllowlist(host, u.lowercase(Locale.ROOT))) {
+    return false
+}
 
-
-
-        
+// bloqueia redirecionamento de navegação principal para outro domínio
+if (request.isForMainFrame) {
+    return true
+}
 
             // >>> checa se a URL/host está permitida pela allowlist (per:)
 private fun matchesAllowlist(host: String, fullUrlLower: String): Boolean {
