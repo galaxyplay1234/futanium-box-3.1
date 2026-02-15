@@ -174,86 +174,69 @@ class WebViewActivity : AppCompatActivity() {
         web.webViewClient = object : WebViewClient() {
 
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                val uri = request.url
-                val u = uri.toString()
-                lastMainUrl = u
+    val uri = request.url
+    val u = uri.toString()
+    lastMainUrl = u
 
-                // no YouTube embed: não bloqueia nada
-                if (isYoutubeMode) return false
+    if (isYoutubeMode) return false
+    if (isMediaUrl(u) || u.startsWith("blob:") || u.startsWith("data:")) return false
+    if (u == "about:blank") return false
 
-                if (isMediaUrl(u) || u.startsWith("blob:") || u.startsWith("data:")) return false
-                if (u == "about:blank") return false
+    if (u.startsWith("intent://") || u.startsWith("market://")
+        || u.startsWith("mailto:") || u.startsWith("tel:")
+        || u.startsWith("sms:")) {
+        return try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(u)))
+            true
+        } catch (_: Exception) { true }
+    }
 
-                if (u.startsWith("intent://") || u.startsWith("market://")
-                    || u.startsWith("mailto:") || u.startsWith("tel:")
-                    || u.startsWith("sms:")) {
-                    return try {
-                        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(u)))
-                        true
-                    } catch (_: Exception) { true }
-                }
+    if (!u.startsWith("http")) return false
 
-                if (u.startsWith("http")) {
-                    if (!isOnline()) {
-                        blackShield.visibility = View.VISIBLE
-                        showOfflineDialog {
-                            blackShield.visibility = View.GONE
-                            val retry = lastMainUrl ?: u
-                            if (isOnline()) view.loadUrl(retry)
-                        }
-                        return true
-                    }
-									return true
-                 }
-                    val host = uri.host?.lowercase(Locale.ROOT) ?: return true
+    if (!isOnline()) {
+        blackShield.visibility = View.VISIBLE
+        showOfflineDialog {
+            blackShield.visibility = View.GONE
+            val retry = lastMainUrl ?: u
+            if (isOnline()) view.loadUrl(retry)
+        }
+        return true
+    }
 
-                    if (mustProxy(host, u.lowercase(Locale.ROOT)) && !u.startsWith(PROXY_BASE)) {
-                        view.loadUrl(PROXY_BASE + Uri.encode(u))
-                        return true
-                    }
+    val host = uri.host?.lowercase(Locale.ROOT) ?: return true
 
-                    
-                     
-                    // encurtador
-                    if (isShortener(u, host)) {
-                        shortenerActive = true
-                        return false
-                    }
-                    // allowlist
-                    if (matchesAllowlist(host, u.lowercase(Locale.ROOT))) {
-                        allowHost = host
-                        shortenerActive = false
-                        return false
-                    }
-                    // passagem única pós-encurtador
-                    if (shortenerActive) {
-                        allowHost = host
-                        shortenerActive = false
-                        return false
-                    }
-                    // manter no mesmo domínio base
-                    // val allow = allowHost
-                    // val same = allow != null && (host == allow || host.endsWith(".$allow"))
-                    // if (!same) return true
+    if (mustProxy(host, u.lowercase(Locale.ROOT)) && !u.startsWith(PROXY_BASE)) {
+        view.loadUrl(PROXY_BASE + Uri.encode(u))
+        return true
+    }
 
-                    // permite subdomínios do principal
-val allow = allowHost
+    if (isShortener(u, host)) {
+        shortenerActive = true
+        return false
+    }
 
-if (allow != null && (host == allow || host.endsWith(".$allow"))) {
+    if (matchesAllowlist(host, u.lowercase(Locale.ROOT))) {
+        allowHost = host
+        shortenerActive = false
+        return false
+    }
+
+    if (shortenerActive) {
+        allowHost = host
+        shortenerActive = false
+        return false
+    }
+
+    val allow = allowHost
+    if (allow != null && (host == allow || host.endsWith(".$allow"))) {
+        return false
+    }
+
+    if (request.isForMainFrame) {
+        return true
+    }
+
     return false
-}
-
-// permite se estiver na allowlist
-if (matchesAllowlist(host, u.lowercase(Locale.ROOT))) {
-    return false
-}
-
-// bloqueia redirecionamento principal para outro domínio
-if (request.isForMainFrame) {
-    return true
-}
-
-return false
 }
 
             
