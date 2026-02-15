@@ -203,10 +203,6 @@ class WebViewActivity : AppCompatActivity() {
                         }
                         return true
                     }
-										return false   
-									}
-								return false   
-							}
 
                     val host = uri.host?.lowercase(Locale.ROOT) ?: return true
 
@@ -261,7 +257,7 @@ if (request.isForMainFrame) {
 
 return false
 }          
-}
+
 
 
         
