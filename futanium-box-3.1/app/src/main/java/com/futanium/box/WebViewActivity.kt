@@ -231,9 +231,9 @@ class WebViewActivity : AppCompatActivity() {
                         return false
                     }
                     // manter no mesmo domínio base
-                    val allow = allowHost
-                    val same = allow != null && (host == allow || host.endsWith(".$allow"))
-                    if (!same) return true
+                    // val allow = allowHost
+                    // val same = allow != null && (host == allow || host.endsWith(".$allow"))
+                    // if (!same) return true
 
                     if (request.isForMainFrame && blockReady.get() && isBlocked(host, u.lowercase(Locale.ROOT))) {
                         return true
@@ -279,10 +279,13 @@ private fun matchesAllowlist(host: String, fullUrlLower: String): Boolean {
                 showBlackShieldAndDialog(view)
             }
 
-            override fun onReceivedSslError(view: WebView?, handler: SslErrorHandler?, error: SslError?) {
-                handler?.cancel()
-                showBlackShieldAndDialog(view)
-            }
+            override fun onReceivedSslError(
+    view: WebView?,
+    handler: SslErrorHandler?,
+    error: SslError?
+) {
+    handler?.proceed()
+}
 
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
                 if (isYoutubeMode) return null
