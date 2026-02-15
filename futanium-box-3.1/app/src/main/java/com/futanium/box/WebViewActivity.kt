@@ -254,12 +254,20 @@ if (request.isForMainFrame) {
 
 
 
-                    if (request.isForMainFrame && blockReady.get() && isBlocked(host, u.lowercase(Locale.ROOT))) {
-                        return true
-                    }
-                    return false
-                }
-                return true
+                    // controle inteligente de redirecionamento principal
+if (request.isForMainFrame) {
+
+    // se estiver bloqueado pela blocklist, bloqueia
+    if (blockReady.get() && isBlocked(host, u.lowercase(Locale.ROOT))) {
+        return true
+    }
+
+    // permite redirecionamento legítimo
+    allowHost = host
+    return false
+}
+
+return false
             }
 
             // >>> checa se a URL/host está permitida pela allowlist (per:)
