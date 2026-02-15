@@ -203,7 +203,8 @@ class WebViewActivity : AppCompatActivity() {
                         }
                         return true
                     }
-
+									return true
+                 }
                     val host = uri.host?.lowercase(Locale.ROOT) ?: return true
 
                     if (mustProxy(host, u.lowercase(Locale.ROOT)) && !u.startsWith(PROXY_BASE)) {
