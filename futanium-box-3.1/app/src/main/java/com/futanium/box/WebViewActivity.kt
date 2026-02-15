@@ -256,7 +256,7 @@ if (request.isForMainFrame) {
 }
 
 return false
-            }
+            
 
 
 
