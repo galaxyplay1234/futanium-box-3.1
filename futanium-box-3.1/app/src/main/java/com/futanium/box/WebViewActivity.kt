@@ -459,7 +459,7 @@ class WebViewActivity : AppCompatActivity() {
               }, true);
               const css = `
                 [id*="ad"], [class*="ad"], .ads, .adsbox, .advert, .adunit,
-                .ad-container, .ad-banner, .ad-overlay, [class*="overlay"] {
+                .ad-container, .ad-banner, .ad-overlay {
                   display:none !important; pointer-events:none !important;
                 }
                 body { overscroll-behavior: contain; }
@@ -486,10 +486,11 @@ class WebViewActivity : AppCompatActivity() {
                 location[k] = function(u){ if(!u) return; try{orig(u);}catch(e){} };
               });
               const css = `
-                [class*="overlay"], .ad, .ads, .ad-overlay { 
-                  display:none !important; pointer-events:none !important; 
-                }
-              `;
+  .ad, .ads, .ad-overlay {
+    display:none !important;
+    pointer-events:none !important;
+  }
+`;
               const style = document.createElement('style');
               style.type = 'text/css'; style.appendChild(document.createTextNode(css));
               document.documentElement.appendChild(style);
