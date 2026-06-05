@@ -35,7 +35,6 @@ import androidx.recyclerview.widget.RecyclerView
 import com.futanium.box.databinding.ActivityMainBinding
 import com.futanium.box.model.Game
 import com.futanium.box.ui.GameAdapter
-import com.futanium.box.BuildConfig
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONArray
@@ -347,9 +346,14 @@ val androidId = Settings.Secure.getString(
 )
 
 // 🔹 Dados do aparelho e versão
+val versionName = try {
+    packageManager.getPackageInfo(packageName, 0).versionName ?: "desconhecida"
+} catch (e: Exception) {
+    "desconhecida"
+}
+
 val userData = hashMapOf<String, Any>(
-    "version" to BuildConfig.VERSION_NAME,
-    "versionCode" to BuildConfig.VERSION_CODE,
+    "version" to versionName,
     "model" to Build.MODEL,
     "android" to Build.VERSION.RELEASE,
     "last_open" to com.google.firebase.database.ServerValue.TIMESTAMP
