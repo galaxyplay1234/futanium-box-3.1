@@ -233,7 +233,7 @@ class WebViewActivity : AppCompatActivity() {
     }
 
     if (request.isForMainFrame) {
-        return true
+        return false
     }
 
     return false
