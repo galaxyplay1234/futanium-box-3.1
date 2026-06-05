@@ -35,13 +35,13 @@ jobs:
                      "platforms;android-34" \
                      "build-tools;34.0.0"
 
-      # 🔐 Gera ou restaura a keystore fixa
-      - name: 🔐 Gerar e restaurar keystore fixa
-        run: |
-          mkdir -p ~/.android
-          if [ ! -f ~/.android/futanium.keystore ]; then
-            keytool -genkeypair -v -keystore ~/.android/futanium.keystore -keyalg RSA -keysize 2048 -validity 10000 -alias futanium -storepass futanium123 -keypass futanium123 -dname "CN=Futanium,O=Box,C=BR"
-          fi
+      # 🔐 Restaurar keystore dos Secrets
+- name: 🔐 Restore Keystore
+  run: |
+    echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > futanium-release.keystore
+
+- name: 🔍 Verificar keystore
+  run: ls -lh futanium-release.keystore
 
       # 🏗️ Build em modo RELEASE
       - name: 🏗️ Build Release APK
