@@ -38,7 +38,7 @@ jobs:
       # 🔐 Restaurar keystore dos Secrets
 - name: 🔐 Restore Keystore
   run: |
-    echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > futanium-release.keystore
+    echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > futanium-box-3.1/futanium-release.keystore
 
 - name: 🔍 Verificar keystore
   run: ls -lh futanium-release.keystore
