@@ -158,7 +158,7 @@ class WebViewActivity : AppCompatActivity() {
             domStorageEnabled = true
             mediaPlaybackRequiresUserGesture = false
             setSupportMultipleWindows(false)
-            javaScriptCanOpenWindowsAutomatically = false
+            javaScriptCanOpenWindowsAutomatically = true
             builtInZoomControls = false
             displayZoomControls = false
             setSupportZoom(false)
