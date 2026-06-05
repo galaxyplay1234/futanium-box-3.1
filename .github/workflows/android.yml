@@ -1,61 +1,70 @@
 name: Build Android (Release)
 
 on:
-push:
-branches:
-- main
-workflow_dispatch:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
 
 permissions:
-contents: write
+  contents: write
 
 jobs:
-build:
-runs-on: ubuntu-latest
+  build:
+    runs-on: ubuntu-latest
 
-steps:
-  - name: 🧩 Checkout
-    uses: actions/checkout@v4
-  - name: ☕ Set up JDK 17
-    uses: actions/setup-java@v4
-    with:
-      distribution: temurin
-      java-version: "17"
-      cache: gradle
-  - name: 📦 Set up Android SDK
-    uses: android-actions/setup-android@v3
-  - name: ✅ Accept SDK licenses
-    run: yes | sdkmanager --licenses
-  - name: 📲 Install platform & build-tools
-    run: |
-      sdkmanager "platform-tools" \
-                 "platforms;android-34" \
-                 "build-tools;34.0.0"
-  - name: 🔐 Restore Keystore
-    run: |
-      echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > futanium-box-3.1/futanium-release.keystore
-  - name: 🔍 Verify Keystore
-    run: |
-      ls -lh futanium-box-3.1/futanium-release.keystore
-  - name: 🏗️ Build Release APK
-    working-directory: futanium-box-3.1
-    env:
-      KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-      KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-    run: |
-      chmod +x ./gradlew
-      ./gradlew assembleRelease --stacktrace
-  - name: 📦 Upload APK artifact
-    uses: actions/upload-artifact@v4
-    with:
-      name: app-release
-      path: futanium-box-3.1/app/build/outputs/apk/release/app-release.apk
-  - name: 🚀 Publish GitHub Release
-    uses: softprops/action-gh-release@v2
-    with:
-      tag_name: build-${{ github.run_number }}
-      name: Build ${{ github.run_number }}
-      files: futanium-box-3.1/app/build/outputs/apk/release/app-release.apk
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: 🧩 Checkout
+        uses: actions/checkout@v4
+
+      - name: ☕ Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: 📦 Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: ✅ Accept SDK licenses
+        run: yes | sdkmanager --licenses
+
+      - name: 📲 Install platform & build-tools
+        run: |
+          sdkmanager "platform-tools" \
+                     "platforms;android-34" \
+                     "build-tools;34.0.0"
+
+      - name: 🔐 Restore Keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > futanium-box-3.1/futanium-release.keystore
+
+      - name: 🔍 Verify Keystore
+        run: |
+          ls -lh futanium-box-3.1/futanium-release.keystore
+
+      - name: 🏗️ Build Release APK
+        working-directory: futanium-box-3.1
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleRelease --stacktrace
+
+      - name: 📦 Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release
+          path: futanium-box-3.1/app/build/outputs/apk/release/app-release.apk
+
+      - name: 🚀 Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Build ${{ github.run_number }}
+          files: futanium-box-3.1/app/build/outputs/apk/release/app-release.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
