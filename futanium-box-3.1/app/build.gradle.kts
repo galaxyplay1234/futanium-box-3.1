@@ -17,13 +17,13 @@ android {
     }
 
     signingConfigs {
-        create("release") {
-            storeFile = file(System.getProperty("user.home") + "/.android/futanium.keystore")
-            storePassword = "futanium123"
-            keyAlias = "futanium"
-            keyPassword = "futanium123"
-        }
+    create("release") {
+        storeFile = file("${rootDir}/futanium-release.keystore")
+        storePassword = System.getenv("KEYSTORE_PASSWORD")
+        keyAlias = System.getenv("KEY_ALIAS")
+        keyPassword = System.getenv("KEY_PASSWORD")
     }
+}
 
     buildTypes {
         getByName("release") {
