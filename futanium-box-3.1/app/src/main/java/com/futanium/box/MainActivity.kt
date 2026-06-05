@@ -35,6 +35,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.futanium.box.databinding.ActivityMainBinding
 import com.futanium.box.model.Game
 import com.futanium.box.ui.GameAdapter
+import com.futanium.box.BuildConfig
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONArray
