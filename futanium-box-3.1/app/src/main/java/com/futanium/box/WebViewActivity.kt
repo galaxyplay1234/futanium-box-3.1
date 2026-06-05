@@ -449,14 +449,7 @@ class WebViewActivity : AppCompatActivity() {
                 const orig = location[k].bind(location);
                 location[k] = function(u){ if (isBad(u)) return; try{orig(u);}catch(e){} };
               });
-              Object.defineProperty(window, 'onbeforeunload', {get:()=>null,set:()=>true});
-              window.addEventListener('click', function(e){
-                let el = e.target;
-                while (el && el !== document && !('href' in el)) el = el.parentElement;
-                if (el && el.href && isBad(el.href)) {
-                  e.preventDefault(); e.stopImmediatePropagation(); return false;
-                }
-              }, true);
+              
               const css = `
                 [id*="ad"], [class*="ad"], .ads, .adsbox, .advert, .adunit,
                 .ad-container, .ad-banner, .ad-overlay {
