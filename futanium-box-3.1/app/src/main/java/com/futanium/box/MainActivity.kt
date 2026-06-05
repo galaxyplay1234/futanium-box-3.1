@@ -340,22 +340,22 @@ val db = FirebaseDatabase.getInstance("https://futanium-web-default-rtdb.firebas
 val installsRef = db.getReference("instalados")
 
 // 🔹 ID único e anônimo do aparelho
-val androidId = android.provider.Settings.Secure.getString(contentResolver, android.provider.Settings.Secure.ANDROID_ID)
+val androidId = Settings.Secure.getString(
+    contentResolver,
+    Settings.Secure.ANDROID_ID
+)
 
-// 🔹 Marca a data/hora da última abertura
-val userData = mapOf(
-    "installed_at" to com.google.firebase.database.ServerValue.TIMESTAMP,
+// 🔹 Dados do aparelho e versão
+val userData = hashMapOf<String, Any>(
+    "version" to BuildConfig.VERSION_NAME,
+    "versionCode" to BuildConfig.VERSION_CODE,
+    "model" to Build.MODEL,
+    "android" to Build.VERSION.RELEASE,
     "last_open" to com.google.firebase.database.ServerValue.TIMESTAMP
 )
 
-// 🔹 Cria ou atualiza o registro
-installsRef.child(androidId).get().addOnSuccessListener { snap ->
-    if (!snap.exists()) {
-        installsRef.child(androidId).setValue(userData)
-    } else {
-        installsRef.child(androidId).child("last_open").setValue(com.google.firebase.database.ServerValue.TIMESTAMP)
-    }
-}
+// 🔹 Atualiza registro
+installsRef.child(androidId).setValue(userData)
 
     } // onCreate
 
