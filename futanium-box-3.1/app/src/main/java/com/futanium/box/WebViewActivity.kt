@@ -325,7 +325,26 @@ return null
             }
         }
 
-        web.webChromeClient = object : WebChromeClient() {}
+        web.webChromeClient = object : WebChromeClient() {
+
+    override fun onConsoleMessage(consoleMessage: ConsoleMessage): Boolean {
+
+        android.util.Log.d(
+            "WEBVIEW_CONSOLE",
+            consoleMessage.message()
+        )
+
+        runOnUiThread {
+            android.widget.Toast.makeText(
+                this@WebViewActivity,
+                consoleMessage.message(),
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+        }
+
+        return true
+    }
+}
 
         if (initialUrl.isNotBlank()) {
             lastMainUrl = initialUrl
