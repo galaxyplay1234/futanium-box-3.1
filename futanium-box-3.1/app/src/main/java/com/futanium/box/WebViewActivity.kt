@@ -329,17 +329,28 @@ return null
 
     override fun onConsoleMessage(consoleMessage: ConsoleMessage): Boolean {
 
-        android.util.Log.d(
-            "WEBVIEW_CONSOLE",
-            consoleMessage.message()
-        )
+        val msg = consoleMessage.message()
 
-        runOnUiThread {
-            android.widget.Toast.makeText(
-                this@WebViewActivity,
-                consoleMessage.message(),
-                android.widget.Toast.LENGTH_SHORT
-            ).show()
+        if (
+            msg.contains("403", true) ||
+            msg.contains("forbidden", true) ||
+            msg.contains("cors", true) ||
+            msg.contains("access-control", true) ||
+            msg.contains("mediaerror", true) ||
+            msg.contains("jwplayer", true) ||
+            msg.contains("hls", true) ||
+            msg.contains("playlist", true) ||
+            msg.contains("m3u8", true) ||
+            msg.contains("failed", true)
+        ) {
+
+            runOnUiThread {
+                android.widget.Toast.makeText(
+                    this@WebViewActivity,
+                    msg,
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
+            }
         }
 
         return true
