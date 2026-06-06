@@ -258,12 +258,9 @@ web.keepScreenOn = true
             }
 
             override fun onPageFinished(view: WebView, url: String) {
-                super.onPageFinished(view, url)
-                webLoader.visibility = View.GONE
-                if (!isYoutubeMode) {
-                    if (blockReady.get()) injectAdShieldJS() else injectCoreShieldJS(emptyList())
-                }
-            }
+    super.onPageFinished(view, url)
+    webLoader.visibility = View.GONE
+}
 
             override fun onReceivedError(view: WebView?, request: WebResourceRequest, error: WebResourceError) {
                 super.onReceivedError(view, request, error)
