@@ -216,9 +216,18 @@ web.keepScreenOn = true
     val host = uri.host?.lowercase(Locale.ROOT) ?: return true
 
     if (mustProxy(host, u.lowercase(Locale.ROOT)) && !u.startsWith(PROXY_BASE)) {
-        view.loadUrl(PROXY_BASE + Uri.encode(u))
-        return true
+
+    runOnUiThread {
+        android.widget.Toast.makeText(
+            this@WebViewActivity,
+            "PROXY: $host",
+            android.widget.Toast.LENGTH_LONG
+        ).show()
     }
+
+    view.loadUrl(PROXY_BASE + Uri.encode(u))
+    return true
+}
 
     if (isShortener(u, host)) {
         shortenerActive = true
@@ -287,7 +296,23 @@ web.keepScreenOn = true
                 if (!blockReady.get()) return null
 
                 val url = request.url.toString()
-                val host = request.url.host?.lowercase(Locale.ROOT) ?: return null
+val host = request.url.host?.lowercase(Locale.ROOT) ?: return null
+
+if (
+    url.contains(".m3u8", true) ||
+    url.contains(".mpd", true) ||
+    url.contains("playlist", true) ||
+    url.contains("manifest", true)
+) {
+
+    runOnUiThread {
+        android.widget.Toast.makeText(
+            this@WebViewActivity,
+            url,
+            android.widget.Toast.LENGTH_LONG
+        ).show()
+    }
+}
 
                 if (isMediaUrl(url)) return null
 
