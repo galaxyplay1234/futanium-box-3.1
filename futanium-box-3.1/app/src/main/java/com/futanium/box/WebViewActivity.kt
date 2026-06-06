@@ -288,7 +288,20 @@ class WebViewActivity : AppCompatActivity() {
                 if (allow != null && (host == allow || host.endsWith(".$allow"))) {
                     return null
                 }
-                return if (isBlocked(host, url.lowercase(Locale.ROOT))) empty204() else null
+                if (isBlocked(host, url.lowercase(Locale.ROOT))) {
+
+    runOnUiThread {
+        android.widget.Toast.makeText(
+            this@WebViewActivity,
+            "BLOQUEADO: $host",
+            android.widget.Toast.LENGTH_LONG
+        ).show()
+    }
+
+    return empty204()
+}
+
+return null
             }
 
             private fun showBlackShieldAndDialog(view: WebView?) {
