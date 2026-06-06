@@ -167,15 +167,15 @@ web.keepScreenOn = true
             javaScriptEnabled = true
             domStorageEnabled = true
             mediaPlaybackRequiresUserGesture = false
-            setSupportMultipleWindows(false)
-            javaScriptCanOpenWindowsAutomatically = false
+            setSupportMultipleWindows(true)
+            javaScriptCanOpenWindowsAutomatically = true
             builtInZoomControls = false
             displayZoomControls = false
             setSupportZoom(false)
-            useWideViewPort = false
-            loadWithOverviewMode = false
-            userAgentString =
-                "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
+            useWideViewPort = true
+            loadWithOverviewMode = true
+            userAgentString = WebSettings.getDefaultUserAgent(this@WebViewActivity)
+    .replace("; wv", "")
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
             loadsImagesAutomatically = true
             mediaPlaybackRequiresUserGesture = false
