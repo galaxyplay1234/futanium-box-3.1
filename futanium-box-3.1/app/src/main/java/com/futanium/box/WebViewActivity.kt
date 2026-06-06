@@ -118,6 +118,16 @@ class WebViewActivity : AppCompatActivity() {
         Thread { loadBlocklist() }.start()
 
         web = findViewById(R.id.web)
+
+CookieManager.getInstance().setAcceptCookie(true)
+CookieManager.getInstance().setAcceptThirdPartyCookies(web, true)
+
+web.settings.databaseEnabled = true
+web.settings.allowFileAccess = true
+web.settings.allowContentAccess = true
+
+web.setBackgroundColor(Color.BLACK)
+web.keepScreenOn = true
         web.setBackgroundColor(Color.BLACK)
         web.keepScreenOn = true
         web.setLayerType(View.LAYER_TYPE_HARDWARE, null)
