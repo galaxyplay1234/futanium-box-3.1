@@ -118,16 +118,6 @@ class WebViewActivity : AppCompatActivity() {
         Thread { loadBlocklist() }.start()
 
         web = findViewById(R.id.web)
-
-CookieManager.getInstance().setAcceptCookie(true)
-CookieManager.getInstance().setAcceptThirdPartyCookies(web, true)
-
-web.settings.databaseEnabled = true
-web.settings.allowFileAccess = true
-web.settings.allowContentAccess = true
-
-web.setBackgroundColor(Color.BLACK)
-web.keepScreenOn = true
         web.setBackgroundColor(Color.BLACK)
         web.keepScreenOn = true
         web.setLayerType(View.LAYER_TYPE_HARDWARE, null)
@@ -167,15 +157,15 @@ web.keepScreenOn = true
             javaScriptEnabled = true
             domStorageEnabled = true
             mediaPlaybackRequiresUserGesture = false
-            setSupportMultipleWindows(true)
-            javaScriptCanOpenWindowsAutomatically = true
+            setSupportMultipleWindows(false)
+            javaScriptCanOpenWindowsAutomatically = false
             builtInZoomControls = false
             displayZoomControls = false
             setSupportZoom(false)
-            useWideViewPort = true
-            loadWithOverviewMode = true
-            userAgentString = WebSettings.getDefaultUserAgent(this@WebViewActivity)
-    .replace("; wv", "")
+            useWideViewPort = false
+            loadWithOverviewMode = false
+            userAgentString =
+                "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
             loadsImagesAutomatically = true
             mediaPlaybackRequiresUserGesture = false
@@ -216,18 +206,9 @@ web.keepScreenOn = true
     val host = uri.host?.lowercase(Locale.ROOT) ?: return true
 
     if (mustProxy(host, u.lowercase(Locale.ROOT)) && !u.startsWith(PROXY_BASE)) {
-
-    runOnUiThread {
-        android.widget.Toast.makeText(
-            this@WebViewActivity,
-            "PROXY: $host",
-            android.widget.Toast.LENGTH_LONG
-        ).show()
+        view.loadUrl(PROXY_BASE + Uri.encode(u))
+        return true
     }
-
-    view.loadUrl(PROXY_BASE + Uri.encode(u))
-    return true
-}
 
     if (isShortener(u, host)) {
         shortenerActive = true
@@ -267,9 +248,12 @@ web.keepScreenOn = true
             }
 
             override fun onPageFinished(view: WebView, url: String) {
-    super.onPageFinished(view, url)
-    webLoader.visibility = View.GONE
-}
+                super.onPageFinished(view, url)
+                webLoader.visibility = View.GONE
+                if (!isYoutubeMode) {
+                    if (blockReady.get()) injectAdShieldJS() else injectCoreShieldJS(emptyList())
+                }
+            }
 
             override fun onReceivedError(view: WebView?, request: WebResourceRequest, error: WebResourceError) {
                 super.onReceivedError(view, request, error)
@@ -296,23 +280,7 @@ web.keepScreenOn = true
                 if (!blockReady.get()) return null
 
                 val url = request.url.toString()
-val host = request.url.host?.lowercase(Locale.ROOT) ?: return null
-
-if (
-    url.contains(".m3u8", true) ||
-    url.contains(".mpd", true) ||
-    url.contains("playlist", true) ||
-    url.contains("manifest", true)
-) {
-
-    runOnUiThread {
-        android.widget.Toast.makeText(
-            this@WebViewActivity,
-            url,
-            android.widget.Toast.LENGTH_LONG
-        ).show()
-    }
-}
+                val host = request.url.host?.lowercase(Locale.ROOT) ?: return null
 
                 if (isMediaUrl(url)) return null
 
@@ -320,20 +288,7 @@ if (
                 if (allow != null && (host == allow || host.endsWith(".$allow"))) {
                     return null
                 }
-                if (isBlocked(host, url.lowercase(Locale.ROOT))) {
-
-    runOnUiThread {
-        android.widget.Toast.makeText(
-            this@WebViewActivity,
-            "BLOQUEADO: $host",
-            android.widget.Toast.LENGTH_LONG
-        ).show()
-    }
-
-    return empty204()
-}
-
-return null
+                return if (isBlocked(host, url.lowercase(Locale.ROOT))) empty204() else null
             }
 
             private fun showBlackShieldAndDialog(view: WebView?) {
@@ -350,37 +305,7 @@ return null
             }
         }
 
-        web.webChromeClient = object : WebChromeClient() {
-
-    override fun onConsoleMessage(consoleMessage: ConsoleMessage): Boolean {
-
-        val msg = consoleMessage.message()
-
-        if (
-            msg.contains("403", true) ||
-            msg.contains("forbidden", true) ||
-            msg.contains("cors", true) ||
-            msg.contains("access-control", true) ||
-            msg.contains("mediaerror", true) ||
-            msg.contains("jwplayer", true) ||
-            msg.contains("hls", true) ||
-            msg.contains("playlist", true) ||
-            msg.contains("m3u8", true) ||
-            msg.contains("failed", true)
-        ) {
-
-            runOnUiThread {
-                android.widget.Toast.makeText(
-                    this@WebViewActivity,
-                    msg,
-                    android.widget.Toast.LENGTH_LONG
-                ).show()
-            }
-        }
-
-        return true
-    }
-}
+        web.webChromeClient = object : WebChromeClient() {}
 
         if (initialUrl.isNotBlank()) {
             lastMainUrl = initialUrl
