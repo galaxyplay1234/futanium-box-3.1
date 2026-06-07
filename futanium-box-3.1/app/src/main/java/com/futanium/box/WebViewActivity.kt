@@ -280,9 +280,27 @@ class WebViewActivity : AppCompatActivity() {
                 if (!blockReady.get()) return null
 
                 val url = request.url.toString()
-                val host = request.url.host?.lowercase(Locale.ROOT) ?: return null
+val host = request.url.host?.lowercase(Locale.ROOT) ?: return null
 
-                if (isMediaUrl(url)) return null
+if (
+    url.contains(".m3u8", true) ||
+    url.contains(".mpd", true) ||
+    url.contains("playlist", true) ||
+    url.contains("manifest", true)
+) {
+
+    runOnUiThread {
+        android.widget.Toast.makeText(
+            this@WebViewActivity,
+            "STREAM: $url",
+            android.widget.Toast.LENGTH_LONG
+        ).show()
+    }
+
+    return null
+}
+
+if (isMediaUrl(url)) return null
 
                 val allow = allowHost
                 if (allow != null && (host == allow || host.endsWith(".$allow"))) {
