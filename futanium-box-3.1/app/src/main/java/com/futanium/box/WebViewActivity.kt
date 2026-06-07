@@ -287,7 +287,6 @@ if (
     !playerOpened &&
     (
         url.contains(".m3u8", true) ||
-        url.contains(".mpd", true) ||
         url.contains("__index.m3u8", true)
     )
 ) {
