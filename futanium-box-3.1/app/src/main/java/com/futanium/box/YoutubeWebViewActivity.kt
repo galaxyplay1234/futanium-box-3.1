@@ -26,24 +26,26 @@ class YoutubeWebViewActivity : AppCompatActivity() {
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+    super.onCreate(savedInstanceState)
 
-       WindowCompat.setDecorFitsSystemWindows(window, false)
+    window.statusBarColor = Color.BLACK
+    window.navigationBarColor = Color.BLACK
 
-WindowInsetsControllerCompat(
-    window,
-    window.decorView
-).apply {
+    WindowCompat.setDecorFitsSystemWindows(window, false)
 
-    hide(
-        WindowInsetsCompat.Type.statusBars() or
-        WindowInsetsCompat.Type.navigationBars()
-    )
+    WindowInsetsControllerCompat(
+        window,
+        window.decorView
+    ).apply {
+        hide(
+            WindowInsetsCompat.Type.statusBars() or
+            WindowInsetsCompat.Type.navigationBars()
+        )
 
-    systemBarsBehavior =
-        WindowInsetsControllerCompat
-            .BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-}
+        systemBarsBehavior =
+            WindowInsetsControllerCompat
+                .BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+    }
 
         web = WebView(this)
         web.layoutParams = ViewGroup.LayoutParams(
