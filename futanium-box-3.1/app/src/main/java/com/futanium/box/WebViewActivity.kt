@@ -54,6 +54,7 @@ class WebViewActivity : AppCompatActivity() {
 
     private var shortenerActive: Boolean = false
     private var isYoutubeMode: Boolean = false  // evita bloqueios no embed do YouTube
+    private var playerOpened = false
 
     private fun isShortener(url: String, host: String?): Boolean {
         val u = url.lowercase(Locale.ROOT)
@@ -283,18 +284,28 @@ class WebViewActivity : AppCompatActivity() {
 val host = request.url.host?.lowercase(Locale.ROOT) ?: return null
 
 if (
-    url.contains(".m3u8", true) ||
-    url.contains(".mpd", true) ||
-    url.contains("playlist", true) ||
-    url.contains("manifest", true)
+    !playerOpened &&
+    (
+        url.contains(".m3u8", true) ||
+        url.contains(".mpd", true) ||
+        url.contains("__index.m3u8", true)
+    )
 ) {
 
+    playerOpened = true
+
     runOnUiThread {
-        android.widget.Toast.makeText(
+
+        val i = Intent(
             this@WebViewActivity,
-            "STREAM: $url",
-            android.widget.Toast.LENGTH_LONG
-        ).show()
+            PlayerActivity::class.java
+        )
+
+        i.putExtra("url", url)
+
+        startActivity(i)
+
+        finish()
     }
 
     return null
