@@ -52,6 +52,13 @@
     android:screenOrientation="landscape"
     android:theme="@style/Theme.Futanium.Fullscreen" />
 
+    <activity
+    android:name=".YoutubeWebViewActivity"
+    android:exported="false"
+    android:hardwareAccelerated="true"
+    android:screenOrientation="landscape"
+    android:theme="@style/Theme.Futanium.Fullscreen" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
