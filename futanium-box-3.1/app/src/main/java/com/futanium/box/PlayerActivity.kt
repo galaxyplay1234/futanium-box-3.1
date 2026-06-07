@@ -32,6 +32,7 @@ class PlayerActivity : AppCompatActivity() {
         const val EXTRA_REFERER = "referer"
         const val EXTRA_USER_AGENT = "ua"
         const val EXTRA_SUBTITLE = "subtitle"
+        const val EXTRA_COOKIE = "cookie"
     }
 
     private lateinit var playerView: PlayerView
@@ -175,6 +176,7 @@ class PlayerActivity : AppCompatActivity() {
         val referer = intent.getStringExtra(EXTRA_REFERER)
         val ua = intent.getStringExtra(EXTRA_USER_AGENT)
         val subtitleUrl = intent.getStringExtra(EXTRA_SUBTITLE)
+				val cookie = intent.getStringExtra(EXTRA_COOKIE)
 
         if (!isSupported(url)) {
             startActivity(Intent(this, WebViewActivity::class.java).apply {
@@ -184,7 +186,14 @@ class PlayerActivity : AppCompatActivity() {
             return
         }
 
-        initPlayer(url, title, referer, ua, subtitleUrl)
+        initPlayer(
+    url,
+    title,
+    referer,
+    ua,
+    cookie,
+    subtitleUrl
+)
     }
 
     private fun isSupported(u: String): Boolean {
@@ -198,20 +207,45 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun initPlayer(
-        url: String,
-        title: String?,
-        referer: String?,
-        ua: String?,
-        subtitleUrl: String?
-    ) {
+    url: String,
+    title: String?,
+    referer: String?,
+    ua: String?,
+    cookie: String?,
+    subtitleUrl: String?
+) {
         val dsFactory = DefaultHttpDataSource.Factory().apply {
-            setAllowCrossProtocolRedirects(true)
-            ua?.let { setUserAgent(it) }
-            setDefaultRequestProperties(buildMap {
-                if (!referer.isNullOrBlank()) put("Referer", referer)
-                put("Origin", Uri.parse(url).scheme + "://" + (Uri.parse(url).host ?: ""))
-            })
+
+    setAllowCrossProtocolRedirects(true)
+
+    ua?.let {
+        setUserAgent(it)
+    }
+
+    setDefaultRequestProperties(
+        mutableMapOf<String, String>().apply {
+
+            if (!referer.isNullOrBlank())
+                put("Referer", referer)
+
+            if (!cookie.isNullOrBlank())
+                put("Cookie", cookie)
+
+            if (!ua.isNullOrBlank())
+                put("User-Agent", ua)
+
+            try {
+                put(
+                    "Origin",
+                    Uri.parse(referer).scheme +
+                    "://" +
+                    Uri.parse(referer).host
+                )
+            } catch (_: Exception) {
+            }
         }
+    )
+}
 
         val mediaSourceFactory = DefaultMediaSourceFactory(dsFactory)
 
