@@ -12,6 +12,9 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 
 class YoutubeWebViewActivity : AppCompatActivity() {
 
@@ -24,6 +27,23 @@ class YoutubeWebViewActivity : AppCompatActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+       WindowCompat.setDecorFitsSystemWindows(window, false)
+
+WindowInsetsControllerCompat(
+    window,
+    window.decorView
+).apply {
+
+    hide(
+        WindowInsetsCompat.Type.statusBars() or
+        WindowInsetsCompat.Type.navigationBars()
+    )
+
+    systemBarsBehavior =
+        WindowInsetsControllerCompat
+            .BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+}
 
         web = WebView(this)
         web.layoutParams = ViewGroup.LayoutParams(
@@ -65,18 +85,71 @@ class YoutubeWebViewActivity : AppCompatActivity() {
             }
 
             override fun shouldOverrideUrlLoading(
-                view: WebView,
-                url: String
-            ): Boolean {
-                return false
-            }
-        }
+    view: WebView,
+    request: android.webkit.WebResourceRequest
+): Boolean {
+    return false
+}
 
-        web.webChromeClient = WebChromeClient()
+        web.webChromeClient = object : WebChromeClient() {
+
+    private var customView: android.view.View? = null
+    private var callback: CustomViewCallback? = null
+
+    override fun onShowCustomView(
+        view: android.view.View?,
+        callback: CustomViewCallback?
+    ) {
+
+        customView = view
+        this.callback = callback
+
+        addContentView(
+            view,
+            ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        )
+
+        WindowInsetsControllerCompat(
+            window,
+            window.decorView
+        ).hide(
+            WindowInsetsCompat.Type.statusBars() or
+            WindowInsetsCompat.Type.navigationBars()
+        )
+    }
+
+    override fun onHideCustomView() {
+
+        (customView?.parent as? ViewGroup)
+            ?.removeView(customView)
+
+        customView = null
+
+        callback?.onCustomViewHidden()
+    }
+}
 
         val url = intent.getStringExtra(EXTRA_URL) ?: ""
         web.loadUrl(url)
     }
+
+  override fun onWindowFocusChanged(hasFocus: Boolean) {
+    super.onWindowFocusChanged(hasFocus)
+
+    if (hasFocus) {
+        WindowInsetsControllerCompat(
+            window,
+            window.decorView
+        ).hide(
+            WindowInsetsCompat.Type.statusBars() or
+            WindowInsetsCompat.Type.navigationBars()
+        )
+    }
+}
+
 
     override fun onBackPressed() {
         if (web.canGoBack()) {
