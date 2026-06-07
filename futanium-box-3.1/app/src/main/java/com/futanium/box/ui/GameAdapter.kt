@@ -167,7 +167,8 @@ h.tvChamp.setPadding(0, 0, 0, 0)
 
     if (btns.isNotEmpty()) {
         btns.forEachIndexed { idx, anyBtn ->
-            val (title, link) = extractTitleAndLink(anyBtn, idx)
+            val (title, link, captureM3u8) =
+    extractTitleAndLink(anyBtn, idx)
             val ctx = h.itemView.context
 
             val rippleColor = android.content.res.ColorStateList.valueOf(
@@ -308,7 +309,8 @@ if (champLogo.isNullOrBlank()) {
         if (isExpanded) {
             val d = h.itemView.resources.displayMetrics.density
             btns.forEachIndexed { idx, anyBtn ->
-                val (title, link) = extractTitleAndLink(anyBtn, idx)
+                val (title, link, captureM3u8) =
+    extractTitleAndLink(anyBtn, idx)
 
                 val ctx = h.itemView.context
 
@@ -438,31 +440,68 @@ private fun openAvisoLink(view: View, title: String?, link: String) {
 }
 
 
-    /** Extrai (título, link) de um item de botão vindo da API */
-    private fun extractTitleAndLink(anyBtn: Any, index: Int): Pair<String, String> {
-        var rawName: String? = null
-        var rawUrl: String? = null
+    /** Extrai (título, link, captureM3u8) de um item de botão vindo da API */
+private fun extractTitleAndLink(
+    anyBtn: Any,
+    index: Int
+): Triple<String, String, Boolean> {
 
-        when (anyBtn) {
-            is ButtonInfo -> { rawName = anyBtn.name; rawUrl = anyBtn.url }
-            is Map<*, *> -> { rawName = anyBtn["name"]?.toString(); rawUrl = anyBtn["url"]?.toString() }
-            is JSONObject -> { rawName = anyBtn.optString("name", null); rawUrl = anyBtn.optString("url", null) }
-            else -> rawName = anyBtn.toString()
+    var rawName: String? = null
+    var rawUrl: String? = null
+    var captureM3u8 = false
+
+    when (anyBtn) {
+
+        is ButtonInfo -> {
+            rawName = anyBtn.name
+            rawUrl = anyBtn.url
+            captureM3u8 = anyBtn.captureM3u8
         }
 
-        var title = rawName?.trim().orEmpty()
-        var link = rawUrl?.trim().orEmpty()
+        is Map<*, *> -> {
+            rawName = anyBtn["name"]?.toString()
+            rawUrl = anyBtn["url"]?.toString()
 
-        // Se vier "Canal 1 go:xxx" -> separa
-        Regex("""\s+(go:\S+)\s*$""").find(title)?.let { m ->
-            link = m.groupValues[1]
-            title = title.removeRange(m.range).trim()
+            captureM3u8 =
+                anyBtn["captureM3u8"]
+                    ?.toString()
+                    ?.toBoolean() ?: false
         }
 
-        if (title.isBlank()) title = "Canal ${index + 1}"
-        if (link.isBlank())  link  = rawUrl?.takeIf { it.isNotBlank() } ?: "#"
-        return title to link
+        is JSONObject -> {
+            rawName = anyBtn.optString("name", null)
+            rawUrl = anyBtn.optString("url", null)
+
+            captureM3u8 =
+                anyBtn.optBoolean(
+                    "captureM3u8",
+                    false
+                )
+        }
+
+        else -> {
+            rawName = anyBtn.toString()
+        }
     }
+
+    var title = rawName?.trim().orEmpty()
+    var link = rawUrl?.trim().orEmpty()
+
+    // Se vier "Canal 1 go:xxx" -> separa
+    Regex("""\s+(go:\S+)\s*$""").find(title)?.let { m ->
+        link = m.groupValues[1]
+        title = title.removeRange(m.range).trim()
+    }
+
+    if (title.isBlank()) title = "Canal ${index + 1}"
+    if (link.isBlank()) link = rawUrl?.takeIf { it.isNotBlank() } ?: "#"
+
+    return Triple(
+        title,
+        link,
+        captureM3u8
+    )
+}
 
 
 // === abre o canal + bloqueia múltiplos cliques + mostra anúncio ===
@@ -543,5 +582,6 @@ if (monetagEnabledRemote && monetagLinkRemote.isNotBlank()) {
 /** Opcional: tipo forte para botões */
 data class ButtonInfo(
     val name: String?,
-    val url: String?
+    val url: String?,
+    val captureM3u8: Boolean = false
 )
