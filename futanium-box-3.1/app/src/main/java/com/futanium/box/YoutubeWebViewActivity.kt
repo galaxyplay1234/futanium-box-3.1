@@ -31,15 +31,18 @@ class YoutubeWebViewActivity : AppCompatActivity() {
     window.statusBarColor = Color.BLACK
     window.navigationBarColor = Color.BLACK
 
-    WindowCompat.setDecorFitsSystemWindows(window, false)
+    WindowCompat.setDecorFitsSystemWindows(window, true)
 
     WindowInsetsControllerCompat(
         window,
         window.decorView
     ).apply {
+
+        isAppearanceLightStatusBars = false
+        isAppearanceLightNavigationBars = false
+
         hide(
-            WindowInsetsCompat.Type.statusBars() or
-            WindowInsetsCompat.Type.navigationBars()
+            WindowInsetsCompat.Type.statusBars()
         )
 
         systemBarsBehavior =
@@ -118,8 +121,8 @@ class YoutubeWebViewActivity : AppCompatActivity() {
             window,
             window.decorView
         ).hide(
-            WindowInsetsCompat.Type.statusBars() or
-            WindowInsetsCompat.Type.navigationBars()
+            WindowInsetsCompat.Type.statusBars()
+            
         )
     }
 
@@ -146,8 +149,8 @@ class YoutubeWebViewActivity : AppCompatActivity() {
             window,
             window.decorView
         ).hide(
-            WindowInsetsCompat.Type.statusBars() or
-            WindowInsetsCompat.Type.navigationBars()
+            WindowInsetsCompat.Type.statusBars()
+            
         )
     }
 }
