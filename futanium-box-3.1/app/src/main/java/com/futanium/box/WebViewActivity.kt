@@ -295,16 +295,35 @@ if (
 
     runOnUiThread {
 
-        val i = Intent(
-            this@WebViewActivity,
-            PlayerActivity::class.java
-        )
+        val cookies =
+    CookieManager.getInstance().getCookie(url) ?: ""
 
-        i.putExtra("url", url)
+val referer =
+    web.url ?: ""
 
-        startActivity(i)
+val userAgent =
+    web.settings.userAgentString ?: ""
 
-        finish()
+val origin = try {
+    Uri.parse(referer).scheme + "://" +
+    Uri.parse(referer).host
+} catch (e: Exception) {
+    ""
+}
+
+val i = Intent(
+    this@WebViewActivity,
+    PlayerActivity::class.java
+)
+
+i.putExtra("url", url)
+i.putExtra("cookie", cookies)
+i.putExtra("referer", referer)
+i.putExtra("userAgent", userAgent)
+i.putExtra("origin", origin)
+
+startActivity(i)
+finish()
     }
 
     return null
