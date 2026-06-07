@@ -350,7 +350,14 @@ if (champLogo.isNullOrBlank()) {
                         v.animate().scaleX(0.98f).scaleY(0.98f).setDuration(90)
                             .withEndAction { v.animate().scaleX(1f).scaleY(1f).setDuration(140).start() }
                             .start()
-                        v.postDelayed({ openLink(h.itemView, title, link) }, 130)
+                        v.postDelayed({
+    openLink(
+        h.itemView,
+        title,
+        link,
+        captureM3u8
+    )
+}, 130)
                     }
                 }
 
@@ -507,7 +514,12 @@ private fun extractTitleAndLink(
 // === abre o canal + bloqueia múltiplos cliques + mostra anúncio ===
 private var lastClickTime = 0L
 
-private fun openLink(view: View, title: String?, link: String) {
+private fun openLink(
+    view: View,
+    title: String?,
+    link: String,
+    captureM3u8: Boolean
+) {
     val ctx = view.context
     val u = link.trim()
     val monetagUrl = monetagLinkRemote
@@ -531,11 +543,12 @@ private fun openLink(view: View, title: String?, link: String) {
                 it.putExtra(com.futanium.box.PlayerActivity.EXTRA_TITLE, title ?: "")
                 ctx.startActivity(it)
             } else {
-                // 🌐 Abre WebViewActivity
-                val it = Intent(ctx, com.futanium.box.WebViewActivity::class.java)
-                it.putExtra(com.futanium.box.WebViewActivity.EXTRA_URL, u)
-                ctx.startActivity(it)
-            }
+    // 🌐 Abre WebViewActivity
+    val it = Intent(ctx, com.futanium.box.WebViewActivity::class.java)
+    it.putExtra(com.futanium.box.WebViewActivity.EXTRA_URL, u)
+    it.putExtra("captureM3u8", captureM3u8)
+    ctx.startActivity(it)
+}
         } else {
             val it = Intent(Intent.ACTION_VIEW, Uri.parse(u))
             ctx.startActivity(it)
