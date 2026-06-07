@@ -55,6 +55,7 @@ class WebViewActivity : AppCompatActivity() {
     private var shortenerActive: Boolean = false
     private var isYoutubeMode: Boolean = false  // evita bloqueios no embed do YouTube
     private var playerOpened = false
+    private var captureM3u8 = false
 
     private fun isShortener(url: String, host: String?): Boolean {
         val u = url.lowercase(Locale.ROOT)
@@ -107,6 +108,8 @@ class WebViewActivity : AppCompatActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         val initialUrl = intent.getStringExtra(EXTRA_URL).orEmpty()
+        captureM3u8 =
+    intent.getBooleanExtra("captureM3u8", false)
 
 if (
     initialUrl.contains("youtube.com", true) ||
@@ -302,6 +305,7 @@ if (
 val host = request.url.host?.lowercase(Locale.ROOT) ?: return null
 
 if (
+    captureM3u8 &&
     !playerOpened &&
     (
         url.contains(".m3u8", true) ||
