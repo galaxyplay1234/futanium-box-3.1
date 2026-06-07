@@ -90,7 +90,7 @@ WindowInsetsControllerCompat(
 ): Boolean {
     return false
 }
-
+}
         web.webChromeClient = object : WebChromeClient() {
 
     private var customView: android.view.View? = null
