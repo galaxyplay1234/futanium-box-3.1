@@ -107,6 +107,24 @@ class WebViewActivity : AppCompatActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         val initialUrl = intent.getStringExtra(EXTRA_URL).orEmpty()
+
+if (
+    initialUrl.contains("youtube.com", true) ||
+    initialUrl.contains("youtu.be", true)
+) {
+
+    startActivity(
+        Intent(
+            this,
+            YoutubeWebViewActivity::class.java
+        ).apply {
+            putExtra("url", initialUrl)
+        }
+    )
+
+    finish()
+    return
+}
         val initHost = runCatching { Uri.parse(initialUrl).host?.lowercase(Locale.ROOT) }.getOrNull()
         allowHost = initHost
 
