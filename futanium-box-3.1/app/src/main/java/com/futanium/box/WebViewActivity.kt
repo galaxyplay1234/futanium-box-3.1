@@ -58,8 +58,9 @@ class WebViewActivity : AppCompatActivity() {
     private var captureM3u8 = false
 
     private var operatorDialogOpen = false
-private var operatorDialog: AlertDialog? = null
-private var returningFromSettings = false
+		private var operatorDialog: AlertDialog? = null
+		private var returningFromSettings = false
+		private var lastOperatorDialogTime = 0L
 
     private fun isShortener(url: String, host: String?): Boolean {
         val u = url.lowercase(Locale.ROOT)
@@ -492,7 +493,10 @@ if (isMediaUrl(url)) return null
 
         returningFromSettings = false
 
+        operatorDialogOpen = false
+
         operatorDialog?.dismiss()
+        operatorDialog = null
 
         web.reload()
     }
@@ -676,6 +680,12 @@ if (isMediaUrl(url)) return null
 
 private fun showOperatorBlockedDialog() {
 
+    if (operatorDialogOpen) {
+
+        return
+
+    }
+
     operatorDialogOpen = true
 
     operatorDialog = AlertDialog.Builder(this)
@@ -746,22 +756,28 @@ private fun showOperatorBlockedDialog() {
 
     operatorDialog?.setCanceledOnTouchOutside(false)
 
-    operatorDialog?.setOnShowListener {
+operatorDialog?.setOnDismissListener {
 
-        val c = getColor(R.color.menuColor)
+    operatorDialogOpen = false
+    operatorDialog = null
 
-        operatorDialog?.getButton(AlertDialog.BUTTON_POSITIVE)
-            ?.setTextColor(c)
-
-        operatorDialog?.getButton(AlertDialog.BUTTON_NEGATIVE)
-            ?.setTextColor(c)
-
-        operatorDialog?.getButton(AlertDialog.BUTTON_NEUTRAL)
-            ?.setTextColor(c)
-    }
-
-    operatorDialog?.show()
 }
+
+operatorDialog?.setOnShowListener {
+
+    val c = getColor(R.color.menuColor)
+
+    operatorDialog?.getButton(AlertDialog.BUTTON_POSITIVE)
+        ?.setTextColor(c)
+
+    operatorDialog?.getButton(AlertDialog.BUTTON_NEGATIVE)
+        ?.setTextColor(c)
+
+    operatorDialog?.getButton(AlertDialog.BUTTON_NEUTRAL)
+        ?.setTextColor(c)
+}
+
+operatorDialog?.show()
 
 
 
