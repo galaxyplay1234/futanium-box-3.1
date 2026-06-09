@@ -12,8 +12,8 @@ android {
         applicationId = "com.futanium.box"
         minSdk = 24
         targetSdk = 34
-        versionCode = 5
-        versionName = "3.4.1"
+        versionCode = 6
+        versionName = "3.4.2"
     }
 
     signingConfigs {
