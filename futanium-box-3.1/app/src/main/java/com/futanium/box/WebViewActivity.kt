@@ -668,7 +668,7 @@ if (isMediaUrl(url)) return null
                caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
     }
 
-   private var operatorDialogOpen = false
+   
 
 private fun showOperatorBlockedDialog() {
 
