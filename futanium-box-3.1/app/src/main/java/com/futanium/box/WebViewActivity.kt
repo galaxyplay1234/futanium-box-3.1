@@ -656,7 +656,11 @@ if (isMediaUrl(url)) return null
                caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
     }
 
-   private fun showOperatorBlockedDialog() {
+   private var operatorDialogOpen = false
+
+private fun showOperatorBlockedDialog() {
+
+    operatorDialogOpen = true
 
     val d = AlertDialog.Builder(this)
         .setTitle("📡 Possível bloqueio da operadora")
@@ -677,7 +681,6 @@ if (isMediaUrl(url)) return null
 
             try {
 
-                // Se já estiver instalado
                 val launchIntent =
                     packageManager.getLaunchIntentForPackage(
                         "com.cloudflare.onedotonedotonedotone"
@@ -689,7 +692,6 @@ if (isMediaUrl(url)) return null
 
                 } else {
 
-                    // Abre Play Store
                     startActivity(
                         Intent(
                             Intent.ACTION_VIEW,
@@ -700,7 +702,7 @@ if (isMediaUrl(url)) return null
                     )
                 }
 
-            } catch (e: Exception) {
+            } catch (_: Exception) {
 
                 startActivity(
                     Intent(
@@ -713,9 +715,16 @@ if (isMediaUrl(url)) return null
             }
         }
 
-        .setPositiveButton("OK", null)
+        .setPositiveButton("FECHAR") { _, _ ->
+
+            operatorDialogOpen = false
+            finish()
+
+        }
 
         .create()
+
+    d.setCanceledOnTouchOutside(false)
 
     d.setOnShowListener {
 
