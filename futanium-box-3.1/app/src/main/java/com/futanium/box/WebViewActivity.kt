@@ -778,6 +778,8 @@ operatorDialog?.setOnShowListener {
 
 operatorDialog?.show()
 
+}
+
 
 
     private fun showOfflineDialog(onRetry: (() -> Unit)? = null) {
