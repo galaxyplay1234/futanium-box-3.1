@@ -279,14 +279,24 @@ if (
 
             override fun onReceivedError(view: WebView?, request: WebResourceRequest, error: WebResourceError) {
                 super.onReceivedError(view, request, error)
-                if (request.isForMainFrame) showBlackShieldAndDialog(view)
+                if (request.isForMainFrame && !isOnline()) {
+    showBlackShieldAndDialog(view)
+}
             }
 
             @Suppress("deprecation")
-            override fun onReceivedError(view: WebView?, errorCode: Int, description: String?, failingUrl: String?) {
-                super.onReceivedError(view, errorCode, description, failingUrl)
-                showBlackShieldAndDialog(view)
-            }
+override fun onReceivedError(
+    view: WebView?,
+    errorCode: Int,
+    description: String?,
+    failingUrl: String?
+) {
+    super.onReceivedError(view, errorCode, description, failingUrl)
+
+    if (!isOnline()) {
+        showBlackShieldAndDialog(view)
+    }
+}
 
             override fun onReceivedSslError(
     view: WebView?,
