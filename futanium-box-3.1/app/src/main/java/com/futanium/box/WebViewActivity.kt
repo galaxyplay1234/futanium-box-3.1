@@ -58,6 +58,8 @@ class WebViewActivity : AppCompatActivity() {
     private var captureM3u8 = false
 
     private var operatorDialogOpen = false
+private var operatorDialog: AlertDialog? = null
+private var returningFromSettings = false
 
     private fun isShortener(url: String, host: String?): Boolean {
         val u = url.lowercase(Locale.ROOT)
@@ -490,6 +492,8 @@ if (isMediaUrl(url)) return null
 
         operatorDialogOpen = false
 
+        operatorDialog?.dismiss()
+
         web.reload()
     }
 }
@@ -674,7 +678,7 @@ private fun showOperatorBlockedDialog() {
 
     operatorDialogOpen = true
 
-    val d = AlertDialog.Builder(this)
+    operatorDialog = AlertDialog.Builder(this)
         .setTitle("📡 Possível bloqueio da operadora")
         .setMessage(
             "Este player pode estar bloqueado pela sua operadora móvel.\n\n" +
@@ -682,6 +686,8 @@ private fun showOperatorBlockedDialog() {
         )
 
         .setNegativeButton("CONFIGURAR WI-FI") { _, _ ->
+            
+						returningFromSettings = true
 
             startActivity(
                 Intent(Settings.ACTION_WIFI_SETTINGS)
@@ -690,6 +696,8 @@ private fun showOperatorBlockedDialog() {
         }
 
         .setNeutralButton("VPN") { _, _ ->
+
+						returningFromSettings = true
 
             try {
 
@@ -736,23 +744,23 @@ private fun showOperatorBlockedDialog() {
 
         .create()
 
-    d.setCanceledOnTouchOutside(false)
+    operatorDialog?.setCanceledOnTouchOutside(false)
 
-    d.setOnShowListener {
+    operatorDialog?.setOnShowListener {
 
         val c = getColor(R.color.menuColor)
 
-        d.getButton(AlertDialog.BUTTON_POSITIVE)
+        operatorDialog?.getButton(AlertDialog.BUTTON_POSITIVE)
             ?.setTextColor(c)
 
-        d.getButton(AlertDialog.BUTTON_NEGATIVE)
+        operatorDialog?.getButton(AlertDialog.BUTTON_NEGATIVE)
             ?.setTextColor(c)
 
-        d.getButton(AlertDialog.BUTTON_NEUTRAL)
+        operatorDialog?.getButton(AlertDialog.BUTTON_NEUTRAL)
             ?.setTextColor(c)
     }
 
-    d.show()
+    operatorDialog?.show()
 }
 
 
