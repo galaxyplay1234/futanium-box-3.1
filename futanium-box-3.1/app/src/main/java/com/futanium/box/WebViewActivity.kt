@@ -57,6 +57,8 @@ class WebViewActivity : AppCompatActivity() {
     private var playerOpened = false
     private var captureM3u8 = false
 
+    private var operatorDialogOpen = false
+
     private fun isShortener(url: String, host: String?): Boolean {
         val u = url.lowercase(Locale.ROOT)
         val h = (host ?: "").lowercase(Locale.ROOT)
@@ -478,9 +480,19 @@ if (isMediaUrl(url)) return null
     }
 
     override fun onResume() {
-        super.onResume()
-        if (!isWebviewActive) setWebviewStatus(true)
+    super.onResume()
+
+    if (!isWebviewActive) {
+        setWebviewStatus(true)
     }
+
+    if (operatorDialogOpen) {
+
+        operatorDialogOpen = false
+
+        web.reload()
+    }
+}
 
 
     
