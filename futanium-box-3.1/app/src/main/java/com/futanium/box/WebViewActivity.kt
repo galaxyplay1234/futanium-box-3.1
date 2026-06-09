@@ -490,15 +490,27 @@ if (isMediaUrl(url)) return null
 
     if (returningFromSettings) {
 
-        returningFromSettings = false
+    returningFromSettings = false
 
-        operatorDialogOpen = false
+    operatorDialogOpen = false
 
-        operatorDialog?.dismiss()
-        operatorDialog = null
+    operatorDialog?.dismiss()
+
+    operatorDialog = null
+
+    blackShield.visibility = View.GONE
+
+    if (!lastMainUrl.isNullOrBlank()) {
+
+        web.loadUrl(lastMainUrl!!)
+
+    } else {
 
         web.reload()
+
     }
+
+}
 }
 
 
@@ -787,11 +799,31 @@ operatorDialog?.show()
             .setTitle("⚠️ Sem conexão")
             .setMessage("Verifique sua internet e tente novamente.")
             .setNegativeButton("CONFIGURAR WI-FI") { _, _ ->
-                startActivity(Intent(Settings.ACTION_WIFI_SETTINGS))
-            }
+
+    returningFromSettings = true
+
+    startActivity(
+        Intent(Settings.ACTION_WIFI_SETTINGS)
+    )
+}
             .setPositiveButton("TENTAR NOVAMENTE") { _, _ ->
-                if (isOnline()) onRetry?.invoke() else showOfflineDialog(onRetry)
-            }
+
+    if (isOnline()) {
+
+        blackShield.visibility = View.GONE
+
+        if (!lastMainUrl.isNullOrBlank()) {
+            web.loadUrl(lastMainUrl!!)
+        } else {
+            web.reload()
+        }
+
+    } else {
+
+        showOfflineDialog(onRetry)
+
+    }
+}
             .create()
         d.setOnShowListener {
             val c = getColor(R.color.menuColor)
