@@ -658,15 +658,80 @@ if (isMediaUrl(url)) return null
 
    private fun showOperatorBlockedDialog() {
 
-    AlertDialog.Builder(this)
+    val d = AlertDialog.Builder(this)
         .setTitle("📡 Possível bloqueio da operadora")
         .setMessage(
             "Este player pode estar bloqueado pela sua operadora móvel.\n\n" +
             "Tente abrir usando Wi-Fi ou uma VPN como o 1.1.1.1 WARP."
         )
+
+        .setNegativeButton("CONFIGURAR WI-FI") { _, _ ->
+
+            startActivity(
+                Intent(Settings.ACTION_WIFI_SETTINGS)
+            )
+
+        }
+
+        .setNeutralButton("VPN") { _, _ ->
+
+            try {
+
+                // Se já estiver instalado
+                val launchIntent =
+                    packageManager.getLaunchIntentForPackage(
+                        "com.cloudflare.onedotonedotonedotone"
+                    )
+
+                if (launchIntent != null) {
+
+                    startActivity(launchIntent)
+
+                } else {
+
+                    // Abre Play Store
+                    startActivity(
+                        Intent(
+                            Intent.ACTION_VIEW,
+                            Uri.parse(
+                                "market://details?id=com.cloudflare.onedotonedotonedotone"
+                            )
+                        )
+                    )
+                }
+
+            } catch (e: Exception) {
+
+                startActivity(
+                    Intent(
+                        Intent.ACTION_VIEW,
+                        Uri.parse(
+                            "https://play.google.com/store/apps/details?id=com.cloudflare.onedotonedotonedotone"
+                        )
+                    )
+                )
+            }
+        }
+
         .setPositiveButton("OK", null)
+
         .create()
-        .show()
+
+    d.setOnShowListener {
+
+        val c = getColor(R.color.menuColor)
+
+        d.getButton(AlertDialog.BUTTON_POSITIVE)
+            ?.setTextColor(c)
+
+        d.getButton(AlertDialog.BUTTON_NEGATIVE)
+            ?.setTextColor(c)
+
+        d.getButton(AlertDialog.BUTTON_NEUTRAL)
+            ?.setTextColor(c)
+    }
+
+    d.show()
 }
 
 
