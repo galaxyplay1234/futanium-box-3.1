@@ -277,24 +277,87 @@ if (
                 }
             }
 
-            override fun onReceivedError(view: WebView?, request: WebResourceRequest, error: WebResourceError) {
-                super.onReceivedError(view, request, error)
-                if (request.isForMainFrame && !isOnline()) {
-    showBlackShieldAndDialog(view)
-}
-            }
+						override fun onReceivedHttpError(
+    view: WebView?,
+    request: WebResourceRequest?,
+    errorResponse: WebResourceResponse?
+) {
 
-            @Suppress("deprecation")
+    super.onReceivedHttpError(
+        view,
+        request,
+        errorResponse
+    )
+
+    if (request?.isForMainFrame != true) return
+
+    val code = errorResponse?.statusCode ?: return
+
+    if (code == 403 || code == 451) {
+
+        runOnUiThread {
+
+            showOperatorBlockedDialog()
+
+        }
+    }
+}
+
+
+            override fun onReceivedError(
+    view: WebView?,
+    request: WebResourceRequest,
+    error: WebResourceError
+) {
+
+    super.onReceivedError(view, request, error)
+
+    if (!request.isForMainFrame) return
+
+    if (!isOnline()) {
+        showBlackShieldAndDialog(view)
+        return
+    }
+
+    if (
+        error.errorCode == WebViewClient.ERROR_HOST_LOOKUP ||
+        error.errorCode == WebViewClient.ERROR_CONNECT ||
+        error.errorCode == WebViewClient.ERROR_TIMEOUT ||
+        error.errorCode == WebViewClient.ERROR_FAILED_SSL_HANDSHAKE
+    ) {
+
+        showOperatorBlockedDialog()
+    }
+}
+
+@Suppress("deprecation")
 override fun onReceivedError(
     view: WebView?,
     errorCode: Int,
     description: String?,
     failingUrl: String?
 ) {
-    super.onReceivedError(view, errorCode, description, failingUrl)
+
+    super.onReceivedError(
+        view,
+        errorCode,
+        description,
+        failingUrl
+    )
 
     if (!isOnline()) {
         showBlackShieldAndDialog(view)
+        return
+    }
+
+    if (
+        errorCode == WebViewClient.ERROR_HOST_LOOKUP ||
+        errorCode == WebViewClient.ERROR_CONNECT ||
+        errorCode == WebViewClient.ERROR_TIMEOUT ||
+        errorCode == WebViewClient.ERROR_FAILED_SSL_HANDSHAKE
+    ) {
+
+        showOperatorBlockedDialog()
     }
 }
 
@@ -592,6 +655,21 @@ if (isMediaUrl(url)) return null
                caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
                caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
     }
+
+   private fun showOperatorBlockedDialog() {
+
+    AlertDialog.Builder(this)
+        .setTitle("📡 Possível bloqueio da operadora")
+        .setMessage(
+            "Este player pode estar bloqueado pela sua operadora móvel.\n\n" +
+            "Tente abrir usando Wi-Fi ou uma VPN como o 1.1.1.1 WARP."
+        )
+        .setPositiveButton("OK", null)
+        .create()
+        .show()
+}
+
+
 
     private fun showOfflineDialog(onRetry: (() -> Unit)? = null) {
         val d = AlertDialog.Builder(this)
