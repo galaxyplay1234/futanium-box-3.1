@@ -488,9 +488,9 @@ if (isMediaUrl(url)) return null
         setWebviewStatus(true)
     }
 
-    if (operatorDialogOpen) {
+    if (returningFromSettings) {
 
-        operatorDialogOpen = false
+        returningFromSettings = false
 
         operatorDialog?.dismiss()
 
