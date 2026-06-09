@@ -60,7 +60,6 @@ class WebViewActivity : AppCompatActivity() {
     private var operatorDialogOpen = false
 		private var operatorDialog: AlertDialog? = null
 		private var returningFromSettings = false
-		private var lastOperatorDialogTime = 0L
 
     private fun isShortener(url: String, host: String?): Boolean {
         val u = url.lowercase(Locale.ROOT)
