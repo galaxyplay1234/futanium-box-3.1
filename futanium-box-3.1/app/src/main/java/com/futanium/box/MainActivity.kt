@@ -79,6 +79,15 @@ class MainActivity : AppCompatActivity() {
     private var pendingApkUri: Uri? = null
     private var downloadingDialog: AlertDialog? = null
 
+		private val liveHandler = android.os.Handler(android.os.Looper.getMainLooper())
+
+private val liveRunnable = object : Runnable {
+    override fun run() {
+        fetchGames()
+        liveHandler.postDelayed(this, 30000) // 30 segundos
+    }
+}
+
     private val unknownSourcesLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { _ ->
@@ -364,17 +373,26 @@ val userData = hashMapOf<String, Any>(
 // 🔹 Atualiza registro
 installsRef.child(androidId).setValue(userData)
 
+liveHandler.postDelayed(liveRunnable, 30000)
+
+
     } // onCreate
 
    override fun onPause() {
     super.onPause()
+
     setOnlineStatus(false)
+
+    liveHandler.removeCallbacks(liveRunnable)
 }
 
 override fun onResume() {
     super.onResume()
+
     if (!isOnlineActive) setOnlineStatus(true)
 
+    liveHandler.removeCallbacks(liveRunnable)
+    liveHandler.postDelayed(liveRunnable, 30000)
 }
    
 
