@@ -64,6 +64,8 @@ class MainActivity : AppCompatActivity() {
 		private var isOnlineActive = false
 
     private val API_URL = "https://futaniumwebapp.vercel.app/api/games"
+		private val LIVE_API_URL =
+    "https://controledeestoque.rf.gd/futaniumbox/inicio.php"
 
     private var refreshItem: MenuItem? = null
     private var refreshView: AppCompatImageView? = null
@@ -441,7 +443,20 @@ override fun onResume() {
                 val res = client.newCall(req).execute()
                 val body = res.body?.string() ?: "[]"
 
-                val games = parseGames(body)
+						var liveBody: String? = null
+
+try {
+    val liveReq = Request.Builder()
+        .url(LIVE_API_URL)
+        .build()
+
+    val liveRes = client.newCall(liveReq).execute()
+
+    liveBody = liveRes.body?.string()
+} catch (_: Exception) {
+}
+
+                val games = parseGames(body, liveBody)
                 runOnUiThread {
                     (vb.rvGames.adapter as GameAdapter).submit(games)
 
@@ -639,9 +654,39 @@ if (!temAviso && !temJogo) {
         d.show()
     }
 
-    private fun parseGames(json: String): List<Game> {
+		private fun teamMatches(appName: String?, liveName: String?): Boolean {
+    if (appName.isNullOrBlank() || liveName.isNullOrBlank()) return false
+
+    val a = appName.lowercase().trim()
+    val b = liveName.lowercase().trim()
+
+    return a.contains(b) || b.contains(a)
+}
+
+
+
+    private fun parseGames(
+    json: String,
+    liveJson: String? = null
+): List<Game> {
         val arr = JSONArray(json)
         val list = ArrayList<Game>(arr.length())
+
+			val liveGames = mutableListOf<JSONObject>()
+
+if (!liveJson.isNullOrBlank()) {
+    try {
+        val liveObj = JSONObject(liveJson)
+        val liveArr = liveObj.optJSONArray("games")
+
+        if (liveArr != null) {
+            for (x in 0 until liveArr.length()) {
+                liveGames.add(liveArr.getJSONObject(x))
+            }
+        }
+    } catch (_: Exception) {
+    }
+}
 
         for (i in 0 until arr.length()) {
             val o = arr.optJSONObject(i) ?: continue
@@ -657,24 +702,52 @@ if (!temAviso && !temJogo) {
             val isLive               = o.optBoolean("is_live", false)
             val isFinished           = o.optBoolean("is_finished", false)
 
+				var liveScore: String? = null
+var liveMinute: String? = null
+
             val buttonsList: List<Any>? = o.optJSONArray("buttons")?.let { ja ->
                 val tmp = ArrayList<Any>(ja.length())
                 for (j in 0 until ja.length()) tmp += ja.get(j)
                 tmp
             }
 
+					for (live in liveGames) {
+
+    val liveHome = live.optString("home_team")
+    val liveAway = live.optString("away_team")
+
+    if (
+        teamMatches(homeTeam, liveHome) &&
+        teamMatches(visitingTeam, liveAway)
+    ) {
+
+        val hs = live.optString("home_score", "0")
+        val ascore = live.optString("away_score", "0")
+
+        liveScore = "$hs x $ascore"
+        liveMinute = live.optString("minute", "")
+
+        break
+    }
+}
+
+
             list += Game(
-                championship = championship,
-                championshipImageUrl = championshipImageUrl,
-                homeName = homeTeam,
-                homeLogo = homeLogo,
-                awayName = visitingTeam,
-                awayLogo = visitingLogo,
-                time = startTime,
-                isLive = isLive,
-                isFinished = isFinished,
-                buttons = buttonsList
-            )
+    championship = championship,
+    championshipImageUrl = championshipImageUrl,
+    homeName = homeTeam,
+    homeLogo = homeLogo,
+    awayName = visitingTeam,
+    awayLogo = visitingLogo,
+    time = startTime,
+    isLive = isLive,
+    isFinished = isFinished,
+
+    liveScore = liveScore,
+    liveMinute = liveMinute,
+
+    buttons = buttonsList
+)
         }
         return list
     }
