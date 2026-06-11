@@ -65,7 +65,8 @@ class MainActivity : AppCompatActivity() {
 
     private val API_URL = "https://futaniumwebapp.vercel.app/api/games"
 		private val LIVE_API_URL =
-    "https://raw.githubusercontent.com/galaxyplay1234/futanium-web/refs/heads/main/api/live.json"
+"https://futanium-live.galaxyplay1234.workers.dev/"
+
 
     private var refreshItem: MenuItem? = null
     private var refreshView: AppCompatImageView? = null
