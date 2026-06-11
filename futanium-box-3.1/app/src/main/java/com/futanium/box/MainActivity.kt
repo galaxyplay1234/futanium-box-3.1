@@ -83,8 +83,8 @@ class MainActivity : AppCompatActivity() {
 
 private val liveRunnable = object : Runnable {
     override fun run() {
-        fetchGames()
-        liveHandler.postDelayed(this, 30000) // 30 segundos
+        refreshLiveOnly()
+        liveHandler.postDelayed(this, 30000)
     }
 }
 
