@@ -73,6 +73,10 @@ private var adsConfigLoaded = false
 
     override fun getItemCount() = items.size
 
+fun getCurrentGames(): List<Game> {
+    return items.toList()
+}
+
     override fun onBindViewHolder(h: VH, position: Int) {
     // 🔹 Resetar visual do card antes de aplicar dados
     h.ivHome.visibility = View.VISIBLE
