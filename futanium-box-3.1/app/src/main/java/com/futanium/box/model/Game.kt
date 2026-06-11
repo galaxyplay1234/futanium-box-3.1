@@ -48,15 +48,3 @@ fun GameDto.toGame(): Game = Game(
     buttons = buttons
 )
 
-// conversão prática DTO -> UI model
-fun GameDto.toGame(): Game = Game(
-    championship = championship,
-    time = startTime,
-    homeName = homeTeam,
-    awayName = visitingTeam,
-    homeLogo = homeTeamImageUrl,
-    awayLogo = visitingTeamImageUrl,
-    isLive = isLive == true,
-    isFinished = isFinished == true,
-    championshipImageUrl = championshipImageUrl
-)
