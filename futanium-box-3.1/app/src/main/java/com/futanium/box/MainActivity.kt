@@ -682,6 +682,73 @@ if (!temAviso && !temJogo) {
 }
 
 
+private fun refreshLiveOnly() {
+
+    Thread {
+
+        try {
+
+            val liveReq = Request.Builder()
+                .url(LIVE_API_URL)
+                .build()
+
+            val liveRes = client.newCall(liveReq).execute()
+
+            val liveBody = liveRes.body?.string() ?: return@Thread
+
+            val liveGames = mutableListOf<JSONObject>()
+
+            val liveObj = JSONObject(liveBody)
+            val liveArr = liveObj.optJSONArray("games")
+
+            if (liveArr != null) {
+                for (i in 0 until liveArr.length()) {
+                    liveGames.add(liveArr.getJSONObject(i))
+                }
+            }
+
+            val updatedGames = adapter.getCurrentGames().map { game ->
+
+                var score = game.liveScore
+                var minute = game.liveMinute
+
+                for (live in liveGames) {
+
+                    val liveHome = live.optString("home_team")
+                    val liveAway = live.optString("away_team")
+
+                    if (
+                        teamMatches(game.homeName, liveHome) &&
+                        teamMatches(game.awayName, liveAway)
+                    ) {
+
+                        score =
+                            "${live.optString("home_score")} x ${
+                                live.optString("away_score")
+                            }"
+
+                        minute = live.optString("minute")
+
+                        break
+                    }
+                }
+
+                game.copy(
+                    liveScore = score,
+                    liveMinute = minute
+                )
+            }
+
+            runOnUiThread {
+                adapter.submit(updatedGames)
+            }
+
+        } catch (_: Exception) {
+        }
+
+    }.start()
+}
+
 
     private fun parseGames(
     json: String,
