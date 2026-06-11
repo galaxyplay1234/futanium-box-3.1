@@ -245,9 +245,14 @@ if (champLogo.isNullOrBlank()) {
 
 
         // Times / hora
-        h.tvHome.text = g.homeName.orEmpty()
-        h.tvAway.text = g.awayName.orEmpty()
-        h.tvTime.text = g.time.orEmpty()
+h.tvHome.text = g.homeName.orEmpty()
+h.tvAway.text = g.awayName.orEmpty()
+
+if (!g.liveScore.isNullOrEmpty()) {
+    h.tvTime.text = g.liveScore
+} else {
+    h.tvTime.text = g.time.orEmpty()
+}
 
         h.ivHome.load(g.homeLogo) {
             crossfade(true)
@@ -270,33 +275,58 @@ if (champLogo.isNullOrBlank()) {
         h.gameStatus.visibility = View.GONE
 
         when {
-            g.isLive == true -> {
-                h.gameStatus.text = "ao vivo"
-                h.gameStatus.setTextColor(android.graphics.Color.parseColor("#FF3B30"))
-                h.gameStatus.visibility = View.VISIBLE
 
-                val anim = android.animation.ObjectAnimator
-                    .ofFloat(h.gameStatus, View.ALPHA, 1f, 0.3f)
-                    .apply {
-                        duration = 500
-                        repeatMode = android.animation.ValueAnimator.REVERSE
-                        repeatCount = android.animation.ValueAnimator.INFINITE
-                        interpolator = android.view.animation.LinearInterpolator()
-                    }
-                h.gameStatus.setTag(R.id.tag_blink_anim, anim)
-                anim.start()
+    !g.liveMinute.isNullOrEmpty() -> {
+
+        h.gameStatus.text = "• ${g.liveMinute}"
+        h.gameStatus.setTextColor(android.graphics.Color.parseColor("#FF3B30"))
+        h.gameStatus.visibility = View.VISIBLE
+
+        val anim = android.animation.ObjectAnimator
+            .ofFloat(h.gameStatus, View.ALPHA, 1f, 0.3f)
+            .apply {
+                duration = 500
+                repeatMode = android.animation.ValueAnimator.REVERSE
+                repeatCount = android.animation.ValueAnimator.INFINITE
+                interpolator = android.view.animation.LinearInterpolator()
             }
-            g.isFinished == true -> {
-                h.gameStatus.text = "encerrado"
-                h.gameStatus.setTextColor(android.graphics.Color.parseColor("#A5A5A5"))
-                h.gameStatus.visibility = View.VISIBLE
-                h.gameStatus.alpha = 1f
+
+        h.gameStatus.setTag(R.id.tag_blink_anim, anim)
+        anim.start()
+    }
+
+    g.isLive == true -> {
+
+        h.gameStatus.text = "ao vivo"
+        h.gameStatus.setTextColor(android.graphics.Color.parseColor("#FF3B30"))
+        h.gameStatus.visibility = View.VISIBLE
+
+        val anim = android.animation.ObjectAnimator
+            .ofFloat(h.gameStatus, View.ALPHA, 1f, 0.3f)
+            .apply {
+                duration = 500
+                repeatMode = android.animation.ValueAnimator.REVERSE
+                repeatCount = android.animation.ValueAnimator.INFINITE
+                interpolator = android.view.animation.LinearInterpolator()
             }
-            else -> {
-                h.gameStatus.visibility = View.GONE
-                h.gameStatus.alpha = 1f
-            }
-        }
+
+        h.gameStatus.setTag(R.id.tag_blink_anim, anim)
+        anim.start()
+    }
+
+    g.isFinished == true -> {
+
+        h.gameStatus.text = "encerrado"
+        h.gameStatus.setTextColor(android.graphics.Color.parseColor("#A5A5A5"))
+        h.gameStatus.visibility = View.VISIBLE
+        h.gameStatus.alpha = 1f
+    }
+
+    else -> {
+        h.gameStatus.visibility = View.GONE
+        h.gameStatus.alpha = 1f
+    }
+}
 
         // ----- BOTÕES -----
         val btns: List<Any> = (g.buttons as? List<*>)?.filterNotNull() ?: emptyList()
