@@ -282,8 +282,23 @@ if (!g.liveScore.isNullOrEmpty()) {
 
     !g.liveMinute.isNullOrEmpty() -> {
 
+    if (
+        g.liveMinute.equals("encerrado", true)
+    ) {
+
+        h.gameStatus.text = "encerrado"
+        h.gameStatus.setTextColor(
+            android.graphics.Color.parseColor("#A5A5A5")
+        )
+        h.gameStatus.visibility = View.VISIBLE
+        h.gameStatus.alpha = 1f
+
+    } else {
+
         h.gameStatus.text = "• ${g.liveMinute}"
-        h.gameStatus.setTextColor(android.graphics.Color.parseColor("#FF3B30"))
+        h.gameStatus.setTextColor(
+            android.graphics.Color.parseColor("#FF3B30")
+        )
         h.gameStatus.visibility = View.VISIBLE
 
         val anim = android.animation.ObjectAnimator
@@ -298,6 +313,7 @@ if (!g.liveScore.isNullOrEmpty()) {
         h.gameStatus.setTag(R.id.tag_blink_anim, anim)
         anim.start()
     }
+}
 
     g.isLive == true -> {
 
