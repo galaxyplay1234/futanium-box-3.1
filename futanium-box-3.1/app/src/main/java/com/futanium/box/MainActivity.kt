@@ -390,9 +390,16 @@ liveHandler.postDelayed(liveRunnable, 30000)
 override fun onResume() {
     super.onResume()
 
-    if (!isOnlineActive) setOnlineStatus(true)
+    if (!isOnlineActive) {
+        setOnlineStatus(true)
+    }
 
     liveHandler.removeCallbacks(liveRunnable)
+
+    if (isOnline()) {
+        refreshGamesSilent()
+    }
+
     liveHandler.postDelayed(liveRunnable, 30000)
 }
    
@@ -454,6 +461,10 @@ override fun onResume() {
             return
         }
 
+      
+
+
+
         if (!vb.swipe.isRefreshing) vb.swipe.isRefreshing = true
 
         Thread {
@@ -503,6 +514,39 @@ if (!temAviso && !temJogo) {
             }
         }.start()
     }
+
+   private fun refreshGamesSilent() {
+    Thread {
+        try {
+            val req = Request.Builder().url(API_URL).build()
+            val res = client.newCall(req).execute()
+            val body = res.body?.string() ?: "[]"
+
+            var liveBody: String? = null
+
+            try {
+                val liveReq = Request.Builder()
+                    .url(LIVE_API_URL)
+                    .build()
+
+                val liveRes = client.newCall(liveReq).execute()
+                liveBody = liveRes.body?.string()
+            } catch (_: Exception) {
+            }
+
+            val games = parseGames(body, liveBody)
+
+            runOnUiThread {
+                adapter.submit(games)
+            }
+
+        } catch (_: Exception) {
+        }
+    }.start()
+}
+
+
+
 
     private fun checkAppUpdateExternal(metaUrl: String, showNoUpdateToast: Boolean = false) {
         Thread {
