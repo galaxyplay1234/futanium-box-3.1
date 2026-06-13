@@ -402,9 +402,11 @@ override fun onResume() {
 
     liveHandler.removeCallbacks(liveRunnable)
 
-    if (isOnline()) {
+    if (!navigatingInsideApp && isOnline()) {
         refreshGamesSilent()
     }
+
+    navigatingInsideApp = false
 
     liveHandler.postDelayed(liveRunnable, 30000)
 }
