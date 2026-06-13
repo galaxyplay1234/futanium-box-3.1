@@ -401,7 +401,14 @@ override fun onResume() {
 
     liveHandler.removeCallbacks(liveRunnable)
 
-    if (!navigatingInsideApp && isOnline()) {
+    if (navigatingInsideApp) {
+
+        // Atualiza somente placar/minuto ao voltar do player
+        refreshLiveOnly()
+
+    } else if (isOnline()) {
+
+        // Atualização completa apenas quando volta do segundo plano
         refreshGamesSilent()
     }
 
