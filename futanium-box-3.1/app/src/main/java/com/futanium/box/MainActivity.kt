@@ -754,10 +754,14 @@ private fun refreshLiveOnly() {
 
             val updatedGames = adapter.getCurrentGames().map { game ->
 
-                var score = game.liveScore
-                var minute = game.liveMinute
+    if (game.liveMinute.equals("encerrado", true)) {
+        return@map game
+    }
 
-                for (live in liveGames) {
+    var score = game.liveScore
+    var minute = game.liveMinute
+
+    for (live in liveGames) {
 
                     val liveHome = live.optString("home_team")
                     val liveAway = live.optString("away_team")
