@@ -17,6 +17,7 @@ import coil.imageLoader
 import coil.request.ImageRequest
 import com.futanium.box.R
 import com.futanium.box.model.Game
+import com.futanium.box.MainActivity
 import org.json.JSONObject
 import androidx.browser.customtabs.CustomTabsIntent
 import android.text.TextUtils
@@ -597,13 +598,15 @@ private fun openLink(
                 val it = Intent(ctx, com.futanium.box.PlayerActivity::class.java)
                 it.putExtra(com.futanium.box.PlayerActivity.EXTRA_URL, u)
                 it.putExtra(com.futanium.box.PlayerActivity.EXTRA_TITLE, title ?: "")
-                ctx.startActivity(it)
+                MainActivity.navigatingInsideApp = true
+								ctx.startActivity(it)
             } else {
     // 🌐 Abre WebViewActivity
     val it = Intent(ctx, com.futanium.box.WebViewActivity::class.java)
     it.putExtra(com.futanium.box.WebViewActivity.EXTRA_URL, u)
     it.putExtra("captureM3u8", captureM3u8)
-    ctx.startActivity(it)
+    MainActivity.navigatingInsideApp = true
+		ctx.startActivity(it)
 }
         } else {
             val it = Intent(Intent.ACTION_VIEW, Uri.parse(u))
