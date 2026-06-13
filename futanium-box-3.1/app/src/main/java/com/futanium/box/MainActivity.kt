@@ -61,7 +61,6 @@ class MainActivity : AppCompatActivity() {
         var navigatingInsideApp = false
     }
 
-    private lateinit var vb: ActivityMainBinding
 
     private lateinit var vb: ActivityMainBinding
     private val client = OkHttpClient()
