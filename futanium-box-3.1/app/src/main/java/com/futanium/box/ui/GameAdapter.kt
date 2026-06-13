@@ -39,9 +39,9 @@ private var adsConfigLoaded = false
     fun submit(newItems: List<Game>) {
     items.clear()
 
-    // 🟨 Move o aviso pro topo, se existir
     val aviso = newItems.find { it.homeLogo == "Aviso" }
     val restantes = newItems.filter { it.homeLogo != "Aviso" }
+
     if (aviso != null) items.add(aviso)
     items.addAll(restantes)
 
@@ -49,6 +49,12 @@ private var adsConfigLoaded = false
     notifyDataSetChanged()
 }
 
+fun updateLiveData(newItems: List<Game>) {
+    items.clear()
+    items.addAll(newItems)
+
+    notifyDataSetChanged()
+}
     inner class VH(v: View) : RecyclerView.ViewHolder(v) {
         val imgChamp: ImageView = v.findViewById(R.id.imgChamp)
         val tvChamp: TextView   = v.findViewById(R.id.tvChamp)
