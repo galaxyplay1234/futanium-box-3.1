@@ -57,6 +57,12 @@ import com.google.firebase.messaging.FirebaseMessaging
 
 class MainActivity : AppCompatActivity() {
 
+    companion object {
+        var navigatingInsideApp = false
+    }
+
+    private lateinit var vb: ActivityMainBinding
+
     private lateinit var vb: ActivityMainBinding
     private val client = OkHttpClient()
     private val adapter = GameAdapter()
