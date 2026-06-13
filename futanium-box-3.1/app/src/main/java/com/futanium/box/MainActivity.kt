@@ -789,8 +789,9 @@ private fun refreshLiveOnly() {
             }
 
             runOnUiThread {
-                adapter.submit(updatedGames)
-            }
+    adapter.updateLiveData(updatedGames)
+}
+
 
         } catch (_: Exception) {
         }
