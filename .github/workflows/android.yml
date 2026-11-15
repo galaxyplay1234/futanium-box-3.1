@@ -1,3 +1,4 @@
+
 name: Build Android (Release)
 
 on:
@@ -26,15 +27,11 @@ jobs:
 
       - name: 📦 Set up Android SDK
         uses: android-actions/setup-android@v3
-
-      - name: ✅ Accept SDK licenses
-        run: yes | sdkmanager --licenses
-
-      - name: 📲 Install platform & build-tools
-        run: |
-          sdkmanager "platform-tools" \
-                     "platforms;android-34" \
-                     "build-tools;34.0.0"
+        with:
+          packages: |
+            platform-tools
+            platforms;android-34
+            build-tools;34.0.0
 
       - name: 🔐 Restore Keystore
         run: |
