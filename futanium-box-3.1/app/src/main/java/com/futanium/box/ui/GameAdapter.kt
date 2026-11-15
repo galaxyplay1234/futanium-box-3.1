@@ -593,25 +593,42 @@ private fun openLink(
         // 🔹 Decide se vai para Player ou WebView
         if (u.startsWith("http", ignoreCase = true)) {
             val lower = u.lowercase()
-            if (lower.endsWith(".m3u8") || lower.endsWith(".ts") || lower.endsWith(".mp4")) {
-                // 🎥 Abre PlayerActivity (ExoPlayer)
-                val it = Intent(ctx, com.futanium.box.PlayerActivity::class.java)
-                it.putExtra(com.futanium.box.PlayerActivity.EXTRA_URL, u)
-                it.putExtra(com.futanium.box.PlayerActivity.EXTRA_TITLE, title ?: "")
-                MainActivity.navigatingInsideApp = true
-								ctx.startActivity(it)
-            } else {
-    // 🌐 Abre WebViewActivity
-    val it = Intent(ctx, com.futanium.box.WebViewActivity::class.java)
-    it.putExtra(com.futanium.box.WebViewActivity.EXTRA_URL, u)
-    it.putExtra("captureM3u8", captureM3u8)
-    MainActivity.navigatingInsideApp = true
-		ctx.startActivity(it)
+            // 🔹 Decide se vai para Player ou WebView
+if (u.startsWith("http", ignoreCase = true)) {
+
+    val mediaUrl = u.substringBefore("?").substringBefore("#").lowercase()
+
+    val isDirectMedia =
+        mediaUrl.endsWith(".m3u8") ||
+        mediaUrl.endsWith(".mpd") ||
+        mediaUrl.endsWith(".ts") ||
+        mediaUrl.endsWith(".mp4")
+
+    if (isDirectMedia && !captureM3u8) {
+
+        // 🎥 Abre PlayerActivity
+        val it = Intent(ctx, com.futanium.box.PlayerActivity::class.java)
+        it.putExtra(com.futanium.box.PlayerActivity.EXTRA_URL, u)
+        it.putExtra(com.futanium.box.PlayerActivity.EXTRA_TITLE, title ?: "")
+
+        MainActivity.navigatingInsideApp = true
+        ctx.startActivity(it)
+
+    } else {
+
+        // 🌐 Abre WebViewActivity
+        val it = Intent(ctx, com.futanium.box.WebViewActivity::class.java)
+        it.putExtra(com.futanium.box.WebViewActivity.EXTRA_URL, u)
+        it.putExtra("captureM3u8", captureM3u8)
+
+        MainActivity.navigatingInsideApp = true
+        ctx.startActivity(it)
+    }
+
+} else {
+    val it = Intent(Intent.ACTION_VIEW, Uri.parse(u))
+    ctx.startActivity(it)
 }
-        } else {
-            val it = Intent(Intent.ACTION_VIEW, Uri.parse(u))
-            ctx.startActivity(it)
-        }
 
         // 🔹 Após 1s, abre o anúncio Monetag (se ativo remotamente)
 if (monetagEnabledRemote && monetagLinkRemote.isNotBlank()) {
