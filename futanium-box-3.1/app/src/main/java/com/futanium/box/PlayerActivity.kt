@@ -1,4 +1,3 @@
-
 package com.futanium.box
 
 import android.content.Intent
@@ -48,6 +47,7 @@ class PlayerActivity : AppCompatActivity() {
         const val EXTRA_USER_AGENT = "ua"
         const val EXTRA_SUBTITLE = "subtitle"
         const val EXTRA_COOKIE = "cookie"
+        const val EXTRA_ORIGIN = "origin"
 
         // Pode ser preenchido quando a aplicação recebe
         // uma URL de licença autorizada do provedor.
@@ -286,6 +286,7 @@ class PlayerActivity : AppCompatActivity() {
         val ua = intent.getStringExtra(EXTRA_USER_AGENT)
         val subtitleUrl = intent.getStringExtra(EXTRA_SUBTITLE)
         val cookie = intent.getStringExtra(EXTRA_COOKIE)
+        val origin = intent.getStringExtra(EXTRA_ORIGIN)
 
         if (!isSupported(url)) {
             startActivity(
@@ -304,7 +305,8 @@ class PlayerActivity : AppCompatActivity() {
             referer,
             ua,
             cookie,
-            subtitleUrl
+            subtitleUrl,
+            origin
         )
     }
 
@@ -356,7 +358,8 @@ class PlayerActivity : AppCompatActivity() {
         url: String,
         referer: String?,
         ua: String?,
-        cookie: String?
+        cookie: String?,
+        origin: String?
     ): MpdAnalysis = withContext(Dispatchers.IO) {
 
         val requestBuilder = Request.Builder()
@@ -365,18 +368,25 @@ class PlayerActivity : AppCompatActivity() {
 
         if (!referer.isNullOrBlank()) {
             requestBuilder.header("Referer", referer)
+        }
 
-            val refUri = Uri.parse(referer)
+        // Usa o Origin recebido do WebView.
+        // Se não existir, tenta derivar do Referer.
+        val effectiveOrigin = origin?.takeIf { it.isNotBlank() }
+            ?: referer?.let {
+                val refUri = Uri.parse(it)
+                val scheme = refUri.scheme
+                val host = refUri.host
 
-            val scheme = refUri.scheme
-            val host = refUri.host
-
-            if (!scheme.isNullOrBlank() && !host.isNullOrBlank()) {
-                requestBuilder.header(
-                    "Origin",
+                if (!scheme.isNullOrBlank() && !host.isNullOrBlank()) {
                     "$scheme://$host"
-                )
+                } else {
+                    null
+                }
             }
+
+        if (!effectiveOrigin.isNullOrBlank()) {
+            requestBuilder.header("Origin", effectiveOrigin)
         }
 
         if (!ua.isNullOrBlank()) {
@@ -636,22 +646,33 @@ class PlayerActivity : AppCompatActivity() {
         referer: String?,
         ua: String?,
         cookie: String?,
-        subtitleUrl: String?
+        subtitleUrl: String?,
+        origin: String?
     ) {
 
         val requestHeaders = mutableMapOf<String, String>()
 
         if (!referer.isNullOrBlank()) {
             requestHeaders["Referer"] = referer
+        }
 
-            val refUri = Uri.parse(referer)
+        // Prioriza o Origin recebido do WebView.
+        // Mantém o fallback anterior pelo Referer.
+        val effectiveOrigin = origin?.takeIf { it.isNotBlank() }
+            ?: referer?.let {
+                val refUri = Uri.parse(it)
+                val scheme = refUri.scheme
+                val host = refUri.host
 
-            val scheme = refUri.scheme
-            val host = refUri.host
-
-            if (!scheme.isNullOrBlank() && !host.isNullOrBlank()) {
-                requestHeaders["Origin"] = "$scheme://$host"
+                if (!scheme.isNullOrBlank() && !host.isNullOrBlank()) {
+                    "$scheme://$host"
+                } else {
+                    null
+                }
             }
+
+        if (!effectiveOrigin.isNullOrBlank()) {
+            requestHeaders["Origin"] = effectiveOrigin
         }
 
         if (!cookie.isNullOrBlank()) {
@@ -800,7 +821,8 @@ class PlayerActivity : AppCompatActivity() {
                         url,
                         referer,
                         ua,
-                        cookie
+                        cookie,
+                        origin
                     )
 
                     logMpdAnalysis(analysis)
@@ -828,6 +850,8 @@ class PlayerActivity : AppCompatActivity() {
 
                     if (drmUuid != null && !license.isNullOrBlank()) {
 
+                        // Inclui Referer, Origin, Cookie e User-Agent
+                        // também na requisição da licença.
                         val licenseHeaders =
                             requestHeaders.toMutableMap()
 
