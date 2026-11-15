@@ -1,3 +1,4 @@
+
 package com.futanium.box
 
 import android.content.Intent
@@ -6,24 +7,37 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.lifecycleScope
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
-import androidx.media3.common.Player
 import androidx.media3.common.MimeTypes
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
 import com.google.firebase.database.FirebaseDatabase
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import org.xmlpull.v1.XmlPullParser
+import org.xmlpull.v1.XmlPullParserFactory
 import java.util.UUID
+import java.util.concurrent.TimeUnit
 
 class PlayerActivity : AppCompatActivity() {
 
@@ -34,6 +48,12 @@ class PlayerActivity : AppCompatActivity() {
         const val EXTRA_USER_AGENT = "ua"
         const val EXTRA_SUBTITLE = "subtitle"
         const val EXTRA_COOKIE = "cookie"
+
+        // Pode ser preenchido quando a aplicação recebe
+        // uma URL de licença autorizada do provedor.
+        const val EXTRA_DRM_LICENSE_URL = "drm_license_url"
+
+        private const val TAG = "FUTANIUM_PLAYER"
     }
 
     private lateinit var playerView: PlayerView
@@ -41,12 +61,16 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var insets: WindowInsetsControllerCompat
 
     private val main = Handler(Looper.getMainLooper())
+
     private var bufferingStartAt: Long = 0L
+
     private val bufferingWatchdog = object : Runnable {
         override fun run() {
             val p = player ?: return
+
             if (p.playbackState == Player.STATE_BUFFERING) {
                 val elapsed = System.currentTimeMillis() - bufferingStartAt
+
                 if (elapsed > 10_000) {
                     val pos = p.currentPosition
                     p.seekTo(pos.coerceAtLeast(0))
@@ -54,35 +78,63 @@ class PlayerActivity : AppCompatActivity() {
                     p.playWhenReady = true
                     bufferingStartAt = System.currentTimeMillis()
                 }
+
                 main.postDelayed(this, 2000)
             }
         }
     }
-    
-        private var m3u8RefId: String? = null
+
+    private var m3u8RefId: String? = null
     private var isM3u8Active = false
 
+    private val controllerHandler = Handler(Looper.getMainLooper())
+
+    private val controllerAutoHide = Runnable {
+        playerView.hideController()
+    }
+
+    private val httpClient = OkHttpClient.Builder()
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(20, TimeUnit.SECONDS)
+        .followRedirects(true)
+        .followSslRedirects(true)
+        .build()
+
+    // =========================================================
+    // FIREBASE
+    // =========================================================
+
     private fun setM3u8Status(active: Boolean) {
-        val db = FirebaseDatabase.getInstance("https://futanium-web-default-rtdb.firebaseio.com/")
+        val db = FirebaseDatabase.getInstance(
+            "https://futanium-web-default-rtdb.firebaseio.com/"
+        )
+
         val m3u8Ref = db.getReference("m3u8")
 
         if (active) {
+            if (isM3u8Active) return
+
             m3u8RefId = UUID.randomUUID().toString()
+
             m3u8Ref.child(m3u8RefId!!).setValue(true)
             m3u8Ref.child(m3u8RefId!!).onDisconnect().removeValue()
+
             isM3u8Active = true
+
         } else {
             m3u8RefId?.let {
                 m3u8Ref.child(it).removeValue()
                 m3u8RefId = null
-                isM3u8Active = false
             }
+
+            isM3u8Active = false
         }
     }
 
+    // =========================================================
+    // CONTROLES
+    // =========================================================
 
-    private val controllerHandler = Handler(Looper.getMainLooper())
-    private val controllerAutoHide = Runnable { playerView.hideController() }
     private fun scheduleControllerAutoHide() {
         controllerHandler.removeCallbacks(controllerAutoHide)
         controllerHandler.postDelayed(controllerAutoHide, 3000)
@@ -91,23 +143,34 @@ class PlayerActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-				setM3u8Status(true)
+        setM3u8Status(true)
 
         WindowCompat.setDecorFitsSystemWindows(window, false)
+
         window.statusBarColor = Color.BLACK
         window.navigationBarColor = Color.BLACK
-        insets = WindowInsetsControllerCompat(window, window.decorView).apply {
+
+        insets = WindowInsetsControllerCompat(
+            window,
+            window.decorView
+        ).apply {
             systemBarsBehavior =
                 WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+
             isAppearanceLightStatusBars = false
             isAppearanceLightNavigationBars = false
         }
+
         hideStatusBar()
 
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        window.addFlags(
+            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+        )
 
         setContentView(R.layout.activity_player)
+
         playerView = findViewById(R.id.playerView)
+
         playerView.setBackgroundColor(Color.BLACK)
         playerView.clipToPadding = false
 
@@ -116,52 +179,93 @@ class PlayerActivity : AppCompatActivity() {
         playerView.setControllerAnimationEnabled(true)
 
         playerView.setOnTouchListener { _, ev ->
-            if (ev.action == MotionEvent.ACTION_DOWN || ev.action == MotionEvent.ACTION_UP) {
+            if (
+                ev.action == MotionEvent.ACTION_DOWN ||
+                ev.action == MotionEvent.ACTION_UP
+            ) {
                 hideStatusBar()
                 scheduleControllerAutoHide()
             }
+
             false
         }
+
         playerView.setControllerVisibilityListener(
             PlayerView.ControllerVisibilityListener { visibility ->
-                if (visibility == View.VISIBLE) scheduleControllerAutoHide()
-                else controllerHandler.removeCallbacks(controllerAutoHide)
+                if (visibility == View.VISIBLE) {
+                    scheduleControllerAutoHide()
+                } else {
+                    controllerHandler.removeCallbacks(controllerAutoHide)
+                }
             }
         )
 
-        // ====== CENTRALIZAÇÃO + RODAPÉ ======
+        // =====================================================
+        // CENTRALIZAÇÃO + RODAPÉ
+        // =====================================================
+
         ViewCompat.setOnApplyWindowInsetsListener(playerView) { _, ins ->
-    // só respeita navegação lateral/inf e notch; NÃO empurra no topo
-    val bars = ins.getInsets(
-        WindowInsetsCompat.Type.navigationBars() or WindowInsetsCompat.Type.displayCutout()
-    )
-    val left   = bars.left
-    val right  = bars.right
-    val bottom = bars.bottom
 
-    // ✅ padding exatamente conforme cada lado (nada de simetrizar)
-    playerView.setPadding(left, 0, right, bottom)
+            val bars = ins.getInsets(
+                WindowInsetsCompat.Type.navigationBars() or
+                    WindowInsetsCompat.Type.displayCutout()
+            )
 
-    // controller também “senta” acima da nav bar, sem folga extra em cima
-    playerView.findViewById<View?>(androidx.media3.ui.R.id.exo_controller)?.apply {
-        setPadding(paddingLeft, paddingTop, paddingRight, bottom)
-    }
+            val left = bars.left
+            val right = bars.right
+            val bottom = bars.bottom
 
-    // (opcional) pequenos ajustes dos textos
-    playerView.findViewById<View?>(androidx.media3.ui.R.id.exo_position)?.apply {
-        setPadding(paddingLeft + dp(6), paddingTop, paddingRight, paddingBottom)
-    }
-    playerView.findViewById<View?>(androidx.media3.ui.R.id.exo_duration)?.apply {
-        setPadding(paddingLeft, paddingTop, paddingRight + dp(6), paddingBottom)
-    }
-    ins
-}
-        // ====================================
+            playerView.setPadding(left, 0, right, bottom)
 
-        findViewById<android.widget.ProgressBar>(androidx.media3.ui.R.id.exo_buffering)?.let { pb ->
-            val white = android.content.res.ColorStateList.valueOf(Color.WHITE)
+            playerView.findViewById<View?>(
+                androidx.media3.ui.R.id.exo_controller
+            )?.apply {
+                setPadding(
+                    paddingLeft,
+                    paddingTop,
+                    paddingRight,
+                    bottom
+                )
+            }
+
+            playerView.findViewById<View?>(
+                androidx.media3.ui.R.id.exo_position
+            )?.apply {
+                setPadding(
+                    paddingLeft + dp(6),
+                    paddingTop,
+                    paddingRight,
+                    paddingBottom
+                )
+            }
+
+            playerView.findViewById<View?>(
+                androidx.media3.ui.R.id.exo_duration
+            )?.apply {
+                setPadding(
+                    paddingLeft,
+                    paddingTop,
+                    paddingRight + dp(6),
+                    paddingBottom
+                )
+            }
+
+            ins
+        }
+
+        // =====================================================
+        // BUFFERING
+        // =====================================================
+
+        findViewById<android.widget.ProgressBar>(
+            androidx.media3.ui.R.id.exo_buffering
+        )?.let { pb ->
+            val white =
+                android.content.res.ColorStateList.valueOf(Color.WHITE)
+
             pb.indeterminateTintList = white
-            pb.indeterminateTintMode = android.graphics.PorterDuff.Mode.SRC_IN
+            pb.indeterminateTintMode =
+                android.graphics.PorterDuff.Mode.SRC_IN
         }
 
         listOf(
@@ -172,178 +276,667 @@ class PlayerActivity : AppCompatActivity() {
             playerView.findViewById<View?>(id)?.visibility = View.GONE
         }
 
+        // =====================================================
+        // DADOS DO PLAYER
+        // =====================================================
+
         val url = intent.getStringExtra(EXTRA_URL).orEmpty()
         val title = intent.getStringExtra(EXTRA_TITLE).orEmpty()
         val referer = intent.getStringExtra(EXTRA_REFERER)
         val ua = intent.getStringExtra(EXTRA_USER_AGENT)
         val subtitleUrl = intent.getStringExtra(EXTRA_SUBTITLE)
-				val cookie = intent.getStringExtra(EXTRA_COOKIE)
+        val cookie = intent.getStringExtra(EXTRA_COOKIE)
 
         if (!isSupported(url)) {
-            startActivity(Intent(this, WebViewActivity::class.java).apply {
-                putExtra(WebViewActivity.EXTRA_URL, url)
-            })
+            startActivity(
+                Intent(this, WebViewActivity::class.java).apply {
+                    putExtra(WebViewActivity.EXTRA_URL, url)
+                }
+            )
+
             finish()
             return
         }
 
         initPlayer(
-    url,
-    title,
-    referer,
-    ua,
-    cookie,
-    subtitleUrl
-)
+            url,
+            title,
+            referer,
+            ua,
+            cookie,
+            subtitleUrl
+        )
     }
 
-    private fun isSupported(u: String): Boolean {
-    val path = Uri.parse(u).path?.lowercase().orEmpty()
+    // =========================================================
+    // IDENTIFICAÇÃO DO FORMATO
+    // =========================================================
 
-    return path.endsWith(".m3u8") ||
-           path.endsWith(".mpd") ||
-           path.endsWith(".ts")
-}
+    private fun isSupported(u: String): Boolean {
+        val path = Uri.parse(u).path?.lowercase().orEmpty()
+
+        return path.endsWith(".m3u8") ||
+            path.endsWith(".mpd") ||
+            path.endsWith(".ts")
+    }
+
+    private fun isMpd(u: String): Boolean {
+        return Uri.parse(u).path
+            ?.lowercase()
+            ?.endsWith(".mpd") == true
+    }
 
     private fun hideStatusBar() {
         insets.hide(WindowInsetsCompat.Type.statusBars())
         insets.isAppearanceLightNavigationBars = false
     }
 
-    private fun initPlayer(
-    url: String,
-    title: String?,
-    referer: String?,
-    ua: String?,
-    cookie: String?,
-    subtitleUrl: String?
-) {
-        val dsFactory = DefaultHttpDataSource.Factory().apply {
+    // =========================================================
+    // MODELO DO DIAGNÓSTICO MPD
+    // =========================================================
 
-    setAllowCrossProtocolRedirects(true)
+    private data class MpdAnalysis(
+        val isDynamic: Boolean = false,
+        val drmSystems: Set<String> = emptySet(),
+        val hasCenc: Boolean = false,
+        val hasPssh: Boolean = false,
+        val defaultKids: Set<String> = emptySet(),
+        val licenseUrl: String? = null,
+        val mimeTypes: Set<String> = emptySet(),
+        val codecs: Set<String> = emptySet(),
+        val segmentUrls: Int = 0,
+        val baseUrls: Int = 0
+    )
 
-    ua?.let {
-        setUserAgent(it)
-    }
+    // =========================================================
+    // ANALISADOR AUTOMÁTICO DO MANIFESTO
+    // =========================================================
 
-    setDefaultRequestProperties(
-        mutableMapOf<String, String>().apply {
+    private suspend fun analyzeMpd(
+        url: String,
+        referer: String?,
+        ua: String?,
+        cookie: String?
+    ): MpdAnalysis = withContext(Dispatchers.IO) {
 
-            if (!referer.isNullOrBlank())
-                put("Referer", referer)
+        val requestBuilder = Request.Builder()
+            .url(url)
+            .header("Accept", "*/*")
 
-            if (!cookie.isNullOrBlank())
-                put("Cookie", cookie)
+        if (!referer.isNullOrBlank()) {
+            requestBuilder.header("Referer", referer)
 
-            if (!ua.isNullOrBlank())
-                put("User-Agent", ua)
+            val refUri = Uri.parse(referer)
 
-            try {
-                put(
+            val scheme = refUri.scheme
+            val host = refUri.host
+
+            if (!scheme.isNullOrBlank() && !host.isNullOrBlank()) {
+                requestBuilder.header(
                     "Origin",
-                    Uri.parse(referer).scheme +
-                    "://" +
-                    Uri.parse(referer).host
+                    "$scheme://$host"
                 )
-            } catch (_: Exception) {
             }
         }
-    )
-}
+
+        if (!ua.isNullOrBlank()) {
+            requestBuilder.header("User-Agent", ua)
+        }
+
+        if (!cookie.isNullOrBlank()) {
+            requestBuilder.header("Cookie", cookie)
+        }
+
+        val request = requestBuilder.build()
+
+        httpClient.newCall(request).execute().use { response ->
+
+            if (!response.isSuccessful) {
+                throw IllegalStateException(
+                    "HTTP ${response.code} ao consultar o MPD"
+                )
+            }
+
+            val xml = response.body?.string()
+                ?: throw IllegalStateException("Manifesto vazio")
+
+            val factory = XmlPullParserFactory.newInstance()
+            factory.isNamespaceAware = true
+
+            val parser = factory.newPullParser()
+
+            parser.setInput(xml.reader())
+
+            var dynamic = false
+            var cenc = false
+            var pssh = false
+
+            val drmSystems = mutableSetOf<String>()
+            val kids = mutableSetOf<String>()
+            val mimeTypes = mutableSetOf<String>()
+            val codecs = mutableSetOf<String>()
+
+            var licenseUrl: String? = null
+            var segmentUrls = 0
+            var baseUrls = 0
+
+            var event = parser.eventType
+
+            while (event != XmlPullParser.END_DOCUMENT) {
+
+                if (event == XmlPullParser.START_TAG) {
+
+                    val tag = parser.name
+                        .lowercase()
+
+                    when (tag) {
+
+                        "mpd" -> {
+                            dynamic = parser.getAttributeValue(
+                                null,
+                                "type"
+                            )?.equals("dynamic", true) == true
+                        }
+
+                        "contentprotection" -> {
+
+                            val scheme = parser.getAttributeValue(
+                                null,
+                                "schemeIdUri"
+                            )?.lowercase().orEmpty()
+
+                            val value = parser.getAttributeValue(
+                                null,
+                                "value"
+                            )
+
+                            val kid = parser.getAttributeValue(
+                                null,
+                                "default_KID"
+                            )
+
+                            if (
+                                scheme.contains(
+                                    "urn:mpeg:dash:mp4protection"
+                                )
+                            ) {
+                                cenc = true
+                            }
+
+                            if (scheme.contains("edef8ba9")) {
+                                drmSystems.add("Widevine")
+                            }
+
+                            if (scheme.contains("9a04f079")) {
+                                drmSystems.add("PlayReady")
+                            }
+
+                            if (scheme.contains("e2719d58")) {
+                                drmSystems.add("ClearKey")
+                            }
+
+                            if (
+                                scheme.contains("fairplay") ||
+                                scheme.contains("fps")
+                            ) {
+                                drmSystems.add("FairPlay")
+                            }
+
+                            if (
+                                !value.isNullOrBlank() &&
+                                value.contains("cenc", true)
+                            ) {
+                                cenc = true
+                            }
+
+                            if (!kid.isNullOrBlank()) {
+                                kids.add(kid)
+                            }
+                        }
+
+                        "pssh" -> {
+                            pssh = true
+                        }
+
+                        "laurl", "licenseurl", "license_url" -> {
+
+                            val candidate =
+                                parser.getAttributeValue(
+                                    null,
+                                    "licenseUrl"
+                                ) ?: parser.getAttributeValue(
+                                    null,
+                                    "href"
+                                )
+
+                            if (!candidate.isNullOrBlank()) {
+                                licenseUrl = candidate
+                            } else {
+                                val text = parser.nextText().trim()
+
+                                if (
+                                    text.startsWith("https://") ||
+                                    text.startsWith("http://")
+                                ) {
+                                    licenseUrl = text
+                                }
+                            }
+                        }
+
+                        "representation" -> {
+
+                            parser.getAttributeValue(
+                                null,
+                                "mimeType"
+                            )?.let {
+                                mimeTypes.add(it)
+                            }
+
+                            parser.getAttributeValue(
+                                null,
+                                "codecs"
+                            )?.let {
+                                codecs.add(it)
+                            }
+                        }
+
+                        "adaptationset" -> {
+
+                            parser.getAttributeValue(
+                                null,
+                                "mimeType"
+                            )?.let {
+                                mimeTypes.add(it)
+                            }
+
+                            parser.getAttributeValue(
+                                null,
+                                "codecs"
+                            )?.let {
+                                codecs.add(it)
+                            }
+                        }
+
+                        "segmenturl", "segmenttemplate" -> {
+                            segmentUrls++
+                        }
+
+                        "baseurl" -> {
+                            baseUrls++
+                        }
+                    }
+                }
+
+                event = parser.next()
+            }
+
+            MpdAnalysis(
+                isDynamic = dynamic,
+                drmSystems = drmSystems,
+                hasCenc = cenc,
+                hasPssh = pssh,
+                defaultKids = kids,
+                licenseUrl = licenseUrl,
+                mimeTypes = mimeTypes,
+                codecs = codecs,
+                segmentUrls = segmentUrls,
+                baseUrls = baseUrls
+            )
+        }
+    }
+
+    // =========================================================
+    // RELATÓRIO MPD
+    // =========================================================
+
+    private fun logMpdAnalysis(info: MpdAnalysis) {
+
+        Log.i(TAG, "========== ANÁLISE MPD ==========")
+
+        Log.i(
+            TAG,
+            "Tipo: ${if (info.isDynamic) "Dinâmico / Ao vivo" else "Estático / VOD"}"
+        )
+
+        Log.i(
+            TAG,
+            "DRM: ${
+                if (info.drmSystems.isEmpty()) {
+                    "Não identificado no manifesto"
+                } else {
+                    info.drmSystems.joinToString()
+                }
+            }"
+        )
+
+        Log.i(TAG, "CENC: ${info.hasCenc}")
+        Log.i(TAG, "PSSH presente: ${info.hasPssh}")
+        Log.i(TAG, "Default KID presente: ${info.defaultKids.isNotEmpty()}")
+
+        Log.i(
+            TAG,
+            "Licença declarada: ${!info.licenseUrl.isNullOrBlank()}"
+        )
+
+        Log.i(TAG, "MIME types: ${info.mimeTypes}")
+        Log.i(TAG, "Codecs: ${info.codecs}")
+        Log.i(TAG, "Segment URLs/Templates: ${info.segmentUrls}")
+        Log.i(TAG, "Base URLs: ${info.baseUrls}")
+
+        Log.i(TAG, "================================")
+    }
+
+    // =========================================================
+    // CRIAÇÃO DO PLAYER
+    // =========================================================
+
+    private fun initPlayer(
+        url: String,
+        title: String?,
+        referer: String?,
+        ua: String?,
+        cookie: String?,
+        subtitleUrl: String?
+    ) {
+
+        val requestHeaders = mutableMapOf<String, String>()
+
+        if (!referer.isNullOrBlank()) {
+            requestHeaders["Referer"] = referer
+
+            val refUri = Uri.parse(referer)
+
+            val scheme = refUri.scheme
+            val host = refUri.host
+
+            if (!scheme.isNullOrBlank() && !host.isNullOrBlank()) {
+                requestHeaders["Origin"] = "$scheme://$host"
+            }
+        }
+
+        if (!cookie.isNullOrBlank()) {
+            requestHeaders["Cookie"] = cookie
+        }
+
+        if (!ua.isNullOrBlank()) {
+            requestHeaders["User-Agent"] = ua
+        }
+
+        val dsFactory = DefaultHttpDataSource.Factory().apply {
+
+            setAllowCrossProtocolRedirects(true)
+
+            if (!ua.isNullOrBlank()) {
+                setUserAgent(ua)
+            }
+
+            setDefaultRequestProperties(requestHeaders)
+        }
 
         val mediaSourceFactory = DefaultMediaSourceFactory(dsFactory)
 
         val p = ExoPlayer.Builder(this)
             .setMediaSourceFactory(mediaSourceFactory)
             .build()
-            .also { playerView.player = it }
+            .also {
+                playerView.player = it
+            }
 
-
-       val url = intent.getStringExtra("url") ?: return
-
-
-
-        val uri = Uri.parse(url)
-val path = uri.path?.lowercase().orEmpty()
-
-val itemBuilder = MediaItem.Builder()
-    .setUri(uri)
-
-when {
-    path.endsWith(".mpd") -> {
-        itemBuilder.setMimeType(MimeTypes.APPLICATION_MPD)
-    }
-
-    path.endsWith(".m3u8") -> {
-        itemBuilder.setMimeType(MimeTypes.APPLICATION_M3U8)
-    }
-}
-        if (!title.isNullOrBlank()) {
-            itemBuilder.setMediaMetadata(MediaMetadata.Builder().setTitle(title).build())
-        }
-        if (!subtitleUrl.isNullOrBlank()) {
-            val sub = MediaItem.SubtitleConfiguration.Builder(Uri.parse(subtitleUrl))
-                .setMimeType("text/vtt")
-                .setLanguage("pt")
-                .setSelectionFlags(0)
-                .build()
-            itemBuilder.setSubtitleConfigurations(listOf(sub))
-        }
-
-        p.setMediaItem(itemBuilder.build())
-        p.prepare()
-        p.playWhenReady = true
+        player = p
 
         p.addListener(object : Player.Listener {
+
             override fun onPlaybackStateChanged(state: Int) {
+
                 when (state) {
+
                     Player.STATE_BUFFERING -> {
                         bufferingStartAt = System.currentTimeMillis()
+
                         main.removeCallbacks(bufferingWatchdog)
                         main.postDelayed(bufferingWatchdog, 2000)
                     }
-                    Player.STATE_READY, Player.STATE_ENDED -> {
+
+                    Player.STATE_READY,
+                    Player.STATE_ENDED -> {
                         main.removeCallbacks(bufferingWatchdog)
                     }
+
                     Player.STATE_IDLE -> {
-                        p.prepare()
-                        p.playWhenReady = true
+                        // Não repetir prepare automaticamente aqui.
+                        // O player pode estar aguardando a primeira configuração.
                     }
                 }
             }
+
+            override fun onPlayerError(error: PlaybackException) {
+
+                main.removeCallbacks(bufferingWatchdog)
+
+                Log.e(
+                    TAG,
+                    "Erro de reprodução: ${error.errorCodeName}",
+                    error
+                )
+
+                val message = when (error.errorCode) {
+
+                    PlaybackException.ERROR_CODE_DRM_CONTENT_ERROR,
+                    PlaybackException.ERROR_CODE_DRM_LICENSE_ACQUISITION_FAILED,
+                    PlaybackException.ERROR_CODE_DRM_PROVISIONING_FAILED ->
+                        "Falha na proteção DRM ou na licença."
+
+                    PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED,
+                    PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED ->
+                        "Manifesto ou conteúdo inválido."
+
+                    PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS ->
+                        "Erro HTTP ao acessar o conteúdo."
+
+                    PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
+                    PlaybackException.ERROR_CODE_DECODING_FAILED ->
+                        "Codec de áudio ou vídeo incompatível."
+
+                    else ->
+                        "Falha na reprodução: ${error.errorCodeName}"
+                }
+
+                Toast.makeText(
+                    this@PlayerActivity,
+                    message,
+                    Toast.LENGTH_LONG
+                ).show()
+            }
         })
 
-        player = p
+        // =====================================================
+        // MPD: ANALISAR ANTES DE REPRODUZIR
+        // =====================================================
+
+        lifecycleScope.launch {
+
+            val itemBuilder = MediaItem.Builder()
+                .setUri(Uri.parse(url))
+
+            val path = Uri.parse(url).path?.lowercase().orEmpty()
+
+            when {
+                path.endsWith(".mpd") -> {
+                    itemBuilder.setMimeType(MimeTypes.APPLICATION_MPD)
+                }
+
+                path.endsWith(".m3u8") -> {
+                    itemBuilder.setMimeType(MimeTypes.APPLICATION_M3U8)
+                }
+            }
+
+            if (!title.isNullOrBlank()) {
+                itemBuilder.setMediaMetadata(
+                    MediaMetadata.Builder()
+                        .setTitle(title)
+                        .build()
+                )
+            }
+
+            if (!subtitleUrl.isNullOrBlank()) {
+                val sub = MediaItem.SubtitleConfiguration.Builder(
+                    Uri.parse(subtitleUrl)
+                )
+                    .setMimeType("text/vtt")
+                    .setLanguage("pt")
+                    .setSelectionFlags(0)
+                    .build()
+
+                itemBuilder.setSubtitleConfigurations(listOf(sub))
+            }
+
+            if (isMpd(url)) {
+
+                Log.i(TAG, "Iniciando análise automática do MPD")
+
+                try {
+
+                    val analysis = analyzeMpd(
+                        url,
+                        referer,
+                        ua,
+                        cookie
+                    )
+
+                    logMpdAnalysis(analysis)
+
+                    // =================================================
+                    // CONFIGURAÇÃO DRM
+                    // =================================================
+
+                    val externalLicense =
+                        intent.getStringExtra(EXTRA_DRM_LICENSE_URL)
+
+                    val license = externalLicense
+                        ?: analysis.licenseUrl
+
+                    val drmUuid = when {
+
+                        analysis.drmSystems.contains("Widevine") ->
+                            C.WIDEVINE_UUID
+
+                        analysis.drmSystems.contains("ClearKey") ->
+                            C.CLEARKEY_UUID
+
+                        else -> null
+                    }
+
+                    if (drmUuid != null && !license.isNullOrBlank()) {
+
+                        val licenseHeaders =
+                            requestHeaders.toMutableMap()
+
+                        Log.i(
+                            TAG,
+                            "DRM identificado: ${analysis.drmSystems}"
+                        )
+
+                        Log.i(
+                            TAG,
+                            "Configuração de licença disponível"
+                        )
+
+                        val drmConfiguration =
+                            MediaItem.DrmConfiguration.Builder(drmUuid)
+                                .setLicenseUri(Uri.parse(license))
+                                .setLicenseRequestHeaders(licenseHeaders)
+                                .build()
+
+                        itemBuilder.setDrmConfiguration(
+                            drmConfiguration
+                        )
+
+                    } else if (analysis.drmSystems.isNotEmpty()) {
+
+                        Log.w(
+                            TAG,
+                            "DRM identificado, mas não há URL de licença disponível."
+                        )
+
+                        Log.w(
+                            TAG,
+                            "É necessária a configuração autorizada do provedor."
+                        )
+
+                    } else {
+
+                        Log.i(
+                            TAG,
+                            "Nenhum sistema DRM identificado no MPD."
+                        )
+                    }
+
+                } catch (e: Exception) {
+
+                    Log.e(
+                        TAG,
+                        "Não foi possível analisar o MPD. Tentando reprodução normal.",
+                        e
+                    )
+                }
+            }
+
+            if (isFinishing || isDestroyed) return@launch
+
+            p.setMediaItem(itemBuilder.build())
+            p.prepare()
+            p.playWhenReady = true
+        }
     }
+
+    // =========================================================
+    // CICLO DE VIDA
+    // =========================================================
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) hideStatusBar()
+
+        if (hasFocus) {
+            hideStatusBar()
+        }
     }
 
+    @Deprecated("Deprecated in Android")
     override fun onBackPressed() {
         finish()
     }
 
     override fun onDestroy() {
+
         main.removeCallbacks(bufferingWatchdog)
         controllerHandler.removeCallbacks(controllerAutoHide)
+
         playerView.player = null
+
         player?.release()
         player = null
-        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+        window.clearFlags(
+            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+        )
+
         super.onDestroy()
     }
 
-        override fun onPause() {
+    override fun onPause() {
         super.onPause()
         setM3u8Status(false)
     }
 
     override fun onResume() {
         super.onResume()
-        if (!isM3u8Active) setM3u8Status(true)
+
+        if (!isM3u8Active) {
+            setM3u8Status(true)
+        }
     }
 
-    private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
+    private fun dp(v: Int): Int {
+        return (v * resources.displayMetrics.density).toInt()
+    }
 }
