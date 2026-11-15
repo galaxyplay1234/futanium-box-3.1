@@ -17,6 +17,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
+import androidx.media3.common.MimeTypes
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
@@ -197,9 +198,12 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun isSupported(u: String): Boolean {
-        val s = u.lowercase()
-        return s.contains(".m3u8") || s.endsWith(".ts")
-    }
+    val path = Uri.parse(u).path?.lowercase().orEmpty()
+
+    return path.endsWith(".m3u8") ||
+           path.endsWith(".mpd") ||
+           path.endsWith(".ts")
+}
 
     private fun hideStatusBar() {
         insets.hide(WindowInsetsCompat.Type.statusBars())
@@ -259,7 +263,21 @@ class PlayerActivity : AppCompatActivity() {
 
 
 
-        val itemBuilder = MediaItem.Builder().setUri(url)
+        val uri = Uri.parse(url)
+val path = uri.path?.lowercase().orEmpty()
+
+val itemBuilder = MediaItem.Builder()
+    .setUri(uri)
+
+when {
+    path.endsWith(".mpd") -> {
+        itemBuilder.setMimeType(MimeTypes.APPLICATION_MPD)
+    }
+
+    path.endsWith(".m3u8") -> {
+        itemBuilder.setMimeType(MimeTypes.APPLICATION_M3U8)
+    }
+}
         if (!title.isNullOrBlank()) {
             itemBuilder.setMediaMetadata(MediaMetadata.Builder().setTitle(title).build())
         }
