@@ -384,10 +384,7 @@ val host = request.url.host?.lowercase(Locale.ROOT) ?: return null
 if (
     captureM3u8 &&
     !playerOpened &&
-    (
-        url.contains(".m3u8", true) ||
-        url.contains("__index.m3u8", true)
-    )
+    isStreamManifestUrl(url)
 ) {
 
     playerOpened = true
@@ -395,38 +392,30 @@ if (
     runOnUiThread {
 
         val cookies =
-    CookieManager.getInstance().getCookie(url) ?: ""
+            CookieManager.getInstance().getCookie(url) ?: ""
 
-val referer =
-    web.url ?: ""
+        val referer = web.url ?: ""
 
-val userAgent =
-    web.settings.userAgentString ?: ""
+        val userAgent =
+            web.settings.userAgentString ?: ""
 
-val origin = try {
-    Uri.parse(referer).scheme + "://" +
-    Uri.parse(referer).host
-} catch (e: Exception) {
-    ""
-}
+        val i = Intent(
+            this@WebViewActivity,
+            PlayerActivity::class.java
+        )
 
-val i = Intent(
-    this@WebViewActivity,
-    PlayerActivity::class.java
-)
+        i.putExtra(PlayerActivity.EXTRA_URL, url)
+        i.putExtra(PlayerActivity.EXTRA_COOKIE, cookies)
+        i.putExtra(PlayerActivity.EXTRA_REFERER, referer)
+        i.putExtra(PlayerActivity.EXTRA_USER_AGENT, userAgent)
 
-i.putExtra("url", url)
-i.putExtra("cookie", cookies)
-i.putExtra("referer", referer)
-i.putExtra("userAgent", userAgent)
-i.putExtra("origin", origin)
-
-startActivity(i)
-finish()
+        startActivity(i)
+        finish()
     }
 
     return null
 }
+
 
 if (isMediaUrl(url)) return null
 
@@ -580,13 +569,28 @@ if (isMediaUrl(url)) return null
     return false
 }
 
-    private fun isMediaUrl(u: String): Boolean {
-        val x = u.lowercase(Locale.ROOT)
-        return x.endsWith(".m3u8") || x.endsWith(".mp4") || x.endsWith(".webm") ||
-               x.endsWith(".mpd")  || x.endsWith(".ts")  || x.endsWith(".m4s") ||
-               x.endsWith(".aac")  || x.endsWith(".mp3") || x.endsWith(".oga") ||
-               x.endsWith(".vtt")  || x.endsWith(".srt")
-    }
+    private fun isStreamManifestUrl(url: String): Boolean {
+    val path = Uri.parse(url).path?.lowercase(Locale.ROOT).orEmpty()
+
+    return path.endsWith(".m3u8") ||
+           path.endsWith(".mpd")
+}
+
+private fun isMediaUrl(u: String): Boolean {
+    val x = u.lowercase(Locale.ROOT)
+
+    return x.endsWith(".m3u8") ||
+           x.endsWith(".mpd")  ||
+           x.endsWith(".mp4")  ||
+           x.endsWith(".webm") ||
+           x.endsWith(".ts")   ||
+           x.endsWith(".m4s")  ||
+           x.endsWith(".aac")  ||
+           x.endsWith(".mp3")  ||
+           x.endsWith(".oga")  ||
+           x.endsWith(".vtt")  ||
+           x.endsWith(".srt")
+}
 
     private fun empty204(): WebResourceResponse =
         WebResourceResponse("text/plain", "utf-8", 204, "No Content", emptyMap(), ByteArrayInputStream(ByteArray(0)))
