@@ -568,6 +568,7 @@ private fun extractTitleAndLink(
 }
 
 
+
 // === abre o canal + bloqueia múltiplos cliques + mostra anúncio ===
 private var lastClickTime = 0L
 
@@ -579,10 +580,9 @@ private fun openLink(
 ) {
     val ctx = view.context
     val u = link.trim()
-    val monetagUrl = monetagLinkRemote
 
     try {
-        // ⛔ bloqueia cliques múltiplos por 3s
+        // ⛔ Bloqueia cliques múltiplos por 3s
         val now = System.currentTimeMillis()
         if (now - lastClickTime < 3000) {
             Toast.makeText(ctx, "Aguarde um momento...", Toast.LENGTH_SHORT).show()
@@ -592,81 +592,82 @@ private fun openLink(
 
         // 🔹 Decide se vai para Player ou WebView
         if (u.startsWith("http", ignoreCase = true)) {
-            val lower = u.lowercase()
-            // 🔹 Decide se vai para Player ou WebView
-if (u.startsWith("http", ignoreCase = true)) {
 
-    val mediaUrl = u.substringBefore("?").substringBefore("#").lowercase()
+            val mediaUrl = u.substringBefore("?")
+                .substringBefore("#")
+                .lowercase()
 
-    val isDirectMedia =
-        mediaUrl.endsWith(".m3u8") ||
-        mediaUrl.endsWith(".mpd") ||
-        mediaUrl.endsWith(".ts") ||
-        mediaUrl.endsWith(".mp4")
+            val isDirectMedia =
+                mediaUrl.endsWith(".m3u8") ||
+                mediaUrl.endsWith(".mpd") ||
+                mediaUrl.endsWith(".ts") ||
+                mediaUrl.endsWith(".mp4")
 
-    if (isDirectMedia && !captureM3u8) {
+            if (isDirectMedia && !captureM3u8) {
 
-        // 🎥 Abre PlayerActivity
-        val it = Intent(ctx, com.futanium.box.PlayerActivity::class.java)
-        it.putExtra(com.futanium.box.PlayerActivity.EXTRA_URL, u)
-        it.putExtra(com.futanium.box.PlayerActivity.EXTRA_TITLE, title ?: "")
+                // 🎥 Abre PlayerActivity
+                val it = Intent(ctx, com.futanium.box.PlayerActivity::class.java)
+                it.putExtra(com.futanium.box.PlayerActivity.EXTRA_URL, u)
+                it.putExtra(com.futanium.box.PlayerActivity.EXTRA_TITLE, title ?: "")
 
-        MainActivity.navigatingInsideApp = true
-        ctx.startActivity(it)
+                MainActivity.navigatingInsideApp = true
+                ctx.startActivity(it)
 
-    } else {
+            } else {
 
-        // 🌐 Abre WebViewActivity
-        val it = Intent(ctx, com.futanium.box.WebViewActivity::class.java)
-        it.putExtra(com.futanium.box.WebViewActivity.EXTRA_URL, u)
-        it.putExtra("captureM3u8", captureM3u8)
+                // 🌐 Abre WebViewActivity
+                val it = Intent(ctx, com.futanium.box.WebViewActivity::class.java)
+                it.putExtra(com.futanium.box.WebViewActivity.EXTRA_URL, u)
+                it.putExtra("captureM3u8", captureM3u8)
 
-        MainActivity.navigatingInsideApp = true
-        ctx.startActivity(it)
-    }
+                MainActivity.navigatingInsideApp = true
+                ctx.startActivity(it)
+            }
 
-} else {
-    val it = Intent(Intent.ACTION_VIEW, Uri.parse(u))
-    ctx.startActivity(it)
-}
+        } else {
+            val it = Intent(Intent.ACTION_VIEW, Uri.parse(u))
+            ctx.startActivity(it)
+        }
 
         // 🔹 Após 1s, abre o anúncio Monetag (se ativo remotamente)
-if (monetagEnabledRemote && monetagLinkRemote.isNotBlank()) {
-    view.postDelayed({
-        try {
-            val customTabsIntent = androidx.browser.customtabs.CustomTabsIntent.Builder()
-                .setShowTitle(true)
-                .setUrlBarHidingEnabled(false)
-                .setToolbarColor(android.graphics.Color.parseColor("#202020"))
-                .setColorScheme(androidx.browser.customtabs.CustomTabsIntent.COLOR_SCHEME_DARK)
-                .build()
-
-            customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY)
-            customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
-
-            customTabsIntent.launchUrl(ctx, Uri.parse(monetagLinkRemote))
-
+        if (monetagEnabledRemote && monetagLinkRemote.isNotBlank()) {
             view.postDelayed({
-                Toast.makeText(
-                    ctx,
-                    "Esta é uma página de anúncio.\nFeche no X ou use o botão Voltar.",
-                    Toast.LENGTH_LONG
-                ).show()
-            }, 300)
+                try {
+                    val customTabsIntent =
+                        CustomTabsIntent.Builder()
+                            .setShowTitle(true)
+                            .setUrlBarHidingEnabled(false)
+                            .setToolbarColor(android.graphics.Color.parseColor("#202020"))
+                            .setColorScheme(CustomTabsIntent.COLOR_SCHEME_DARK)
+                            .build()
 
-        } catch (e: Exception) {
-            e.printStackTrace()
-            Toast.makeText(ctx, "Não foi possível abrir o anúncio.", Toast.LENGTH_SHORT).show()
+                    customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY)
+                    customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                    customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+
+                    customTabsIntent.launchUrl(ctx, Uri.parse(monetagLinkRemote))
+
+                    view.postDelayed({
+                        Toast.makeText(
+                            ctx,
+                            "Esta é uma página de anúncio.\nFeche no X ou use o botão Voltar.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }, 300)
+
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    Toast.makeText(ctx, "Não foi possível abrir o anúncio.", Toast.LENGTH_SHORT).show()
+                }
+            }, 1000)
         }
-    }, 1000)
-}
 
     } catch (e: Exception) {
         e.printStackTrace()
         Toast.makeText(ctx, "Erro ao abrir o canal.", Toast.LENGTH_SHORT).show()
     }
 }
+
 }
 /** Opcional: tipo forte para botões */
 data class ButtonInfo(
