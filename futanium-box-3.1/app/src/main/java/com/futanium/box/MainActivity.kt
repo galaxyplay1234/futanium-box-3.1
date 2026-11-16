@@ -190,7 +190,7 @@ class MainActivity : AppCompatActivity() {
         if (isTvDevice) {
 
             val backgroundColor =
-                Color.parseColor("#F3F3F3")
+                Color.parseColor("#E6E6E6")
 
             vb.root.setBackgroundColor(backgroundColor)
             vb.swipe.setBackgroundColor(backgroundColor)
