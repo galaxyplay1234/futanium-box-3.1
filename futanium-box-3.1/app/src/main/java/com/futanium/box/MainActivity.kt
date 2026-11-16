@@ -522,7 +522,7 @@ if (isTvDevice) {
                             height = if (isNotice) {
     dp(90)
 } else {
-    dp(130)
+    dp(120)
 }
                         }
 
