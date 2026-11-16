@@ -1,8 +1,10 @@
-
 package com.futanium.box.ui
 
 import android.content.Intent
 import android.net.Uri
+import android.content.res.ColorStateList
+import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -20,24 +22,24 @@ import com.futanium.box.MainActivity
 import org.json.JSONObject
 import androidx.browser.customtabs.CustomTabsIntent
 import android.text.TextUtils
+import com.google.android.material.card.MaterialCardView
 
 class GameAdapter(
     private val items: MutableList<Game> = mutableListOf()
 ) : RecyclerView.Adapter<GameAdapter.VH>() {
 
-    /** Informa se o app está rodando em uma TV */
     var isTv: Boolean = false
 
-    /** Callback para abertura de links */
     var onOpenLink: ((url: String, title: String?, referer: String?, ua: String?) -> Unit)? = null
 
-    /** posição atualmente expandida; -1 = nenhuma */
     private var expandedPos: Int = -1
 
-    // Configuração remota do Monetag
     private var monetagEnabledRemote = true
     private var monetagLinkRemote: String = "https://otieu.com/4/9902033"
     private var adsConfigLoaded = false
+
+    private val focusBlue = Color.parseColor("#168BFF")
+    private val normalStroke = Color.parseColor("#DDDDDD")
 
     fun submit(newItems: List<Game>) {
         items.clear()
@@ -50,11 +52,32 @@ class GameAdapter(
 
         expandedPos = -1
         notifyDataSetChanged()
+
+        if (isTv) {
+            // Seleciona automaticamente o primeiro jogo, ignorando o aviso.
+            val firstGame = items.indexOfFirst { it.homeLogo != "Aviso" }
+
+            if (firstGame >= 0) {
+                // O foco inicial será solicitado pelo RecyclerView após a montagem.
+                pendingInitialFocus = true
+            }
+        }
+    }
+
+    private var pendingInitialFocus = false
+
+    fun isNoticeAt(position: Int): Boolean {
+        return items.getOrNull(position)?.homeLogo == "Aviso"
     }
 
     fun updateLiveData(newItems: List<Game>) {
         items.clear()
-        items.addAll(newItems)
+
+        val aviso = newItems.find { it.homeLogo == "Aviso" }
+        val restantes = newItems.filter { it.homeLogo != "Aviso" }
+
+        if (aviso != null) items.add(aviso)
+        items.addAll(restantes)
 
         notifyDataSetChanged()
     }
@@ -70,7 +93,6 @@ class GameAdapter(
         val tvAway: TextView = v.findViewById(R.id.tvAwayName)
 
         val gameStatus: TextView = v.findViewById(R.id.gameStatus)
-
         val btnContainer: ViewGroup = v.findViewById(R.id.btnContainer)
     }
 
@@ -84,6 +106,35 @@ class GameAdapter(
         val view = LayoutInflater.from(parent.context)
             .inflate(layout, parent, false)
 
+        if (isTv) {
+            view.layoutParams = RecyclerView.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                view.layoutParams?.height ?: ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+
+            view.isFocusable = true
+            view.isFocusableInTouchMode = true
+
+            view.setOnFocusChangeListener { v, hasFocus ->
+                if (v is MaterialCardView) {
+                    v.strokeColor = ColorStateList.valueOf(
+                        if (hasFocus) focusBlue else normalStroke
+                    )
+                    v.strokeWidth = if (hasFocus) {
+                        (3 * v.resources.displayMetrics.density).toInt()
+                    } else {
+                        (1 * v.resources.displayMetrics.density).toInt()
+                    }
+
+                    v.cardElevation = if (hasFocus) {
+                        9f * v.resources.displayMetrics.density
+                    } else {
+                        5f * v.resources.displayMetrics.density
+                    }
+                }
+            }
+        }
+
         return VH(view)
     }
 
@@ -95,7 +146,6 @@ class GameAdapter(
 
     override fun onBindViewHolder(h: VH, position: Int) {
 
-        // Resetar visual do card antes de aplicar dados
         h.ivHome.visibility = View.VISIBLE
         h.ivAway.visibility = View.VISIBLE
         h.tvHome.visibility = View.VISIBLE
@@ -112,7 +162,6 @@ class GameAdapter(
         h.imgChamp.setImageDrawable(null)
         h.imgChamp.visibility = View.GONE
 
-        // Corrige margem caso tenha sido alterada no Aviso
         (h.imgChamp.layoutParams as? ViewGroup.MarginLayoutParams)?.apply {
             marginStart = 0
             topMargin = 0
@@ -123,7 +172,6 @@ class GameAdapter(
 
         val g = items[position]
 
-        // Estado padrão dos jogos
         h.tvChamp.isSingleLine = true
         h.tvChamp.maxLines = 1
         h.tvChamp.ellipsize = TextUtils.TruncateAt.END
@@ -134,7 +182,6 @@ class GameAdapter(
             h.tvChamp.layoutParams = lp
         }
 
-        // Detecta aviso especial
         val isAviso = g.homeLogo == "Aviso"
 
         if (isAviso) {
@@ -148,7 +195,6 @@ class GameAdapter(
 
             val d = h.itemView.resources.displayMetrics.density
 
-            // Ícone do aviso (emoji ou URL)
             val iconValue = g.championshipImageUrl.orEmpty()
             h.imgChamp.visibility = View.VISIBLE
 
@@ -159,19 +205,15 @@ class GameAdapter(
             } else {
                 h.imgChamp.setImageDrawable(null)
                 h.tvChamp.text = "$iconValue  ${g.championship.orEmpty()}"
-                h.tvChamp.setTextColor(
-                    android.graphics.Color.parseColor("#222222")
-                )
+                h.tvChamp.setTextColor(Color.parseColor("#222222"))
             }
 
-            // Alinhamento lateral do ícone
             (h.imgChamp.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
                 lp.marginStart = (-25 * d).toInt()
                 lp.topMargin = 0
                 h.imgChamp.layoutParams = lp
             }
 
-            // Texto multilinha
             h.tvChamp.isSingleLine = false
             h.tvChamp.maxLines = Int.MAX_VALUE
             h.tvChamp.ellipsize = null
@@ -186,7 +228,6 @@ class GameAdapter(
                 h.tvChamp.layoutParams = lp
             }
 
-            // Botões do aviso
             val btns: List<Any> =
                 (g.buttons as? List<*>)?.filterNotNull() ?: emptyList()
 
@@ -202,10 +243,9 @@ class GameAdapter(
 
                     val ctx = h.itemView.context
 
-                    val rippleColor =
-                        android.content.res.ColorStateList.valueOf(
-                            android.graphics.Color.parseColor("#22000000")
-                        )
+                    val rippleColor = ColorStateList.valueOf(
+                        Color.parseColor("#22000000")
+                    )
 
                     val content =
                         androidx.appcompat.content.res.AppCompatResources.getDrawable(
@@ -213,27 +253,22 @@ class GameAdapter(
                             R.drawable.bg_channel_button
                         )
 
-                    val mask =
-                        android.graphics.drawable.GradientDrawable().apply {
-                            shape =
-                                android.graphics.drawable.GradientDrawable.RECTANGLE
-                            cornerRadius = 12f * d
-                            setColor(android.graphics.Color.WHITE)
-                        }
+                    val mask = GradientDrawable().apply {
+                        shape = GradientDrawable.RECTANGLE
+                        cornerRadius = 12f * d
+                        setColor(Color.WHITE)
+                    }
 
-                    val ripple =
-                        android.graphics.drawable.RippleDrawable(
-                            rippleColor,
-                            content,
-                            mask
-                        )
+                    val ripple = android.graphics.drawable.RippleDrawable(
+                        rippleColor,
+                        content,
+                        mask
+                    )
 
                     val b = Button(ctx).apply {
                         text = title
                         setAllCaps(false)
-                        setTextColor(
-                            android.graphics.Color.parseColor("#222222")
-                        )
+                        setTextColor(Color.parseColor("#222222"))
                         textSize = 14f
                         background = ripple
                         includeFontPadding = false
@@ -256,7 +291,6 @@ class GameAdapter(
                             it.performHapticFeedback(
                                 android.view.HapticFeedbackConstants.VIRTUAL_KEY
                             )
-
                             openAvisoLink(it, title, link)
                         }
                     }
@@ -273,26 +307,27 @@ class GameAdapter(
                 }
             }
 
-            // Avisos não expandem como jogos
+            // O aviso não recebe foco nem clique na TV.
+            h.itemView.isFocusable = false
+            h.itemView.isFocusableInTouchMode = false
             h.itemView.setOnClickListener(null)
 
-            if (expandedPos == position) {
-                expandedPos = -1
-            }
+            if (expandedPos == position) expandedPos = -1
 
             return@onBindViewHolder
         }
 
-        // Campeonato
+        // Jogos normais
+        h.itemView.isFocusable = isTv
+        h.itemView.isFocusableInTouchMode = isTv
+
         val champName = g.championship.orEmpty()
 
         h.tvChamp.text = champName
         h.tvChamp.visibility =
             if (champName.isBlank()) View.GONE else View.VISIBLE
 
-        h.tvChamp.setTextColor(
-            android.graphics.Color.parseColor("#888B96")
-        )
+        h.tvChamp.setTextColor(Color.parseColor("#888B96"))
 
         val champLogo = g.championshipImageUrl
 
@@ -312,14 +347,13 @@ class GameAdapter(
             }
         }
 
-        // Times e hora
         h.tvHome.text = g.homeName.orEmpty()
         h.tvAway.text = g.awayName.orEmpty()
 
-        if (!g.liveScore.isNullOrEmpty()) {
-            h.tvTime.text = g.liveScore
+        h.tvTime.text = if (!g.liveScore.isNullOrEmpty()) {
+            g.liveScore
         } else {
-            h.tvTime.text = g.time.orEmpty()
+            g.time.orEmpty()
         }
 
         h.ivHome.load(g.homeLogo) {
@@ -334,7 +368,6 @@ class GameAdapter(
             error(android.R.drawable.ic_menu_report_image)
         }
 
-        // STATUS
         (h.gameStatus.getTag(R.id.tag_blink_anim)
             as? android.animation.ObjectAnimator)?.let {
             it.cancel()
@@ -350,37 +383,26 @@ class GameAdapter(
             !g.liveMinute.isNullOrEmpty() -> {
 
                 if (g.liveMinute.equals("encerrado", true)) {
-
                     h.gameStatus.text = "encerrado"
-                    h.gameStatus.setTextColor(
-                        android.graphics.Color.parseColor("#A5A5A5")
-                    )
+                    h.gameStatus.setTextColor(Color.parseColor("#A5A5A5"))
                     h.gameStatus.visibility = View.VISIBLE
                     h.gameStatus.alpha = 1f
-
                 } else {
-
                     h.gameStatus.text = "• ${g.liveMinute}"
-                    h.gameStatus.setTextColor(
-                        android.graphics.Color.parseColor("#FF3B30")
-                    )
+                    h.gameStatus.setTextColor(Color.parseColor("#FF3B30"))
                     h.gameStatus.visibility = View.VISIBLE
 
-                    val anim =
-                        android.animation.ObjectAnimator.ofFloat(
-                            h.gameStatus,
-                            View.ALPHA,
-                            1f,
-                            0.3f
-                        ).apply {
-                            duration = 500
-                            repeatMode =
-                                android.animation.ValueAnimator.REVERSE
-                            repeatCount =
-                                android.animation.ValueAnimator.INFINITE
-                            interpolator =
-                                android.view.animation.LinearInterpolator()
-                        }
+                    val anim = android.animation.ObjectAnimator.ofFloat(
+                        h.gameStatus,
+                        View.ALPHA,
+                        1f,
+                        0.3f
+                    ).apply {
+                        duration = 500
+                        repeatMode = android.animation.ValueAnimator.REVERSE
+                        repeatCount = android.animation.ValueAnimator.INFINITE
+                        interpolator = android.view.animation.LinearInterpolator()
+                    }
 
                     h.gameStatus.setTag(R.id.tag_blink_anim, anim)
                     anim.start()
@@ -388,39 +410,29 @@ class GameAdapter(
             }
 
             g.isLive == true -> {
-
                 h.gameStatus.text = "ao vivo"
-                h.gameStatus.setTextColor(
-                    android.graphics.Color.parseColor("#FF3B30")
-                )
+                h.gameStatus.setTextColor(Color.parseColor("#FF3B30"))
                 h.gameStatus.visibility = View.VISIBLE
 
-                val anim =
-                    android.animation.ObjectAnimator.ofFloat(
-                        h.gameStatus,
-                        View.ALPHA,
-                        1f,
-                        0.3f
-                    ).apply {
-                        duration = 500
-                        repeatMode =
-                            android.animation.ValueAnimator.REVERSE
-                        repeatCount =
-                            android.animation.ValueAnimator.INFINITE
-                        interpolator =
-                            android.view.animation.LinearInterpolator()
-                    }
+                val anim = android.animation.ObjectAnimator.ofFloat(
+                    h.gameStatus,
+                    View.ALPHA,
+                    1f,
+                    0.3f
+                ).apply {
+                    duration = 500
+                    repeatMode = android.animation.ValueAnimator.REVERSE
+                    repeatCount = android.animation.ValueAnimator.INFINITE
+                    interpolator = android.view.animation.LinearInterpolator()
+                }
 
                 h.gameStatus.setTag(R.id.tag_blink_anim, anim)
                 anim.start()
             }
 
             g.isFinished == true -> {
-
                 h.gameStatus.text = "encerrado"
-                h.gameStatus.setTextColor(
-                    android.graphics.Color.parseColor("#A5A5A5")
-                )
+                h.gameStatus.setTextColor(Color.parseColor("#A5A5A5"))
                 h.gameStatus.visibility = View.VISIBLE
                 h.gameStatus.alpha = 1f
             }
@@ -431,14 +443,11 @@ class GameAdapter(
             }
         }
 
-        // Botões dos canais
         val btns: List<Any> =
             (g.buttons as? List<*>)?.filterNotNull() ?: emptyList()
 
         val hasButtons = btns.isNotEmpty()
 
-        // Na TV os botões ficam escondidos.
-        // No celular continua a expansão normal.
         val isExpanded =
             !isTv && (position == expandedPos) && hasButtons
 
@@ -458,11 +467,9 @@ class GameAdapter(
 
                 val ctx = h.itemView.context
 
-                // Ripple
-                val rippleColor =
-                    android.content.res.ColorStateList.valueOf(
-                        android.graphics.Color.parseColor("#22000000")
-                    )
+                val rippleColor = ColorStateList.valueOf(
+                    Color.parseColor("#22000000")
+                )
 
                 val content =
                     androidx.appcompat.content.res.AppCompatResources.getDrawable(
@@ -470,30 +477,22 @@ class GameAdapter(
                         R.drawable.bg_channel_button
                     )
 
-                val mask =
-                    android.graphics.drawable.GradientDrawable().apply {
-                        shape =
-                            android.graphics.drawable.GradientDrawable.RECTANGLE
-                        cornerRadius = 12f * d
-                        setColor(android.graphics.Color.WHITE)
-                    }
+                val mask = GradientDrawable().apply {
+                    shape = GradientDrawable.RECTANGLE
+                    cornerRadius = 12f * d
+                    setColor(Color.WHITE)
+                }
 
-                val ripple =
-                    android.graphics.drawable.RippleDrawable(
-                        rippleColor,
-                        content,
-                        mask
-                    )
+                val ripple = android.graphics.drawable.RippleDrawable(
+                    rippleColor,
+                    content,
+                    mask
+                )
 
                 val b = Button(ctx).apply {
-
                     text = title
                     setAllCaps(false)
-
-                    setTextColor(
-                        android.graphics.Color.parseColor("#222222")
-                    )
-
+                    setTextColor(Color.parseColor("#222222"))
                     textSize = 14f
                     background = ripple
                     stateListAnimator = null
@@ -515,7 +514,6 @@ class GameAdapter(
                     )
 
                     setOnClickListener { v ->
-
                         v.performHapticFeedback(
                             android.view.HapticFeedbackConstants.VIRTUAL_KEY
                         )
@@ -548,12 +546,8 @@ class GameAdapter(
                     }
                 }
 
-                // LayoutParams compatível com FlexboxLayout ou LinearLayout
                 val lp: ViewGroup.MarginLayoutParams =
-                    if (
-                        h.btnContainer is
-                        com.google.android.flexbox.FlexboxLayout
-                    ) {
+                    if (h.btnContainer is com.google.android.flexbox.FlexboxLayout) {
                         com.google.android.flexbox.FlexboxLayout.LayoutParams(
                             ViewGroup.LayoutParams.WRAP_CONTENT,
                             ViewGroup.LayoutParams.WRAP_CONTENT
@@ -575,12 +569,7 @@ class GameAdapter(
             }
         }
 
-        // CLIQUE NO CARD
         h.itemView.setOnClickListener {
-
-            if (g.homeLogo == "Aviso") {
-                return@setOnClickListener
-            }
 
             val current = h.bindingAdapterPosition
 
@@ -590,7 +579,6 @@ class GameAdapter(
 
             if (isTv) {
 
-                // TV: abre diretamente o primeiro canal
                 val firstButton = btns.firstOrNull()
 
                 if (firstButton == null) {
@@ -599,7 +587,6 @@ class GameAdapter(
                         "Nenhum canal disponível.",
                         Toast.LENGTH_SHORT
                     ).show()
-
                     return@setOnClickListener
                 }
 
@@ -612,20 +599,13 @@ class GameAdapter(
                         "Link do primeiro canal indisponível.",
                         Toast.LENGTH_SHORT
                     ).show()
-
                     return@setOnClickListener
                 }
 
-                openLink(
-                    h.itemView,
-                    title,
-                    link,
-                    captureM3u8
-                )
+                openLink(h.itemView, title, link, captureM3u8)
 
             } else {
 
-                // Celular: mantém expansão e fechamento dos canais
                 val prev = expandedPos
 
                 if (prev == current) {
@@ -634,9 +614,7 @@ class GameAdapter(
                 } else {
                     expandedPos = current
 
-                    if (prev != -1) {
-                        notifyItemChanged(prev)
-                    }
+                    if (prev != -1) notifyItemChanged(prev)
 
                     notifyItemChanged(current)
                 }
@@ -644,7 +622,17 @@ class GameAdapter(
         }
     }
 
-    // Busca configuração de anúncios remota
+    override fun onViewAttachedToWindow(holder: VH) {
+        super.onViewAttachedToWindow(holder)
+
+        if (isTv && pendingInitialFocus && !isNoticeAt(holder.bindingAdapterPosition)) {
+            pendingInitialFocus = false
+            holder.itemView.post {
+                holder.itemView.requestFocus()
+            }
+        }
+    }
+
     private fun fetchAdsConfig() {
         if (adsConfigLoaded) return
 
@@ -657,15 +645,12 @@ class GameAdapter(
                 )
 
                 val json = url.readText(Charsets.UTF_8)
-                val obj = org.json.JSONObject(json)
+                val obj = JSONObject(json)
 
                 val ativo = obj.optString("ativo", "sim")
 
-                monetagEnabledRemote =
-                    ativo.equals("sim", ignoreCase = true)
-
-                monetagLinkRemote =
-                    obj.optString("link", monetagLinkRemote)
+                monetagEnabledRemote = ativo.equals("sim", ignoreCase = true)
+                monetagLinkRemote = obj.optString("link", monetagLinkRemote)
 
                 android.util.Log.d(
                     "FutaniumAds",
@@ -674,7 +659,6 @@ class GameAdapter(
 
             } catch (e: Exception) {
                 e.printStackTrace()
-
                 android.util.Log.e(
                     "FutaniumAds",
                     "Falha ao carregar ads.json: ${e.message}"
@@ -683,7 +667,6 @@ class GameAdapter(
         }.start()
     }
 
-    // Abre link de aviso sem Monetag
     private fun openAvisoLink(
         view: View,
         title: String?,
@@ -693,27 +676,12 @@ class GameAdapter(
 
         try {
             if (link.startsWith("f:", ignoreCase = true)) {
-
                 val real = link.removePrefix("f:")
-                val intent = Intent(
-                    Intent.ACTION_VIEW,
-                    Uri.parse(real)
-                )
-
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(real))
                 ctx.startActivity(intent)
-
             } else {
-
-                val it = Intent(
-                    ctx,
-                    com.futanium.box.WebViewActivity::class.java
-                )
-
-                it.putExtra(
-                    com.futanium.box.WebViewActivity.EXTRA_URL,
-                    link
-                )
-
+                val it = Intent(ctx, com.futanium.box.WebViewActivity::class.java)
+                it.putExtra(com.futanium.box.WebViewActivity.EXTRA_URL, link)
                 ctx.startActivity(it)
             }
 
@@ -726,7 +694,6 @@ class GameAdapter(
         }
     }
 
-    /** Extrai título, link e captureM3u8 de um botão da API */
     private fun extractTitleAndLink(
         anyBtn: Any,
         index: Int
@@ -747,21 +714,13 @@ class GameAdapter(
             is Map<*, *> -> {
                 rawName = anyBtn["name"]?.toString()
                 rawUrl = anyBtn["url"]?.toString()
-
-                captureM3u8 =
-                    anyBtn["captureM3u8"]
-                        ?.toString()
-                        ?.toBoolean() ?: false
+                captureM3u8 = anyBtn["captureM3u8"]?.toString()?.toBoolean() ?: false
             }
 
             is JSONObject -> {
                 rawName = anyBtn.optString("name", null)
                 rawUrl = anyBtn.optString("url", null)
-
-                captureM3u8 = anyBtn.optBoolean(
-                    "captureM3u8",
-                    false
-                )
+                captureM3u8 = anyBtn.optBoolean("captureM3u8", false)
             }
 
             else -> {
@@ -772,28 +731,17 @@ class GameAdapter(
         var title = rawName?.trim().orEmpty()
         var link = rawUrl?.trim().orEmpty()
 
-        // Se vier "Canal 1 go:xxx", separa
         Regex("""\s+(go:\S+)\s*$""").find(title)?.let { m ->
             link = m.groupValues[1]
             title = title.removeRange(m.range).trim()
         }
 
-        if (title.isBlank()) {
-            title = "Canal ${index + 1}"
-        }
+        if (title.isBlank()) title = "Canal ${index + 1}"
+        if (link.isBlank()) link = rawUrl?.takeIf { it.isNotBlank() } ?: "#"
 
-        if (link.isBlank()) {
-            link = rawUrl?.takeIf { it.isNotBlank() } ?: "#"
-        }
-
-        return Triple(
-            title,
-            link,
-            captureM3u8
-        )
+        return Triple(title, link, captureM3u8)
     }
 
-    // Abre o canal, bloqueia múltiplos cliques e mostra anúncio
     private var lastClickTime = 0L
 
     private fun openLink(
@@ -806,22 +754,15 @@ class GameAdapter(
         val u = link.trim()
 
         try {
-            // Bloqueia cliques múltiplos por 3 segundos
             val now = System.currentTimeMillis()
 
             if (now - lastClickTime < 3000) {
-                Toast.makeText(
-                    ctx,
-                    "Aguarde um momento...",
-                    Toast.LENGTH_SHORT
-                ).show()
-
+                Toast.makeText(ctx, "Aguarde um momento...", Toast.LENGTH_SHORT).show()
                 return
             }
 
             lastClickTime = now
 
-            // Decide se vai para Player ou WebView
             if (u.startsWith("http", ignoreCase = true)) {
 
                 val mediaUrl = u.substringBefore("?")
@@ -836,107 +777,57 @@ class GameAdapter(
 
                 if (isDirectMedia && !captureM3u8) {
 
-                    // Abre PlayerActivity
-                    val it = Intent(
-                        ctx,
-                        com.futanium.box.PlayerActivity::class.java
-                    )
+                    val it = Intent(ctx, com.futanium.box.PlayerActivity::class.java)
 
-                    it.putExtra(
-                        com.futanium.box.PlayerActivity.EXTRA_URL,
-                        u
-                    )
-
-                    it.putExtra(
-                        com.futanium.box.PlayerActivity.EXTRA_TITLE,
-                        title ?: ""
-                    )
+                    it.putExtra(com.futanium.box.PlayerActivity.EXTRA_URL, u)
+                    it.putExtra(com.futanium.box.PlayerActivity.EXTRA_TITLE, title ?: "")
 
                     MainActivity.navigatingInsideApp = true
                     ctx.startActivity(it)
 
                 } else {
 
-                    // Abre WebViewActivity
-                    val it = Intent(
-                        ctx,
-                        com.futanium.box.WebViewActivity::class.java
-                    )
+                    val it = Intent(ctx, com.futanium.box.WebViewActivity::class.java)
 
-                    it.putExtra(
-                        com.futanium.box.WebViewActivity.EXTRA_URL,
-                        u
-                    )
-
-                    it.putExtra(
-                        "captureM3u8",
-                        captureM3u8
-                    )
+                    it.putExtra(com.futanium.box.WebViewActivity.EXTRA_URL, u)
+                    it.putExtra("captureM3u8", captureM3u8)
 
                     MainActivity.navigatingInsideApp = true
                     ctx.startActivity(it)
                 }
 
             } else {
-
-                val it = Intent(
-                    Intent.ACTION_VIEW,
-                    Uri.parse(u)
-                )
-
+                val it = Intent(Intent.ACTION_VIEW, Uri.parse(u))
                 ctx.startActivity(it)
             }
 
-            // Após 1 segundo, abre o anúncio Monetag
-            if (
-                monetagEnabledRemote &&
-                monetagLinkRemote.isNotBlank()
-            ) {
+            if (monetagEnabledRemote && monetagLinkRemote.isNotBlank()) {
                 view.postDelayed({
 
                     try {
-                        val customTabsIntent =
-                            CustomTabsIntent.Builder()
-                                .setShowTitle(true)
-                                .setUrlBarHidingEnabled(false)
-                                .setToolbarColor(
-                                    android.graphics.Color.parseColor("#202020")
-                                )
-                                .setColorScheme(
-                                    CustomTabsIntent.COLOR_SCHEME_DARK
-                                )
-                                .build()
+                        val customTabsIntent = CustomTabsIntent.Builder()
+                            .setShowTitle(true)
+                            .setUrlBarHidingEnabled(false)
+                            .setToolbarColor(Color.parseColor("#202020"))
+                            .setColorScheme(CustomTabsIntent.COLOR_SCHEME_DARK)
+                            .build()
 
-                        customTabsIntent.intent.addFlags(
-                            Intent.FLAG_ACTIVITY_NO_HISTORY
-                        )
+                        customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY)
+                        customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                        customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
 
-                        customTabsIntent.intent.addFlags(
-                            Intent.FLAG_ACTIVITY_CLEAR_TOP
-                        )
-
-                        customTabsIntent.intent.addFlags(
-                            Intent.FLAG_ACTIVITY_SINGLE_TOP
-                        )
-
-                        customTabsIntent.launchUrl(
-                            ctx,
-                            Uri.parse(monetagLinkRemote)
-                        )
+                        customTabsIntent.launchUrl(ctx, Uri.parse(monetagLinkRemote))
 
                         view.postDelayed({
-
                             Toast.makeText(
                                 ctx,
                                 "Esta é uma página de anúncio.\nFeche no X ou use o botão Voltar.",
                                 Toast.LENGTH_LONG
                             ).show()
-
                         }, 300)
 
                     } catch (e: Exception) {
                         e.printStackTrace()
-
                         Toast.makeText(
                             ctx,
                             "Não foi possível abrir o anúncio.",
@@ -949,17 +840,11 @@ class GameAdapter(
 
         } catch (e: Exception) {
             e.printStackTrace()
-
-            Toast.makeText(
-                ctx,
-                "Erro ao abrir o canal.",
-                Toast.LENGTH_SHORT
-            ).show()
+            Toast.makeText(ctx, "Erro ao abrir o canal.", Toast.LENGTH_SHORT).show()
         }
     }
 }
 
-/** Tipo forte opcional para botões */
 data class ButtonInfo(
     val name: String?,
     val url: String?,
