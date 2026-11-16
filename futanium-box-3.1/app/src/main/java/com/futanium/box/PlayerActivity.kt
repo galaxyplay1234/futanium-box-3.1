@@ -1,3 +1,4 @@
+
 package com.futanium.box
 
 import android.content.Intent
@@ -330,86 +331,6 @@ class PlayerActivity : AppCompatActivity() {
     private fun hideStatusBar() {
         insets.hide(WindowInsetsCompat.Type.statusBars())
         insets.isAppearanceLightNavigationBars = false
-    }
-
-    // =========================================================
-    // DETECÇÃO DE M3U8 ESCONDIDO EM TXT
-    // =========================================================
-
-    private suspend fun isTxtHls(
-        url: String,
-        referer: String?,
-        ua: String?,
-        cookie: String?,
-        origin: String?
-    ): Boolean = withContext(Dispatchers.IO) {
-
-        val requestBuilder = Request.Builder()
-            .url(url)
-            .header("Accept", "*/*")
-            .get()
-
-        if (!referer.isNullOrBlank()) {
-            requestBuilder.header("Referer", referer)
-        }
-
-        val effectiveOrigin = origin?.takeIf { it.isNotBlank() }
-            ?: referer?.let {
-                val refUri = Uri.parse(it)
-                val scheme = refUri.scheme
-                val host = refUri.host
-
-                if (!scheme.isNullOrBlank() && !host.isNullOrBlank()) {
-                    "$scheme://$host"
-                } else {
-                    null
-                }
-            }
-
-        if (!effectiveOrigin.isNullOrBlank()) {
-            requestBuilder.header("Origin", effectiveOrigin)
-        }
-
-        if (!ua.isNullOrBlank()) {
-            requestBuilder.header("User-Agent", ua)
-        }
-
-        if (!cookie.isNullOrBlank()) {
-            requestBuilder.header("Cookie", cookie)
-        }
-
-        val request = requestBuilder.build()
-
-        httpClient.newCall(request).execute().use { response ->
-
-            if (!response.isSuccessful) {
-                Log.w(
-                    TAG,
-                    "Verificação TXT falhou: HTTP ${response.code}"
-                )
-                return@withContext false
-            }
-
-            // Lê apenas os primeiros 64 KB sem consumir o corpo
-            // que será solicitado posteriormente pelo Media3.
-            val content = response.peekBody(64 * 1024)
-                .string()
-                .removePrefix("\uFEFF")
-                .trimStart()
-
-            val isHls = content.startsWith("#EXTM3U")
-
-            Log.i(
-                TAG,
-                if (isHls) {
-                    "TXT identificado como playlist M3U8"
-                } else {
-                    "TXT não contém uma playlist M3U8"
-                }
-            )
-
-            isHls
-        }
     }
 
     // =========================================================
@@ -850,52 +771,11 @@ class PlayerActivity : AppCompatActivity() {
 
             val path = Uri.parse(url).path?.lowercase().orEmpty()
 
-            var txtIsHls = false
-
-            // -------------------------------------------------
-            // TXT: VERIFICA SE O CONTEÚDO É UMA PLAYLIST M3U8
-            // -------------------------------------------------
-
-            if (path.endsWith(".txt")) {
-
-                Log.i(TAG, "Verificando conteúdo do endereço TXT")
-
-                txtIsHls = try {
-                    isTxtHls(
-                        url,
-                        referer,
-                        ua,
-                        cookie,
-                        origin
-                    )
-                } catch (e: Exception) {
-                    Log.e(
-                        TAG,
-                        "Erro ao identificar formato TXT",
-                        e
-                    )
-                    false
-                }
-
-                if (!txtIsHls) {
-
-                    if (!isFinishing && !isDestroyed) {
-                        Toast.makeText(
-                            this@PlayerActivity,
-                            "O arquivo TXT não contém uma playlist M3U8.",
-                            Toast.LENGTH_LONG
-                        ).show()
-                    }
-
-                    return@launch
-                }
-            }
-
             val itemBuilder = MediaItem.Builder()
                 .setUri(Uri.parse(url))
 
             // -------------------------------------------------
-            // FORMATO REAL DO CONTEÚDO
+            // IDENTIFICAÇÃO DO FORMATO
             // -------------------------------------------------
 
             when {
@@ -904,13 +784,13 @@ class PlayerActivity : AppCompatActivity() {
                     itemBuilder.setMimeType(MimeTypes.APPLICATION_MPD)
                 }
 
-                path.endsWith(".m3u8") || txtIsHls -> {
+                path.endsWith(".m3u8") || path.endsWith(".txt") -> {
                     itemBuilder.setMimeType(MimeTypes.APPLICATION_M3U8)
 
                     Log.i(
                         TAG,
-                        if (txtIsHls) {
-                            "TXT reconhecido como HLS/M3U8"
+                        if (path.endsWith(".txt")) {
+                            "Arquivo TXT tratado diretamente como HLS/M3U8"
                         } else {
                             "M3U8 tradicional identificado"
                         }
