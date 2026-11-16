@@ -181,6 +181,24 @@ class MainActivity : AppCompatActivity() {
 
         adapter.isTv = isTvDevice
 
+      // =====================================================
+// TEMA ESCURO SOMENTE NA TV
+// =====================================================
+
+if (isTvDevice) {
+
+    val backgroundColor =
+        Color.parseColor("#10131C")
+
+    window.decorView.setBackgroundColor(backgroundColor)
+
+    vb.root.setBackgroundColor(backgroundColor)
+
+    vb.swipe.setBackgroundColor(backgroundColor)
+
+    vb.rvGames.setBackgroundColor(backgroundColor)
+}
+
         ensureNotifPermission()
 
         FirebaseMessaging.getInstance()
@@ -469,13 +487,13 @@ class MainActivity : AppCompatActivity() {
                         adapter.isNoticeAt(position)
 
                     view.layoutParams =
-                        view.layoutParams.apply {
-                            height = if (isNotice) {
-                                dp(120)
-                            } else {
-                                dp(190)
-                            }
-                        }
+    view.layoutParams.apply {
+        height = if (isNotice) {
+            dp(175)
+        } else {
+            dp(145)
+        }
+    }
 
                     // O aviso não recebe foco como card.
                     // Os botões internos recebem o foco.
