@@ -243,6 +243,7 @@ class MainActivity : AppCompatActivity() {
 // =====================================================
 
 vb.todayRail.bringToFront()
+vb.todayRail.elevation = dp(8).toFloat()
 
 if (isTvDevice) {
 
@@ -362,7 +363,7 @@ if (isTvDevice) {
                 vb.rvGames.paddingBottom
             )
 
-            vb.rvGames.clipToPadding = false
+            vb.rvGames.clipToPadding = true
 
             vb.rvGames.addItemDecoration(
                 object : RecyclerView.ItemDecoration() {
@@ -519,7 +520,7 @@ if (isTvDevice) {
                     view.layoutParams =
                         view.layoutParams.apply {
                             height = if (isNotice) {
-    dp(105)
+    dp(90)
 } else {
     dp(130)
 }
@@ -610,7 +611,7 @@ if (isTvDevice) {
             bottomSpace
         )
 
-        vb.rvGames.clipToPadding = false
+        vb.rvGames.clipToPadding = true
 
         // =====================================================
         // ATUALIZAÇÃO POR GESTO
