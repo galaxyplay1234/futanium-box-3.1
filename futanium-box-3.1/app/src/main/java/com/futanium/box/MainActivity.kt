@@ -243,7 +243,7 @@ class MainActivity : AppCompatActivity() {
 // =====================================================
 
 vb.todayRail.bringToFront()
-vb.todayRail.elevation = dp(8).toFloat()
+
 
 if (isTvDevice) {
 
