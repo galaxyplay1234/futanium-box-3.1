@@ -533,13 +533,15 @@ view.setOnKeyListener { v, key, ev ->
         }
     }
 
-    false
+        false
 }
 
-                override fun onChildViewDetachedFromWindow(view: View) {
-                    // Nada a fazer
-                }
-            }
+// FECHA onChildViewAttachedToWindow
+}
+
+override fun onChildViewDetachedFromWindow(view: View) {
+    // Nada a fazer
+}
         )
 
         // =====================================================
