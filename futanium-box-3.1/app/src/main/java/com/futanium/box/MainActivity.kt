@@ -239,22 +239,17 @@ class MainActivity : AppCompatActivity() {
         vb.todayChipText.text =
             "Jogos de Hoje - ${df.format(java.util.Date())}"
 
-        // =====================================================
-// POSICIONAMENTO DA LISTA NA TV
-// =====================================================
-
-
-// POSICIONAMENTO DO AVISO - SOMENTE TV
+        // POSICIONAMENTO DA LISTA - SOMENTE TV
 if (isTvDevice) {
     val swipeParams = vb.swipe.layoutParams as FrameLayout.LayoutParams
-    swipeParams.topMargin = dp(52)
+    swipeParams.topMargin = vb.todayRail.layoutParams.height
     vb.swipe.layoutParams = swipeParams
 
     vb.rvGames.setPadding(
         vb.rvGames.paddingLeft,
         0,
         vb.rvGames.paddingRight,
-        dp(40)
+        0
     )
 
     vb.rvGames.clipToPadding = true
@@ -326,25 +321,28 @@ if (isTvDevice) {
             vb.rvGames.clipToPadding = true
 
             vb.rvGames.addItemDecoration(
-                object : RecyclerView.ItemDecoration() {
+    object : RecyclerView.ItemDecoration() {
 
-                    override fun getItemOffsets(
-                        outRect: Rect,
-                        view: View,
-                        parent: RecyclerView,
-                        state: RecyclerView.State
-                    ) {
-                        val halfSpacing = dp(cardSpacing) / 2
+        override fun getItemOffsets(
+            outRect: Rect,
+            view: View,
+            parent: RecyclerView,
+            state: RecyclerView.State
+        ) {
+            val halfSpacing = dp(cardSpacing) / 2
 
-                        outRect.set(
-                            halfSpacing,
-                            halfSpacing,
-                            halfSpacing,
-                            halfSpacing
-                        )
-                    }
-                }
+            val position = parent.getChildAdapterPosition(view)
+            val isLastCard = position == state.itemCount - 1
+
+            outRect.set(
+                halfSpacing,
+                halfSpacing,
+                halfSpacing,
+                halfSpacing + if (isLastCard) dp(40) else 0
             )
+        }
+    }
+)
         }
 
         vb.rvGames.adapter = adapter
@@ -558,21 +556,8 @@ if (isTvDevice) {
             }
         }
 
-        // =====================================================
-// =====================================================
-// ESPAÇO FINAL DA LISTA
-// =====================================================
 
-val bottomSpace = if (isTvDevice) dp(40) else dp(40)
 
-vb.rvGames.setPadding(
-    vb.rvGames.paddingLeft,
-    vb.rvGames.paddingTop,
-    vb.rvGames.paddingRight,
-    bottomSpace
-)
-
-vb.rvGames.clipToPadding = true
 
         // =====================================================
         // ATUALIZAÇÃO POR GESTO
