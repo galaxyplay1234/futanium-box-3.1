@@ -240,42 +240,30 @@ class MainActivity : AppCompatActivity() {
             "Jogos de Hoje - ${df.format(java.util.Date())}"
 
                 // =====================================================
-        // POSICIONAMENTO DA LISTA - SOMENTE TV
-        // =====================================================
+// POSICIONAMENTO DA LISTA - SOMENTE TV
+// =====================================================
 
-        if (isTvDevice) {
+if (isTvDevice) {
 
-            // Mantém o cabeçalho acima da lista
-            vb.todayRail.bringToFront()
+    vb.todayRail.bringToFront()
 
-            // Aguarda o layout calcular a posição real do cabeçalho
-            vb.root.post {
+    val params = vb.swipe.layoutParams as FrameLayout.LayoutParams
 
-                val topSpace = vb.todayRail.bottom + dp(4)
+    // A lista começa abaixo do cabeçalho de 52dp
+    params.topMargin = dp(52)
 
-                // Reserva espaço para o cabeçalho.
-                // Assim o primeiro card começa abaixo de "Jogos de Hoje".
-                vb.rvGames.setPadding(
-                    vb.rvGames.paddingLeft,
-                    topSpace,
-                    vb.rvGames.paddingRight,
-                    vb.rvGames.paddingBottom
-                )
+    vb.swipe.layoutParams = params
 
-                // Impede os cards de desenharem por cima da área reservada
-                vb.rvGames.clipToPadding = true
+    // Não reserva espaço superior dentro dos cards
+    vb.rvGames.setPadding(
+        vb.rvGames.paddingLeft,
+        0,
+        vb.rvGames.paddingRight,
+        vb.rvGames.paddingBottom
+    )
 
-                // Posiciona o indicador de atualização abaixo do cabeçalho
-                val start = vb.todayRail.bottom + dp(6)
-                val end = start + dp(44)
-
-                vb.swipe.setProgressViewOffset(
-                    true,
-                    start,
-                    end
-                )
-            }
-        }
+    vb.rvGames.clipToPadding = true
+}
 
         // =====================================================
         // LAYOUT DA LISTA
