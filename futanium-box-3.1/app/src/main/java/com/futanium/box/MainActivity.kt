@@ -189,13 +189,14 @@ class MainActivity : AppCompatActivity() {
 
         if (isTvDevice) {
 
-            val backgroundColor =
-                Color.parseColor("#E6E6E6")
+    val backgroundColor =
+        Color.parseColor("#D5D5D5")
 
-            vb.root.setBackgroundColor(backgroundColor)
-            vb.swipe.setBackgroundColor(backgroundColor)
-            vb.rvGames.setBackgroundColor(backgroundColor)
-        }
+    vb.root.setBackgroundColor(backgroundColor)
+    vb.swipe.setBackgroundColor(backgroundColor)
+    vb.rvGames.setBackgroundColor(backgroundColor)
+    vb.todayRail.setBackgroundColor(backgroundColor)
+}
 
         ensureNotifPermission()
 
