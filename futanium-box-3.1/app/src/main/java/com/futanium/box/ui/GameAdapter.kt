@@ -846,49 +846,49 @@ class GameAdapter(
     // =====================================================
 
     private fun createNoticeButtonBackground(
-        focused: Boolean,
-        density: Float
-    ): RippleDrawable {
+    focused: Boolean,
+    density: Float
+): RippleDrawable {
 
-        val shape = GradientDrawable().apply {
+    val drawable = GradientDrawable().apply {
 
-            shape = GradientDrawable.RECTANGLE
+        shape = GradientDrawable.RECTANGLE
 
-            cornerRadius = 10f * density
+        cornerRadius = 10f * density
 
-            setColor(buttonGray)
+        setColor(buttonGray)
 
-            setStroke(
-                if (focused) {
-                    (2 * density).toInt()
-                } else {
-                    (1 * density).toInt()
-                },
-                if (focused) {
-                    focusBlue
-                } else {
-                    Color.parseColor("#D3D6DA")
-                }
-            )
-        }
-
-        val mask = GradientDrawable().apply {
-
-            shape = GradientDrawable.RECTANGLE
-
-            cornerRadius = 10f * density
-
-            setColor(Color.WHITE)
-        }
-
-        return RippleDrawable(
-            ColorStateList.valueOf(
-                Color.parseColor("#33000000")
-            ),
-            shape,
-            mask
+        setStroke(
+            if (focused) {
+                (2 * density).toInt()
+            } else {
+                (1 * density).toInt()
+            },
+            if (focused) {
+                focusBlue
+            } else {
+                Color.parseColor("#D3D6DA")
+            }
         )
     }
+
+    val mask = GradientDrawable().apply {
+
+        shape = GradientDrawable.RECTANGLE
+
+        cornerRadius = 10f * density
+
+        setColor(Color.WHITE)
+    }
+
+    return RippleDrawable(
+        ColorStateList.valueOf(
+            Color.parseColor("#33000000")
+        ),
+        drawable,
+        mask
+    )
+}
 
     override fun onViewAttachedToWindow(holder: VH) {
 
