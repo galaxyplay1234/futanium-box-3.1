@@ -242,42 +242,17 @@ class MainActivity : AppCompatActivity() {
 // POSICIONAMENTO DA LISTA NA TV
 // =====================================================
 
-// =====================================================
+
 // POSICIONAMENTO DO AVISO - SOMENTE TV
-// =====================================================
-
 if (isTvDevice) {
+    vb.rvGames.setPadding(
+        vb.rvGames.paddingLeft,
+        dp(64),
+        vb.rvGames.paddingRight,
+        vb.rvGames.paddingBottom
+    )
 
-    vb.todayRail.bringToFront()
-
-    vb.rvGames.post {
-
-        val railLocation = IntArray(2)
-        val listLocation = IntArray(2)
-
-        vb.todayRail.getLocationInWindow(railLocation)
-        vb.rvGames.getLocationInWindow(listLocation)
-
-        val topSpace = (
-            railLocation[1] +
-            vb.todayRail.height -
-            listLocation[1] +
-            dp(12)
-        ).coerceAtLeast(dp(12))
-
-        vb.rvGames.setPadding(
-            vb.rvGames.paddingLeft,
-            topSpace,
-            vb.rvGames.paddingRight,
-            vb.rvGames.paddingBottom
-        )
-
-        vb.swipe.setProgressViewOffset(
-            true,
-            topSpace + dp(6),
-            topSpace + dp(50)
-        )
-    }
+    vb.rvGames.clipToPadding = true
 }
 
         // =====================================================
@@ -579,19 +554,19 @@ if (isTvDevice) {
         }
 
         // =====================================================
-        // ESPAÇO FINAL DA LISTA
-        // =====================================================
+// ESPAÇO FINAL DA LISTA
+// =====================================================
 
-        val bottomSpace = dp(40)
+val bottomSpace = if (isTvDevice) 0 else dp(40)
 
-        vb.rvGames.setPadding(
-            vb.rvGames.paddingLeft,
-            vb.rvGames.paddingTop,
-            vb.rvGames.paddingRight,
-            bottomSpace
-        )
+vb.rvGames.setPadding(
+    vb.rvGames.paddingLeft,
+    vb.rvGames.paddingTop,
+    vb.rvGames.paddingRight,
+    bottomSpace
+)
 
-        vb.rvGames.clipToPadding = true
+vb.rvGames.clipToPadding = true
 
         // =====================================================
         // ATUALIZAÇÃO POR GESTO
