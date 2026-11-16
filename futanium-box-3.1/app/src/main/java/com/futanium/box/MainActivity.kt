@@ -242,63 +242,43 @@ class MainActivity : AppCompatActivity() {
 // POSICIONAMENTO DA LISTA NA TV
 // =====================================================
 
-vb.todayRail.bringToFront()
-
+// =====================================================
+// POSICIONAMENTO DO AVISO - SOMENTE TV
+// =====================================================
 
 if (isTvDevice) {
 
+    vb.todayRail.bringToFront()
+
     vb.rvGames.post {
+
+        val railLocation = IntArray(2)
+        val listLocation = IntArray(2)
+
+        vb.todayRail.getLocationInWindow(railLocation)
+        vb.rvGames.getLocationInWindow(listLocation)
+
+        val topSpace = (
+            railLocation[1] +
+            vb.todayRail.height -
+            listLocation[1] +
+            dp(12)
+        ).coerceAtLeast(dp(12))
 
         vb.rvGames.setPadding(
             vb.rvGames.paddingLeft,
-            dp(64),
+            topSpace,
             vb.rvGames.paddingRight,
             vb.rvGames.paddingBottom
         )
 
         vb.swipe.setProgressViewOffset(
             true,
-            dp(70),
-            dp(114)
+            topSpace + dp(6),
+            topSpace + dp(50)
         )
     }
 }
-
-        // =====================================================
-        // ESPAÇO SUPERIOR DA LISTA
-        // =====================================================
-
-        vb.root.post {
-
-            val railLocation = IntArray(2)
-            val listLocation = IntArray(2)
-
-            vb.todayRail.getLocationInWindow(railLocation)
-            vb.rvGames.getLocationInWindow(listLocation)
-
-            val topSpace = (
-                railLocation[1] +
-                vb.todayRail.height -
-                listLocation[1] +
-                dp(12)
-            ).coerceAtLeast(dp(12))
-
-            vb.rvGames.setPadding(
-                vb.rvGames.paddingLeft,
-                topSpace,
-                vb.rvGames.paddingRight,
-                vb.rvGames.paddingBottom
-            )
-
-            val start = topSpace + dp(6)
-            val end = start + dp(44)
-
-            vb.swipe.setProgressViewOffset(
-                true,
-                start,
-                end
-            )
-        }
 
         // =====================================================
         // LAYOUT DA LISTA
