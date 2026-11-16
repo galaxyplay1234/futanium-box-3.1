@@ -245,11 +245,15 @@ class MainActivity : AppCompatActivity() {
 
 // POSICIONAMENTO DO AVISO - SOMENTE TV
 if (isTvDevice) {
+    val swipeParams = vb.swipe.layoutParams as FrameLayout.LayoutParams
+    swipeParams.topMargin = dp(52)
+    vb.swipe.layoutParams = swipeParams
+
     vb.rvGames.setPadding(
         vb.rvGames.paddingLeft,
-        dp(64),
+        0,
         vb.rvGames.paddingRight,
-        vb.rvGames.paddingBottom
+        dp(40)
     )
 
     vb.rvGames.clipToPadding = true
