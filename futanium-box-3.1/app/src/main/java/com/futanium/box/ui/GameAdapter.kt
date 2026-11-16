@@ -333,10 +333,15 @@ class GameAdapter(
                         isFocusableInTouchMode = isTv
 
                         if (isTv) {
-                            setBackground(
-                                createNoticeButtonBackground(false, d)
-                            )
-                        } else {
+
+    setBackground(
+        createNoticeButtonBackground(false, d)
+    )
+
+    // Remove a tonalidade padrão do Button
+    backgroundTintList = null
+
+} else {
                             background =
                                 androidx.appcompat.content.res.AppCompatResources.getDrawable(
                                     ctx,
