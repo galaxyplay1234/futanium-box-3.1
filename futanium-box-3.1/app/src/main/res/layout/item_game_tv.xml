@@ -61,6 +61,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginTop="5dp"
+            android:layout_marginBottom="8dp"
             android:text="Mandante"
             android:textColor="#222222"
             android:textSize="15sp"
@@ -76,7 +77,6 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toStartOf="@id/tvTime"
             app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintBottom_margin="8dp"
             app:layout_constraintWidth_percent="0.40"/>
 
         <TextView
@@ -121,6 +121,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginTop="5dp"
+            android:layout_marginBottom="8dp"
             android:text="Visitante"
             android:textColor="#222222"
             android:textSize="15sp"
@@ -135,8 +136,7 @@
             app:layout_constraintTop_toBottomOf="@id/imgAway"
             app:layout_constraintStart_toEndOf="@id/tvTime"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintBottom_margin="8dp"/>
+            app:layout_constraintBottom_toBottomOf="parent"/>
 
         <com.google.android.flexbox.FlexboxLayout
             android:id="@+id/btnContainer"
