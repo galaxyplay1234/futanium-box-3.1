@@ -417,6 +417,7 @@ class MainActivity : AppCompatActivity() {
             applyCardWidthConstraint()
         }
 
+       
         // =====================================================
         // FOCO DOS CARDS NA TV
         // =====================================================
@@ -453,54 +454,63 @@ class MainActivity : AppCompatActivity() {
                                 view.layoutParams = this
                             }
                         }
+
+                        return
                     }
 
-                   
-if (isTvDevice) {
+                    val position =
+                        vb.rvGames.getChildAdapterPosition(view)
 
-    val position =
-        vb.rvGames.getChildAdapterPosition(view)
+                    if (position == RecyclerView.NO_POSITION) {
+                        return
+                    }
 
-    if (position != RecyclerView.NO_POSITION) {
+                    val isNotice =
+                        adapter.isNoticeAt(position)
 
-        val isNotice = adapter.isNoticeAt(position)
+                    view.layoutParams =
+                        view.layoutParams.apply {
+                            height = if (isNotice) {
+                                dp(120)
+                            } else {
+                                dp(190)
+                            }
+                        }
 
-        view.layoutParams =
-            view.layoutParams.apply {
-                height = if (isNotice) {
-                    dp(120)
-                } else {
-                    dp(190)
+                    // O aviso não recebe foco como card.
+                    // Os botões internos recebem o foco.
+                    view.isFocusable = !isNotice
+                    view.isFocusableInTouchMode = !isNotice
+
+                    if (isNotice) {
+                        view.setOnKeyListener(null)
+                        return
+                    }
+
+                    view.setOnKeyListener { v, key, ev ->
+
+                        if (ev.action != KeyEvent.ACTION_DOWN) {
+                            return@setOnKeyListener false
+                        }
+
+                        if (
+                            key == KeyEvent.KEYCODE_DPAD_CENTER ||
+                            key == KeyEvent.KEYCODE_ENTER
+                        ) {
+                            v.performClick()
+                            true
+                        } else {
+                            false
+                        }
+                    }
                 }
-            }
-    }
 
-    view.isFocusable = true
-    view.isFocusableInTouchMode = true
-
-    view.setOnKeyListener { v, key, ev ->
-
-        if (ev.action != KeyEvent.ACTION_DOWN) {
-            return@setOnKeyListener false
-        }
-
-        if (
-            key == KeyEvent.KEYCODE_DPAD_CENTER ||
-            key == KeyEvent.KEYCODE_ENTER
-        ) {
-            v.performClick()
-            true
-        } else {
-            false
-        }
-    }
-}
-}
                 override fun onChildViewDetachedFromWindow(view: View) {
                     // Nada a fazer
                 }
             }
         )
+
 
         // =====================================================
         // ABRIR LINKS
