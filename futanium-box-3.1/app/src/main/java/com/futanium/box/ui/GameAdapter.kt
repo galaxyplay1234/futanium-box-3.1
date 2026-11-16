@@ -645,7 +645,7 @@ class GameAdapter(
             btns.isNotEmpty()
 
         val isExpanded =
-            !isTv && position == expandedPos && hasButtons
+    position == expandedPos && hasButtons
 
         h.btnContainer.visibility =
             if (isExpanded) View.VISIBLE else View.GONE
@@ -777,72 +777,32 @@ class GameAdapter(
             }
         }
 
-        h.itemView.setOnClickListener {
+        hh.itemView.setOnClickListener {
 
-            val current =
-                h.bindingAdapterPosition
+    val current = h.bindingAdapterPosition
 
-            if (current == RecyclerView.NO_POSITION) {
-                return@setOnClickListener
-            }
+    if (current == RecyclerView.NO_POSITION) {
+        return@setOnClickListener
+    }
 
-            if (isTv) {
+    val prev = expandedPos
 
-                val firstButton =
-                    btns.firstOrNull()
+    if (prev == current) {
 
-                if (firstButton == null) {
+        expandedPos = -1
+        notifyItemChanged(current)
 
-                    Toast.makeText(
-                        h.itemView.context,
-                        "Nenhum canal disponível.",
-                        Toast.LENGTH_SHORT
-                    ).show()
+    } else {
 
-                    return@setOnClickListener
-                }
+        expandedPos = current
 
-                val (title, link, captureM3u8) =
-                    extractTitleAndLink(firstButton, 0)
+        if (prev != -1) {
+            notifyItemChanged(prev)
+        }
 
-                if (link.isBlank() || link == "#") {
-
-                    Toast.makeText(
-                        h.itemView.context,
-                        "Link do primeiro canal indisponível.",
-                        Toast.LENGTH_SHORT
-                    ).show()
-
-                    return@setOnClickListener
-                }
-
-                openLink(
-                    h.itemView,
-                    title,
-                    link,
-                    captureM3u8
-                )
-
-            } else {
-
-                val prev = expandedPos
-
-                if (prev == current) {
-
-                    expandedPos = -1
-                    notifyItemChanged(current)
-
-                } else {
-
-                    expandedPos = current
-
-                    if (prev != -1) {
-                        notifyItemChanged(prev)
-                    }
-
-                    notifyItemChanged(current)
-                }
-            }
+        notifyItemChanged(current)
+    }
+}
         }
     }
 
