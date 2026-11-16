@@ -496,10 +496,11 @@ if (isTvDevice) {
         }
     }
 }
+}
                 override fun onChildViewDetachedFromWindow(view: View) {
                     // Nada a fazer
                 }
-
+            }
         )
 
         // =====================================================
