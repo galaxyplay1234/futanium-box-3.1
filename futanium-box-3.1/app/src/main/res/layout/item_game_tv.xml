@@ -1,0 +1,142 @@
+
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="380dp"
+    android:layout_height="190dp"
+    android:layout_margin="12dp"
+    android:focusable="true"
+    android:focusableInTouchMode="true"
+    android:clickable="true"
+    android:backgroundTint="@android:color/white"
+    app:cardCornerRadius="18dp"
+    app:cardElevation="5dp"
+    app:strokeColor="#DDDDDD"
+    app:strokeWidth="1dp">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:padding="16dp">
+
+        <ImageView
+            android:id="@+id/imgChamp"
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:scaleType="fitCenter"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"/>
+
+        <TextView
+            android:id="@+id/tvChamp"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:text="Campeonato"
+            android:textColor="#555555"
+            android:textSize="14sp"
+            android:fontFamily="sans-serif-medium"
+            android:maxLines="1"
+            android:ellipsize="end"
+            app:layout_constraintStart_toEndOf="@id/imgChamp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="@id/imgChamp"
+            app:layout_constraintBottom_toBottomOf="@id/imgChamp"/>
+
+        <ImageView
+            android:id="@+id/imgHome"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginTop="22dp"
+            android:scaleType="fitCenter"
+            app:layout_constraintTop_toBottomOf="@id/imgChamp"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/tvTime"/>
+
+        <TextView
+            android:id="@+id/tvHomeName"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Mandante"
+            android:textColor="#222222"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:maxLines="2"
+            android:ellipsize="end"
+            app:layout_constraintTop_toBottomOf="@id/imgHome"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/tvTime"
+            app:layout_constraintWidth_percent="0.38"/>
+
+        <TextView
+            android:id="@+id/tvTime"
+            android:layout_width="100dp"
+            android:layout_height="wrap_content"
+            android:text="21h30"
+            android:textSize="25sp"
+            android:textStyle="bold"
+            android:textColor="#171717"
+            android:gravity="center"
+            app:layout_constraintTop_toTopOf="@id/imgHome"
+            app:layout_constraintBottom_toBottomOf="@id/imgHome"
+            app:layout_constraintStart_toEndOf="@id/imgHome"
+            app:layout_constraintEnd_toStartOf="@id/imgAway"/>
+
+        <TextView
+            android:id="@+id/gameStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="AO VIVO"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:textColor="#E53935"
+            android:visibility="gone"
+            app:layout_constraintTop_toBottomOf="@id/tvTime"
+            app:layout_constraintStart_toStartOf="@id/tvTime"
+            app:layout_constraintEnd_toEndOf="@id/tvTime"/>
+
+        <ImageView
+            android:id="@+id/imgAway"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="0dp"
+            android:scaleType="fitCenter"
+            app:layout_constraintTop_toTopOf="@id/imgHome"
+            app:layout_constraintStart_toEndOf="@id/tvTime"
+            app:layout_constraintEnd_toEndOf="parent"/>
+
+        <TextView
+            android:id="@+id/tvAwayName"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Visitante"
+            android:textColor="#222222"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:maxLines="2"
+            android:ellipsize="end"
+            app:layout_constraintTop_toBottomOf="@id/imgAway"
+            app:layout_constraintStart_toEndOf="@id/tvTime"
+            app:layout_constraintEnd_toEndOf="parent"/>
+
+        <com.google.android.flexbox.FlexboxLayout
+            android:id="@+id/btnContainer"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            app:flexDirection="row"
+            app:flexWrap="wrap"
+            app:justifyContent="flex_start"
+            app:alignItems="center"
+            app:layout_constraintTop_toBottomOf="@id/gameStatus"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+</com.google.android.material.card.MaterialCardView>
