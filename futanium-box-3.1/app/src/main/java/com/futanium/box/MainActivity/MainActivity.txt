@@ -57,6 +57,11 @@ import com.google.firebase.messaging.FirebaseMessaging
 
 class MainActivity : AppCompatActivity() {
 
+    companion object {
+        var navigatingInsideApp = false
+    }
+
+
     private lateinit var vb: ActivityMainBinding
     private val client = OkHttpClient()
     private val adapter = GameAdapter()
@@ -64,6 +69,9 @@ class MainActivity : AppCompatActivity() {
 		private var isOnlineActive = false
 
     private val API_URL = "https://futaniumwebapp.vercel.app/api/games"
+		private val LIVE_API_URL =
+"https://futanium-live.galaxyplay1234.workers.dev/"
+
 
     private var refreshItem: MenuItem? = null
     private var refreshView: AppCompatImageView? = null
@@ -76,6 +84,15 @@ class MainActivity : AppCompatActivity() {
 
     private var pendingApkUri: Uri? = null
     private var downloadingDialog: AlertDialog? = null
+
+		private val liveHandler = android.os.Handler(android.os.Looper.getMainLooper())
+
+private val liveRunnable = object : Runnable {
+    override fun run() {
+        refreshLiveOnly()
+        liveHandler.postDelayed(this, 30000)
+    }
+}
 
     private val unknownSourcesLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -362,17 +379,42 @@ val userData = hashMapOf<String, Any>(
 // 🔹 Atualiza registro
 installsRef.child(androidId).setValue(userData)
 
+liveHandler.postDelayed(liveRunnable, 30000)
+
+
     } // onCreate
 
    override fun onPause() {
     super.onPause()
+
     setOnlineStatus(false)
+
+    liveHandler.removeCallbacks(liveRunnable)
 }
 
 override fun onResume() {
     super.onResume()
-    if (!isOnlineActive) setOnlineStatus(true)
 
+    if (!isOnlineActive) {
+        setOnlineStatus(true)
+    }
+
+    liveHandler.removeCallbacks(liveRunnable)
+
+    if (navigatingInsideApp) {
+
+        // Atualiza somente placar/minuto ao voltar do player
+        refreshLiveOnly()
+
+    } else if (isOnline()) {
+
+        // Atualização completa apenas quando volta do segundo plano
+        refreshGamesSilent()
+    }
+
+    navigatingInsideApp = false
+
+    liveHandler.postDelayed(liveRunnable, 30000)
 }
    
 
@@ -433,6 +475,10 @@ override fun onResume() {
             return
         }
 
+      
+
+
+
         if (!vb.swipe.isRefreshing) vb.swipe.isRefreshing = true
 
         Thread {
@@ -441,7 +487,20 @@ override fun onResume() {
                 val res = client.newCall(req).execute()
                 val body = res.body?.string() ?: "[]"
 
-                val games = parseGames(body)
+						var liveBody: String? = null
+
+try {
+    val liveReq = Request.Builder()
+        .url(LIVE_API_URL)
+        .build()
+
+    val liveRes = client.newCall(liveReq).execute()
+
+    liveBody = liveRes.body?.string()
+} catch (_: Exception) {
+}
+
+                val games = parseGames(body, liveBody)
                 runOnUiThread {
                     (vb.rvGames.adapter as GameAdapter).submit(games)
 
@@ -469,6 +528,39 @@ if (!temAviso && !temJogo) {
             }
         }.start()
     }
+
+   private fun refreshGamesSilent() {
+    Thread {
+        try {
+            val req = Request.Builder().url(API_URL).build()
+            val res = client.newCall(req).execute()
+            val body = res.body?.string() ?: "[]"
+
+            var liveBody: String? = null
+
+            try {
+                val liveReq = Request.Builder()
+                    .url(LIVE_API_URL)
+                    .build()
+
+                val liveRes = client.newCall(liveReq).execute()
+                liveBody = liveRes.body?.string()
+            } catch (_: Exception) {
+            }
+
+            val games = parseGames(body, liveBody)
+
+            runOnUiThread {
+                adapter.submit(games)
+            }
+
+        } catch (_: Exception) {
+        }
+    }.start()
+}
+
+
+
 
     private fun checkAppUpdateExternal(metaUrl: String, showNoUpdateToast: Boolean = false) {
         Thread {
@@ -639,9 +731,111 @@ if (!temAviso && !temJogo) {
         d.show()
     }
 
-    private fun parseGames(json: String): List<Game> {
+		private fun teamMatches(appName: String?, liveName: String?): Boolean {
+    if (appName.isNullOrBlank() || liveName.isNullOrBlank()) return false
+
+    val a = appName.lowercase().trim()
+    val b = liveName.lowercase().trim()
+
+    return a.contains(b) || b.contains(a)
+}
+
+
+private fun refreshLiveOnly() {
+
+    Thread {
+
+        try {
+
+            val liveReq = Request.Builder()
+                .url(LIVE_API_URL)
+                .build()
+
+            val liveRes = client.newCall(liveReq).execute()
+
+            val liveBody = liveRes.body?.string() ?: return@Thread
+
+            val liveGames = mutableListOf<JSONObject>()
+
+            val liveObj = JSONObject(liveBody)
+            val liveArr = liveObj.optJSONArray("games")
+
+            if (liveArr != null) {
+                for (i in 0 until liveArr.length()) {
+                    liveGames.add(liveArr.getJSONObject(i))
+                }
+            }
+
+            val updatedGames = adapter.getCurrentGames().map { game ->
+
+    if (game.liveMinute.equals("encerrado", true)) {
+        return@map game
+    }
+
+    var score = game.liveScore
+    var minute = game.liveMinute
+
+    for (live in liveGames) {
+
+                    val liveHome = live.optString("home_team")
+                    val liveAway = live.optString("away_team")
+
+                    if (
+                        teamMatches(game.homeName, liveHome) &&
+                        teamMatches(game.awayName, liveAway)
+                    ) {
+
+                        score =
+                            "${live.optString("home_score")} x ${
+                                live.optString("away_score")
+                            }"
+
+                        minute = live.optString("minute")
+
+                        break
+                    }
+                }
+
+                game.copy(
+                    liveScore = score,
+                    liveMinute = minute
+                )
+            }
+
+            runOnUiThread {
+    adapter.updateLiveData(updatedGames)
+}
+
+
+        } catch (_: Exception) {
+        }
+
+    }.start()
+}
+
+
+    private fun parseGames(
+    json: String,
+    liveJson: String? = null
+): List<Game> {
         val arr = JSONArray(json)
         val list = ArrayList<Game>(arr.length())
+
+			val liveGames = mutableListOf<JSONObject>()
+
+if (!liveJson.isNullOrBlank()) {
+    try {
+        val liveObj = JSONObject(liveJson)
+        val liveArr = liveObj.optJSONArray("games")
+
+        if (liveArr != null) {
+            for (x in 0 until liveArr.length()) {
+                liveGames.add(liveArr.getJSONObject(x))
+            }
+        }
+    } catch (_: Exception) {
+    }
+}
 
         for (i in 0 until arr.length()) {
             val o = arr.optJSONObject(i) ?: continue
@@ -657,24 +851,52 @@ if (!temAviso && !temJogo) {
             val isLive               = o.optBoolean("is_live", false)
             val isFinished           = o.optBoolean("is_finished", false)
 
+				var liveScore: String? = null
+var liveMinute: String? = null
+
             val buttonsList: List<Any>? = o.optJSONArray("buttons")?.let { ja ->
                 val tmp = ArrayList<Any>(ja.length())
                 for (j in 0 until ja.length()) tmp += ja.get(j)
                 tmp
             }
 
+					for (live in liveGames) {
+
+    val liveHome = live.optString("home_team")
+    val liveAway = live.optString("away_team")
+
+    if (
+        teamMatches(homeTeam, liveHome) &&
+        teamMatches(visitingTeam, liveAway)
+    ) {
+
+        val hs = live.optString("home_score", "0")
+        val ascore = live.optString("away_score", "0")
+
+        liveScore = "$hs x $ascore"
+        liveMinute = live.optString("minute", "")
+
+        break
+    }
+}
+
+
             list += Game(
-                championship = championship,
-                championshipImageUrl = championshipImageUrl,
-                homeName = homeTeam,
-                homeLogo = homeLogo,
-                awayName = visitingTeam,
-                awayLogo = visitingLogo,
-                time = startTime,
-                isLive = isLive,
-                isFinished = isFinished,
-                buttons = buttonsList
-            )
+    championship = championship,
+    championshipImageUrl = championshipImageUrl,
+    homeName = homeTeam,
+    homeLogo = homeLogo,
+    awayName = visitingTeam,
+    awayLogo = visitingLogo,
+    time = startTime,
+    isLive = isLive,
+    isFinished = isFinished,
+
+    liveScore = liveScore,
+    liveMinute = liveMinute,
+
+    buttons = buttonsList
+)
         }
         return list
     }
