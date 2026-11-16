@@ -3,27 +3,29 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="190dp"
+    android:layout_height="160dp"
     android:layout_margin="0dp"
     android:focusable="true"
     android:focusableInTouchMode="true"
     android:clickable="true"
-    android:backgroundTint="@android:color/white"
+    android:backgroundTint="#FFFFFF"
     app:cardCornerRadius="18dp"
-    app:cardElevation="5dp"
+    app:cardElevation="4dp"
     app:strokeColor="#DDDDDD"
     app:strokeWidth="1dp">
-
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:padding="16dp">
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="8dp">
 
         <ImageView
             android:id="@+id/imgChamp"
-            android:layout_width="22dp"
-            android:layout_height="22dp"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
             android:scaleType="fitCenter"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"/>
@@ -32,10 +34,10 @@
             android:id="@+id/tvChamp"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
+            android:layout_marginStart="7dp"
             android:text="Campeonato"
             android:textColor="#555555"
-            android:textSize="14sp"
+            android:textSize="13sp"
             android:fontFamily="sans-serif-medium"
             android:maxLines="1"
             android:ellipsize="end"
@@ -46,9 +48,9 @@
 
         <ImageView
             android:id="@+id/imgHome"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_marginTop="22dp"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_marginTop="13dp"
             android:scaleType="fitCenter"
             app:layout_constraintTop_toBottomOf="@id/imgChamp"
             app:layout_constraintStart_toStartOf="parent"
@@ -58,39 +60,46 @@
             android:id="@+id/tvHomeName"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="5dp"
             android:text="Mandante"
             android:textColor="#222222"
             android:textSize="15sp"
             android:textStyle="bold"
             android:gravity="center"
-            android:maxLines="2"
+            android:maxLines="1"
             android:ellipsize="end"
+            android:autoSizeTextType="uniform"
+            android:autoSizeMinTextSize="10sp"
+            android:autoSizeMaxTextSize="15sp"
+            android:autoSizeStepGranularity="1sp"
             app:layout_constraintTop_toBottomOf="@id/imgHome"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toStartOf="@id/tvTime"
-            app:layout_constraintWidth_percent="0.38"/>
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintBottom_margin="8dp"
+            app:layout_constraintWidth_percent="0.40"/>
 
         <TextView
             android:id="@+id/tvTime"
-            android:layout_width="100dp"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:text="21h30"
-            android:textSize="25sp"
+            android:textSize="23sp"
             android:textStyle="bold"
             android:textColor="#171717"
             android:gravity="center"
             app:layout_constraintTop_toTopOf="@id/imgHome"
             app:layout_constraintBottom_toBottomOf="@id/imgHome"
             app:layout_constraintStart_toEndOf="@id/imgHome"
-            app:layout_constraintEnd_toStartOf="@id/imgAway"/>
+            app:layout_constraintEnd_toStartOf="@id/imgAway"
+            app:layout_constraintWidth_percent="0.32"/>
 
         <TextView
             android:id="@+id/gameStatus"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="AO VIVO"
-            android:textSize="12sp"
+            android:textSize="11sp"
             android:textStyle="bold"
             android:textColor="#E53935"
             android:visibility="gone"
@@ -100,9 +109,8 @@
 
         <ImageView
             android:id="@+id/imgAway"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_marginStart="0dp"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
             android:scaleType="fitCenter"
             app:layout_constraintTop_toTopOf="@id/imgHome"
             app:layout_constraintStart_toEndOf="@id/tvTime"
@@ -112,17 +120,23 @@
             android:id="@+id/tvAwayName"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="5dp"
             android:text="Visitante"
             android:textColor="#222222"
             android:textSize="15sp"
             android:textStyle="bold"
             android:gravity="center"
-            android:maxLines="2"
+            android:maxLines="1"
             android:ellipsize="end"
+            android:autoSizeTextType="uniform"
+            android:autoSizeMinTextSize="10sp"
+            android:autoSizeMaxTextSize="15sp"
+            android:autoSizeStepGranularity="1sp"
             app:layout_constraintTop_toBottomOf="@id/imgAway"
             app:layout_constraintStart_toEndOf="@id/tvTime"
-            app:layout_constraintEnd_toEndOf="parent"/>
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintBottom_margin="8dp"/>
 
         <com.google.android.flexbox.FlexboxLayout
             android:id="@+id/btnContainer"
@@ -135,7 +149,8 @@
             app:alignItems="center"
             app:layout_constraintTop_toBottomOf="@id/gameStatus"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"/>
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"/>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
