@@ -240,6 +240,17 @@ class MainActivity : AppCompatActivity() {
 
         vb.todayRail.bringToFront()
 
+if (isTvDevice) {
+    vb.rvGames.post {
+        vb.rvGames.setPadding(
+            vb.rvGames.paddingLeft,
+            vb.rvGames.paddingTop + dp(52),
+            vb.rvGames.paddingRight,
+            vb.rvGames.paddingBottom
+        )
+    }
+}
+
         // =====================================================
         // ESPAÇO SUPERIOR DA LISTA
         // =====================================================
