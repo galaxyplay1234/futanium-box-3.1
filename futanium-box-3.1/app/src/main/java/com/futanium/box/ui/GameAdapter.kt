@@ -777,7 +777,7 @@ class GameAdapter(
             }
         }
 
-        hh.itemView.setOnClickListener {
+        h.itemView.setOnClickListener {
 
     val current = h.bindingAdapterPosition
 
