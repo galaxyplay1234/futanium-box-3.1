@@ -240,29 +240,30 @@ class MainActivity : AppCompatActivity() {
             "Jogos de Hoje - ${df.format(java.util.Date())}"
 
                 // =====================================================
-// POSICIONAMENTO DA LISTA - SOMENTE TV
+// POSICIONAMENTO ORIGINAL DO CABEÇALHO
 // =====================================================
 
-if (isTvDevice) {
+vb.todayRail.bringToFront()
 
-    vb.todayRail.bringToFront()
+vb.root.post {
 
-    val params = vb.swipe.layoutParams as FrameLayout.LayoutParams
+    val topSpace = vb.todayRail.bottom + dp(4)
 
-    // A lista começa abaixo do cabeçalho de 52dp
-    params.topMargin = dp(52)
-
-    vb.swipe.layoutParams = params
-
-    // Não reserva espaço superior dentro dos cards
     vb.rvGames.setPadding(
         vb.rvGames.paddingLeft,
-        0,
+        topSpace,
         vb.rvGames.paddingRight,
         vb.rvGames.paddingBottom
     )
 
-    vb.rvGames.clipToPadding = true
+    val start = vb.todayRail.bottom + dp(6)
+    val end = start + dp(44)
+
+    vb.swipe.setProgressViewOffset(
+        true,
+        start,
+        end
+    )
 }
 
         // =====================================================
@@ -327,8 +328,6 @@ if (isTvDevice) {
                 dp(sideMargin),
                 vb.rvGames.paddingBottom
             )
-
-            vb.rvGames.clipToPadding = true
 
             vb.rvGames.addItemDecoration(
     object : RecyclerView.ItemDecoration() {
