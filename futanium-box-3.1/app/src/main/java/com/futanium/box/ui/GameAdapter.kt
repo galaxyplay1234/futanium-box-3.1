@@ -5,6 +5,8 @@ import android.net.Uri
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.RippleDrawable
+import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -40,63 +42,100 @@ class GameAdapter(
 
     private val focusBlue = Color.parseColor("#168BFF")
     private val normalStroke = Color.parseColor("#DDDDDD")
+    private val buttonGray = Color.parseColor("#E6E8EB")
+    private val buttonText = Color.parseColor("#333333")
+
+    private var pendingInitialFocus = false
 
     fun submit(newItems: List<Game>) {
+
         items.clear()
 
-        val aviso = newItems.find { it.homeLogo == "Aviso" }
-        val restantes = newItems.filter { it.homeLogo != "Aviso" }
+        val aviso = newItems.find {
+            it.homeLogo == "Aviso"
+        }
+
+        val restantes = newItems.filter {
+            it.homeLogo != "Aviso"
+        }
 
         if (aviso != null) items.add(aviso)
+
         items.addAll(restantes)
 
         expandedPos = -1
+
         notifyDataSetChanged()
 
         if (isTv) {
-            // Seleciona automaticamente o primeiro jogo, ignorando o aviso.
-            val firstGame = items.indexOfFirst { it.homeLogo != "Aviso" }
+            val firstGame = items.indexOfFirst {
+                it.homeLogo != "Aviso"
+            }
 
             if (firstGame >= 0) {
-                // O foco inicial será solicitado pelo RecyclerView após a montagem.
                 pendingInitialFocus = true
             }
         }
     }
-
-    private var pendingInitialFocus = false
 
     fun isNoticeAt(position: Int): Boolean {
         return items.getOrNull(position)?.homeLogo == "Aviso"
     }
 
     fun updateLiveData(newItems: List<Game>) {
+
         items.clear()
 
-        val aviso = newItems.find { it.homeLogo == "Aviso" }
-        val restantes = newItems.filter { it.homeLogo != "Aviso" }
+        val aviso = newItems.find {
+            it.homeLogo == "Aviso"
+        }
+
+        val restantes = newItems.filter {
+            it.homeLogo != "Aviso"
+        }
 
         if (aviso != null) items.add(aviso)
+
         items.addAll(restantes)
 
         notifyDataSetChanged()
     }
 
     inner class VH(v: View) : RecyclerView.ViewHolder(v) {
-        val imgChamp: ImageView = v.findViewById(R.id.imgChamp)
-        val tvChamp: TextView = v.findViewById(R.id.tvChamp)
 
-        val tvHome: TextView = v.findViewById(R.id.tvHomeName)
-        val ivHome: ImageView = v.findViewById(R.id.imgHome)
-        val tvTime: TextView = v.findViewById(R.id.tvTime)
-        val ivAway: ImageView = v.findViewById(R.id.imgAway)
-        val tvAway: TextView = v.findViewById(R.id.tvAwayName)
+        val imgChamp: ImageView =
+            v.findViewById(R.id.imgChamp)
 
-        val gameStatus: TextView = v.findViewById(R.id.gameStatus)
-        val btnContainer: ViewGroup = v.findViewById(R.id.btnContainer)
+        val tvChamp: TextView =
+            v.findViewById(R.id.tvChamp)
+
+        val tvHome: TextView =
+            v.findViewById(R.id.tvHomeName)
+
+        val ivHome: ImageView =
+            v.findViewById(R.id.imgHome)
+
+        val tvTime: TextView =
+            v.findViewById(R.id.tvTime)
+
+        val ivAway: ImageView =
+            v.findViewById(R.id.imgAway)
+
+        val tvAway: TextView =
+            v.findViewById(R.id.tvAwayName)
+
+        val gameStatus: TextView =
+            v.findViewById(R.id.gameStatus)
+
+        val btnContainer: ViewGroup =
+            v.findViewById(R.id.btnContainer)
     }
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
+    override fun onCreateViewHolder(
+        parent: ViewGroup,
+        viewType: Int
+    ): VH {
+
         val layout = if (isTv) {
             R.layout.item_game_tv
         } else {
@@ -107,44 +146,53 @@ class GameAdapter(
             .inflate(layout, parent, false)
 
         if (isTv) {
+
             view.layoutParams = RecyclerView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                view.layoutParams?.height ?: ViewGroup.LayoutParams.WRAP_CONTENT
+                view.layoutParams?.height
+                    ?: ViewGroup.LayoutParams.WRAP_CONTENT
             )
 
             view.isFocusable = true
             view.isFocusableInTouchMode = true
 
-          view.setOnFocusChangeListener { v, hasFocus ->
-    if (v is MaterialCardView) {
+            view.setOnFocusChangeListener { v, hasFocus ->
 
-        v.strokeColor = if (hasFocus) focusBlue else normalStroke
+                if (v is MaterialCardView) {
 
-        v.strokeWidth = if (hasFocus) {
-            (3 * v.resources.displayMetrics.density).toInt()
-        } else {
-            (1 * v.resources.displayMetrics.density).toInt()
-        }
+                    v.strokeColor =
+                        if (hasFocus) focusBlue else normalStroke
 
-        v.cardElevation = if (hasFocus) {
-            9f * v.resources.displayMetrics.density
-        } else {
-            5f * v.resources.displayMetrics.density
-        }
-    }
+                    v.strokeWidth =
+                        if (hasFocus) {
+                            (3 * v.resources.displayMetrics.density).toInt()
+                        } else {
+                            (1 * v.resources.displayMetrics.density).toInt()
+                        }
+
+                    v.cardElevation =
+                        if (hasFocus) {
+                            9f * v.resources.displayMetrics.density
+                        } else {
+                            5f * v.resources.displayMetrics.density
+                        }
+                }
             }
         }
 
         return VH(view)
     }
 
-    override fun getItemCount() = items.size
+    override fun getItemCount(): Int = items.size
 
     fun getCurrentGames(): List<Game> {
         return items.toList()
     }
 
-    override fun onBindViewHolder(h: VH, position: Int) {
+    override fun onBindViewHolder(
+        h: VH,
+        position: Int
+    ) {
 
         h.ivHome.visibility = View.VISIBLE
         h.ivAway.visibility = View.VISIBLE
@@ -153,6 +201,7 @@ class GameAdapter(
         h.tvTime.visibility = View.VISIBLE
         h.gameStatus.visibility = View.GONE
         h.btnContainer.visibility = View.GONE
+
         h.btnContainer.removeAllViews()
 
         h.tvChamp.isSingleLine = true
@@ -172,17 +221,14 @@ class GameAdapter(
 
         val g = items[position]
 
-        h.tvChamp.isSingleLine = true
-        h.tvChamp.maxLines = 1
-        h.tvChamp.ellipsize = TextUtils.TruncateAt.END
-
-        (h.tvChamp.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
-            lp.height = ViewGroup.LayoutParams.WRAP_CONTENT
-            lp.bottomMargin = 0
-            h.tvChamp.layoutParams = lp
-        }
-
         val isAviso = g.homeLogo == "Aviso"
+
+        val d =
+            h.itemView.resources.displayMetrics.density
+
+        // =====================================================
+        // AVISO
+        // =====================================================
 
         if (isAviso) {
 
@@ -193,19 +239,30 @@ class GameAdapter(
             h.tvTime.visibility = View.GONE
             h.gameStatus.visibility = View.GONE
 
-            val d = h.itemView.resources.displayMetrics.density
+            val iconValue =
+                g.championshipImageUrl.orEmpty()
 
-            val iconValue = g.championshipImageUrl.orEmpty()
             h.imgChamp.visibility = View.VISIBLE
 
             if (iconValue.startsWith("http", true)) {
+
                 h.imgChamp.load(iconValue) {
                     crossfade(true)
                 }
+
+                h.tvChamp.text =
+                    g.championship.orEmpty()
+
             } else {
+
                 h.imgChamp.setImageDrawable(null)
-                h.tvChamp.text = "$iconValue  ${g.championship.orEmpty()}"
-                h.tvChamp.setTextColor(Color.parseColor("#222222"))
+
+                h.tvChamp.text =
+                    "$iconValue  ${g.championship.orEmpty()}"
+
+                h.tvChamp.setTextColor(
+                    Color.parseColor("#222222")
+                )
             }
 
             (h.imgChamp.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
@@ -215,65 +272,46 @@ class GameAdapter(
             }
 
             h.tvChamp.isSingleLine = false
-            h.tvChamp.maxLines = Int.MAX_VALUE
-            h.tvChamp.ellipsize = null
+            h.tvChamp.maxLines = 3
+            h.tvChamp.ellipsize = TextUtils.TruncateAt.END
             h.tvChamp.textAlignment = View.TEXT_ALIGNMENT_TEXT_START
             h.tvChamp.setLineSpacing(0f, 1.1f)
             h.tvChamp.setPadding(0, 0, 0, 0)
 
             (h.tvChamp.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
                 lp.marginStart = (8 * d).toInt()
-                lp.bottomMargin = (6 * d).toInt()
+                lp.bottomMargin = (3 * d).toInt()
                 lp.topMargin = 0
                 h.tvChamp.layoutParams = lp
             }
 
             val btns: List<Any> =
-                (g.buttons as? List<*>)?.filterNotNull() ?: emptyList()
+                (g.buttons as? List<*>)?.filterNotNull()
+                    ?: emptyList()
 
             h.btnContainer.removeAllViews()
+
             h.btnContainer.visibility =
-                if (btns.isNotEmpty()) View.VISIBLE else View.GONE
+                if (btns.isNotEmpty()) View.VISIBLE
+                else View.GONE
 
             if (btns.isNotEmpty()) {
+
                 btns.forEachIndexed { idx, anyBtn ->
 
-                    val (title, link, captureM3u8) =
+                    val (title, link, _) =
                         extractTitleAndLink(anyBtn, idx)
 
                     val ctx = h.itemView.context
 
-                    val rippleColor = ColorStateList.valueOf(
-                        Color.parseColor("#22000000")
-                    )
-
-                    val content =
-                        androidx.appcompat.content.res.AppCompatResources.getDrawable(
-                            ctx,
-                            R.drawable.bg_channel_button
-                        )
-
-                    val mask = GradientDrawable().apply {
-                        shape = GradientDrawable.RECTANGLE
-                        cornerRadius = 12f * d
-                        setColor(Color.WHITE)
-                    }
-
-                    val ripple = android.graphics.drawable.RippleDrawable(
-                        rippleColor,
-                        content,
-                        mask
-                    )
-
                     val b = Button(ctx).apply {
+
                         text = title
                         setAllCaps(false)
-                        setTextColor(Color.parseColor("#222222"))
+                        setTextColor(buttonText)
                         textSize = 14f
-                        background = ripple
+
                         includeFontPadding = false
-                        stateListAnimator = null
-                        elevation = 0f
 
                         minHeight = 0
                         minimumHeight = 0
@@ -282,16 +320,72 @@ class GameAdapter(
 
                         setPadding(
                             (14 * d).toInt(),
-                            (8 * d).toInt(),
+                            (6 * d).toInt(),
                             (14 * d).toInt(),
-                            (8 * d).toInt()
+                            (6 * d).toInt()
                         )
 
+                        stateListAnimator = null
+                        elevation = 0f
+
+                        isClickable = true
+                        isFocusable = isTv
+                        isFocusableInTouchMode = isTv
+
+                        if (isTv) {
+                            setBackground(
+                                createNoticeButtonBackground(false, d)
+                            )
+                        } else {
+                            background =
+                                androidx.appcompat.content.res.AppCompatResources.getDrawable(
+                                    ctx,
+                                    R.drawable.bg_channel_button
+                                )
+                        }
+
+                        if (isTv) {
+
+                            setOnFocusChangeListener { button, hasFocus ->
+
+                                button.background =
+                                    createNoticeButtonBackground(
+                                        hasFocus,
+                                        d
+                                    )
+                            }
+
+                            setOnKeyListener { button, keyCode, event ->
+
+                                if (
+                                    event.action != KeyEvent.ACTION_DOWN
+                                ) {
+                                    return@setOnKeyListener false
+                                }
+
+                                if (
+                                    keyCode == KeyEvent.KEYCODE_DPAD_CENTER ||
+                                    keyCode == KeyEvent.KEYCODE_ENTER
+                                ) {
+                                    button.performClick()
+                                    return@setOnKeyListener true
+                                }
+
+                                false
+                            }
+                        }
+
                         setOnClickListener {
+
                             it.performHapticFeedback(
                                 android.view.HapticFeedbackConstants.VIRTUAL_KEY
                             )
-                            openAvisoLink(it, title, link)
+
+                            openAvisoLink(
+                                it,
+                                title,
+                                link
+                            )
                         }
                     }
 
@@ -299,44 +393,76 @@ class GameAdapter(
                         ViewGroup.LayoutParams.WRAP_CONTENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT
                     ).apply {
+
                         marginEnd = (8 * d).toInt()
-                        topMargin = (6 * d).toInt()
+                        topMargin = (4 * d).toInt()
                     }
 
                     h.btnContainer.addView(b, lp)
                 }
+
+                // Os botões ficam disponíveis individualmente na TV.
+                if (isTv) {
+
+                    h.btnContainer.descendantFocusability =
+                        ViewGroup.FOCUS_AFTER_DESCENDANTS
+
+                    h.btnContainer.isFocusable = false
+                    h.btnContainer.isFocusableInTouchMode = false
+                }
             }
 
-            // O aviso não recebe foco nem clique na TV.
+            // O card de aviso não recebe foco.
+            // O foco fica nos botões individuais.
             h.itemView.isFocusable = false
             h.itemView.isFocusableInTouchMode = false
+            h.itemView.isClickable = false
             h.itemView.setOnClickListener(null)
 
-            if (expandedPos == position) expandedPos = -1
+            if (expandedPos == position) {
+                expandedPos = -1
+            }
 
-            return@onBindViewHolder
+            return
         }
 
-        // Jogos normais
+        // =====================================================
+        // JOGOS NORMAIS
+        // =====================================================
+
         h.itemView.isFocusable = isTv
         h.itemView.isFocusableInTouchMode = isTv
+        h.itemView.isClickable = true
 
-        val champName = g.championship.orEmpty()
+        h.tvChamp.isSingleLine = true
+        h.tvChamp.maxLines = 1
+        h.tvChamp.ellipsize = TextUtils.TruncateAt.END
+
+        val champName =
+            g.championship.orEmpty()
 
         h.tvChamp.text = champName
+
         h.tvChamp.visibility =
-            if (champName.isBlank()) View.GONE else View.VISIBLE
+            if (champName.isBlank()) View.GONE
+            else View.VISIBLE
 
-        h.tvChamp.setTextColor(Color.parseColor("#888B96"))
+        h.tvChamp.setTextColor(
+            Color.parseColor("#888B96")
+        )
 
-        val champLogo = g.championshipImageUrl
+        val champLogo =
+            g.championshipImageUrl
 
         h.imgChamp.dispose()
 
         if (champLogo.isNullOrBlank()) {
+
             h.imgChamp.setImageDrawable(null)
             h.imgChamp.visibility = View.GONE
+
         } else {
+
             h.imgChamp.visibility = View.VISIBLE
 
             h.imgChamp.load(champLogo) {
@@ -347,14 +473,29 @@ class GameAdapter(
             }
         }
 
-        h.tvHome.text = g.homeName.orEmpty()
-        h.tvAway.text = g.awayName.orEmpty()
+        h.tvHome.text =
+            g.homeName.orEmpty()
 
-        h.tvTime.text = if (!g.liveScore.isNullOrEmpty()) {
-            g.liveScore
-        } else {
-            g.time.orEmpty()
+        h.tvAway.text =
+            g.awayName.orEmpty()
+
+        if (isTv) {
+
+            h.tvHome.maxLines = 1
+            h.tvHome.isSingleLine = true
+            h.tvHome.ellipsize = TextUtils.TruncateAt.END
+
+            h.tvAway.maxLines = 1
+            h.tvAway.isSingleLine = true
+            h.tvAway.ellipsize = TextUtils.TruncateAt.END
         }
+
+        h.tvTime.text =
+            if (!g.liveScore.isNullOrEmpty()) {
+                g.liveScore
+            } else {
+                g.time.orEmpty()
+            }
 
         h.ivHome.load(g.homeLogo) {
             crossfade(true)
@@ -370,6 +511,7 @@ class GameAdapter(
 
         (h.gameStatus.getTag(R.id.tag_blink_anim)
             as? android.animation.ObjectAnimator)?.let {
+
             it.cancel()
             h.gameStatus.setTag(R.id.tag_blink_anim, null)
         }
@@ -383,73 +525,122 @@ class GameAdapter(
             !g.liveMinute.isNullOrEmpty() -> {
 
                 if (g.liveMinute.equals("encerrado", true)) {
+
                     h.gameStatus.text = "encerrado"
-                    h.gameStatus.setTextColor(Color.parseColor("#A5A5A5"))
+
+                    h.gameStatus.setTextColor(
+                        Color.parseColor("#A5A5A5")
+                    )
+
                     h.gameStatus.visibility = View.VISIBLE
                     h.gameStatus.alpha = 1f
+
                 } else {
-                    h.gameStatus.text = "• ${g.liveMinute}"
-                    h.gameStatus.setTextColor(Color.parseColor("#FF3B30"))
+
+                    h.gameStatus.text =
+                        "• ${g.liveMinute}"
+
+                    h.gameStatus.setTextColor(
+                        Color.parseColor("#FF3B30")
+                    )
+
                     h.gameStatus.visibility = View.VISIBLE
 
-                    val anim = android.animation.ObjectAnimator.ofFloat(
-                        h.gameStatus,
-                        View.ALPHA,
-                        1f,
-                        0.3f
-                    ).apply {
-                        duration = 500
-                        repeatMode = android.animation.ValueAnimator.REVERSE
-                        repeatCount = android.animation.ValueAnimator.INFINITE
-                        interpolator = android.view.animation.LinearInterpolator()
-                    }
+                    val anim =
+                        android.animation.ObjectAnimator.ofFloat(
+                            h.gameStatus,
+                            View.ALPHA,
+                            1f,
+                            0.3f
+                        ).apply {
 
-                    h.gameStatus.setTag(R.id.tag_blink_anim, anim)
+                            duration = 500
+
+                            repeatMode =
+                                android.animation.ValueAnimator.REVERSE
+
+                            repeatCount =
+                                android.animation.ValueAnimator.INFINITE
+
+                            interpolator =
+                                android.view.animation.LinearInterpolator()
+                        }
+
+                    h.gameStatus.setTag(
+                        R.id.tag_blink_anim,
+                        anim
+                    )
+
                     anim.start()
                 }
             }
 
             g.isLive == true -> {
+
                 h.gameStatus.text = "ao vivo"
-                h.gameStatus.setTextColor(Color.parseColor("#FF3B30"))
+
+                h.gameStatus.setTextColor(
+                    Color.parseColor("#FF3B30")
+                )
+
                 h.gameStatus.visibility = View.VISIBLE
 
-                val anim = android.animation.ObjectAnimator.ofFloat(
-                    h.gameStatus,
-                    View.ALPHA,
-                    1f,
-                    0.3f
-                ).apply {
-                    duration = 500
-                    repeatMode = android.animation.ValueAnimator.REVERSE
-                    repeatCount = android.animation.ValueAnimator.INFINITE
-                    interpolator = android.view.animation.LinearInterpolator()
-                }
+                val anim =
+                    android.animation.ObjectAnimator.ofFloat(
+                        h.gameStatus,
+                        View.ALPHA,
+                        1f,
+                        0.3f
+                    ).apply {
 
-                h.gameStatus.setTag(R.id.tag_blink_anim, anim)
+                        duration = 500
+
+                        repeatMode =
+                            android.animation.ValueAnimator.REVERSE
+
+                        repeatCount =
+                            android.animation.ValueAnimator.INFINITE
+
+                        interpolator =
+                            android.view.animation.LinearInterpolator()
+                    }
+
+                h.gameStatus.setTag(
+                    R.id.tag_blink_anim,
+                    anim
+                )
+
                 anim.start()
             }
 
             g.isFinished == true -> {
+
                 h.gameStatus.text = "encerrado"
-                h.gameStatus.setTextColor(Color.parseColor("#A5A5A5"))
+
+                h.gameStatus.setTextColor(
+                    Color.parseColor("#A5A5A5")
+                )
+
                 h.gameStatus.visibility = View.VISIBLE
                 h.gameStatus.alpha = 1f
             }
 
             else -> {
+
                 h.gameStatus.visibility = View.GONE
                 h.gameStatus.alpha = 1f
             }
         }
 
         val btns: List<Any> =
-            (g.buttons as? List<*>)?.filterNotNull() ?: emptyList()
+            (g.buttons as? List<*>)?.filterNotNull()
+                ?: emptyList()
 
-        val hasButtons = btns.isNotEmpty()
+        val hasButtons =
+            btns.isNotEmpty()
 
         val isExpanded =
-            !isTv && (position == expandedPos) && hasButtons
+            !isTv && position == expandedPos && hasButtons
 
         h.btnContainer.visibility =
             if (isExpanded) View.VISIBLE else View.GONE
@@ -457,8 +648,6 @@ class GameAdapter(
         h.btnContainer.removeAllViews()
 
         if (isExpanded) {
-
-            val d = h.itemView.resources.displayMetrics.density
 
             btns.forEachIndexed { idx, anyBtn ->
 
@@ -483,18 +672,20 @@ class GameAdapter(
                     setColor(Color.WHITE)
                 }
 
-                val ripple = android.graphics.drawable.RippleDrawable(
+                val ripple = RippleDrawable(
                     rippleColor,
                     content,
                     mask
                 )
 
                 val b = Button(ctx).apply {
+
                     text = title
                     setAllCaps(false)
                     setTextColor(Color.parseColor("#222222"))
                     textSize = 14f
                     background = ripple
+
                     stateListAnimator = null
                     elevation = 0f
                     backgroundTintList = null
@@ -514,6 +705,7 @@ class GameAdapter(
                     )
 
                     setOnClickListener { v ->
+
                         v.performHapticFeedback(
                             android.view.HapticFeedbackConstants.VIRTUAL_KEY
                         )
@@ -527,6 +719,7 @@ class GameAdapter(
                             .scaleY(0.98f)
                             .setDuration(90)
                             .withEndAction {
+
                                 v.animate()
                                     .scaleX(1f)
                                     .scaleY(1f)
@@ -536,30 +729,40 @@ class GameAdapter(
                             .start()
 
                         v.postDelayed({
+
                             openLink(
                                 h.itemView,
                                 title,
                                 link,
                                 captureM3u8
                             )
+
                         }, 130)
                     }
                 }
 
                 val lp: ViewGroup.MarginLayoutParams =
-                    if (h.btnContainer is com.google.android.flexbox.FlexboxLayout) {
+                    if (
+                        h.btnContainer is
+                        com.google.android.flexbox.FlexboxLayout
+                    ) {
+
                         com.google.android.flexbox.FlexboxLayout.LayoutParams(
                             ViewGroup.LayoutParams.WRAP_CONTENT,
                             ViewGroup.LayoutParams.WRAP_CONTENT
                         ).apply {
+
                             rightMargin = (8 * d).toInt()
                             topMargin = (6 * d).toInt()
                         }
+
                     } else {
+
                         LinearLayout.LayoutParams(
                             ViewGroup.LayoutParams.WRAP_CONTENT,
                             ViewGroup.LayoutParams.WRAP_CONTENT
                         ).apply {
+
                             marginEnd = (8 * d).toInt()
                             topMargin = (6 * d).toInt()
                         }
@@ -571,7 +774,8 @@ class GameAdapter(
 
         h.itemView.setOnClickListener {
 
-            val current = h.bindingAdapterPosition
+            val current =
+                h.bindingAdapterPosition
 
             if (current == RecyclerView.NO_POSITION) {
                 return@setOnClickListener
@@ -579,14 +783,17 @@ class GameAdapter(
 
             if (isTv) {
 
-                val firstButton = btns.firstOrNull()
+                val firstButton =
+                    btns.firstOrNull()
 
                 if (firstButton == null) {
+
                     Toast.makeText(
                         h.itemView.context,
                         "Nenhum canal disponível.",
                         Toast.LENGTH_SHORT
                     ).show()
+
                     return@setOnClickListener
                 }
 
@@ -594,27 +801,39 @@ class GameAdapter(
                     extractTitleAndLink(firstButton, 0)
 
                 if (link.isBlank() || link == "#") {
+
                     Toast.makeText(
                         h.itemView.context,
                         "Link do primeiro canal indisponível.",
                         Toast.LENGTH_SHORT
                     ).show()
+
                     return@setOnClickListener
                 }
 
-                openLink(h.itemView, title, link, captureM3u8)
+                openLink(
+                    h.itemView,
+                    title,
+                    link,
+                    captureM3u8
+                )
 
             } else {
 
                 val prev = expandedPos
 
                 if (prev == current) {
+
                     expandedPos = -1
                     notifyItemChanged(current)
+
                 } else {
+
                     expandedPos = current
 
-                    if (prev != -1) notifyItemChanged(prev)
+                    if (prev != -1) {
+                        notifyItemChanged(prev)
+                    }
 
                     notifyItemChanged(current)
                 }
@@ -622,35 +841,104 @@ class GameAdapter(
         }
     }
 
+    // =====================================================
+    // FUNDO E CONTORNO DOS BOTÕES DO AVISO
+    // =====================================================
+
+    private fun createNoticeButtonBackground(
+        focused: Boolean,
+        density: Float
+    ): RippleDrawable {
+
+        val shape = GradientDrawable().apply {
+
+            shape = GradientDrawable.RECTANGLE
+
+            cornerRadius = 10f * density
+
+            setColor(buttonGray)
+
+            setStroke(
+                if (focused) {
+                    (2 * density).toInt()
+                } else {
+                    (1 * density).toInt()
+                },
+                if (focused) {
+                    focusBlue
+                } else {
+                    Color.parseColor("#D3D6DA")
+                }
+            )
+        }
+
+        val mask = GradientDrawable().apply {
+
+            shape = GradientDrawable.RECTANGLE
+
+            cornerRadius = 10f * density
+
+            setColor(Color.WHITE)
+        }
+
+        return RippleDrawable(
+            ColorStateList.valueOf(
+                Color.parseColor("#33000000")
+            ),
+            shape,
+            mask
+        )
+    }
+
     override fun onViewAttachedToWindow(holder: VH) {
+
         super.onViewAttachedToWindow(holder)
 
-        if (isTv && pendingInitialFocus && !isNoticeAt(holder.bindingAdapterPosition)) {
+        if (
+            isTv &&
+            pendingInitialFocus &&
+            holder.bindingAdapterPosition != RecyclerView.NO_POSITION &&
+            !isNoticeAt(holder.bindingAdapterPosition)
+        ) {
+
             pendingInitialFocus = false
+
             holder.itemView.post {
                 holder.itemView.requestFocus()
             }
         }
     }
 
+    // =====================================================
+    // CONFIGURAÇÃO DE ANÚNCIOS
+    // =====================================================
+
     private fun fetchAdsConfig() {
+
         if (adsConfigLoaded) return
 
         adsConfigLoaded = true
 
         Thread {
+
             try {
+
                 val url = java.net.URL(
                     "https://raw.githubusercontent.com/galaxyplay1234/futanium-box-3.1/refs/heads/main/ads.json"
                 )
 
                 val json = url.readText(Charsets.UTF_8)
+
                 val obj = JSONObject(json)
 
-                val ativo = obj.optString("ativo", "sim")
+                val ativo =
+                    obj.optString("ativo", "sim")
 
-                monetagEnabledRemote = ativo.equals("sim", ignoreCase = true)
-                monetagLinkRemote = obj.optString("link", monetagLinkRemote)
+                monetagEnabledRemote =
+                    ativo.equals("sim", ignoreCase = true)
+
+                monetagLinkRemote =
+                    obj.optString("link", monetagLinkRemote)
 
                 android.util.Log.d(
                     "FutaniumAds",
@@ -658,34 +946,61 @@ class GameAdapter(
                 )
 
             } catch (e: Exception) {
+
                 e.printStackTrace()
+
                 android.util.Log.e(
                     "FutaniumAds",
                     "Falha ao carregar ads.json: ${e.message}"
                 )
             }
+
         }.start()
     }
+
+    // =====================================================
+    // ABRIR LINK DO AVISO
+    // =====================================================
 
     private fun openAvisoLink(
         view: View,
         title: String?,
         link: String
     ) {
+
         val ctx = view.context
 
         try {
+
             if (link.startsWith("f:", ignoreCase = true)) {
-                val real = link.removePrefix("f:")
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(real))
+
+                val real =
+                    link.removePrefix("f:")
+
+                val intent = Intent(
+                    Intent.ACTION_VIEW,
+                    Uri.parse(real)
+                )
+
                 ctx.startActivity(intent)
+
             } else {
-                val it = Intent(ctx, com.futanium.box.WebViewActivity::class.java)
-                it.putExtra(com.futanium.box.WebViewActivity.EXTRA_URL, link)
+
+                val it = Intent(
+                    ctx,
+                    com.futanium.box.WebViewActivity::class.java
+                )
+
+                it.putExtra(
+                    com.futanium.box.WebViewActivity.EXTRA_URL,
+                    link
+                )
+
                 ctx.startActivity(it)
             }
 
         } catch (_: Exception) {
+
             Toast.makeText(
                 ctx,
                 "Erro ao abrir o link do aviso.",
@@ -693,6 +1008,10 @@ class GameAdapter(
             ).show()
         }
     }
+
+    // =====================================================
+    // EXTRAIR NOME E LINK
+    // =====================================================
 
     private fun extractTitleAndLink(
         anyBtn: Any,
@@ -706,21 +1025,36 @@ class GameAdapter(
         when (anyBtn) {
 
             is ButtonInfo -> {
+
                 rawName = anyBtn.name
                 rawUrl = anyBtn.url
                 captureM3u8 = anyBtn.captureM3u8
             }
 
             is Map<*, *> -> {
-                rawName = anyBtn["name"]?.toString()
-                rawUrl = anyBtn["url"]?.toString()
-                captureM3u8 = anyBtn["captureM3u8"]?.toString()?.toBoolean() ?: false
+
+                rawName =
+                    anyBtn["name"]?.toString()
+
+                rawUrl =
+                    anyBtn["url"]?.toString()
+
+                captureM3u8 =
+                    anyBtn["captureM3u8"]
+                        ?.toString()
+                        ?.toBoolean() ?: false
             }
 
             is JSONObject -> {
-                rawName = anyBtn.optString("name", null)
-                rawUrl = anyBtn.optString("url", null)
-                captureM3u8 = anyBtn.optBoolean("captureM3u8", false)
+
+                rawName =
+                    anyBtn.optString("name", null)
+
+                rawUrl =
+                    anyBtn.optString("url", null)
+
+                captureM3u8 =
+                    anyBtn.optBoolean("captureM3u8", false)
             }
 
             else -> {
@@ -728,19 +1062,41 @@ class GameAdapter(
             }
         }
 
-        var title = rawName?.trim().orEmpty()
-        var link = rawUrl?.trim().orEmpty()
+        var title =
+            rawName?.trim().orEmpty()
 
-        Regex("""\s+(go:\S+)\s*$""").find(title)?.let { m ->
-            link = m.groupValues[1]
-            title = title.removeRange(m.range).trim()
+        var link =
+            rawUrl?.trim().orEmpty()
+
+        Regex("""\s+(go:\S+)\s*$""")
+            .find(title)?.let { m ->
+
+                link = m.groupValues[1]
+
+                title =
+                    title.removeRange(m.range).trim()
+            }
+
+        if (title.isBlank()) {
+            title = "Canal ${index + 1}"
         }
 
-        if (title.isBlank()) title = "Canal ${index + 1}"
-        if (link.isBlank()) link = rawUrl?.takeIf { it.isNotBlank() } ?: "#"
+        if (link.isBlank()) {
+            link = rawUrl?.takeIf {
+                it.isNotBlank()
+            } ?: "#"
+        }
 
-        return Triple(title, link, captureM3u8)
+        return Triple(
+            title,
+            link,
+            captureM3u8
+        )
     }
+
+    // =====================================================
+    // ABRIR CANAL
+    // =====================================================
 
     private var lastClickTime = 0L
 
@@ -750,14 +1106,24 @@ class GameAdapter(
         link: String,
         captureM3u8: Boolean
     ) {
+
         val ctx = view.context
+
         val u = link.trim()
 
         try {
-            val now = System.currentTimeMillis()
+
+            val now =
+                System.currentTimeMillis()
 
             if (now - lastClickTime < 3000) {
-                Toast.makeText(ctx, "Aguarde um momento...", Toast.LENGTH_SHORT).show()
+
+                Toast.makeText(
+                    ctx,
+                    "Aguarde um momento...",
+                    Toast.LENGTH_SHORT
+                ).show()
+
                 return
             }
 
@@ -777,57 +1143,109 @@ class GameAdapter(
 
                 if (isDirectMedia && !captureM3u8) {
 
-                    val it = Intent(ctx, com.futanium.box.PlayerActivity::class.java)
+                    val it = Intent(
+                        ctx,
+                        com.futanium.box.PlayerActivity::class.java
+                    )
 
-                    it.putExtra(com.futanium.box.PlayerActivity.EXTRA_URL, u)
-                    it.putExtra(com.futanium.box.PlayerActivity.EXTRA_TITLE, title ?: "")
+                    it.putExtra(
+                        com.futanium.box.PlayerActivity.EXTRA_URL,
+                        u
+                    )
+
+                    it.putExtra(
+                        com.futanium.box.PlayerActivity.EXTRA_TITLE,
+                        title ?: ""
+                    )
 
                     MainActivity.navigatingInsideApp = true
+
                     ctx.startActivity(it)
 
                 } else {
 
-                    val it = Intent(ctx, com.futanium.box.WebViewActivity::class.java)
+                    val it = Intent(
+                        ctx,
+                        com.futanium.box.WebViewActivity::class.java
+                    )
 
-                    it.putExtra(com.futanium.box.WebViewActivity.EXTRA_URL, u)
-                    it.putExtra("captureM3u8", captureM3u8)
+                    it.putExtra(
+                        com.futanium.box.WebViewActivity.EXTRA_URL,
+                        u
+                    )
+
+                    it.putExtra(
+                        "captureM3u8",
+                        captureM3u8
+                    )
 
                     MainActivity.navigatingInsideApp = true
+
                     ctx.startActivity(it)
                 }
 
             } else {
-                val it = Intent(Intent.ACTION_VIEW, Uri.parse(u))
+
+                val it = Intent(
+                    Intent.ACTION_VIEW,
+                    Uri.parse(u)
+                )
+
                 ctx.startActivity(it)
             }
 
-            if (monetagEnabledRemote && monetagLinkRemote.isNotBlank()) {
+            if (
+                monetagEnabledRemote &&
+                monetagLinkRemote.isNotBlank()
+            ) {
+
                 view.postDelayed({
 
                     try {
-                        val customTabsIntent = CustomTabsIntent.Builder()
-                            .setShowTitle(true)
-                            .setUrlBarHidingEnabled(false)
-                            .setToolbarColor(Color.parseColor("#202020"))
-                            .setColorScheme(CustomTabsIntent.COLOR_SCHEME_DARK)
-                            .build()
 
-                        customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY)
-                        customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                        customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                        val customTabsIntent =
+                            CustomTabsIntent.Builder()
+                                .setShowTitle(true)
+                                .setUrlBarHidingEnabled(false)
+                                .setToolbarColor(
+                                    Color.parseColor("#202020")
+                                )
+                                .setColorScheme(
+                                    CustomTabsIntent.COLOR_SCHEME_DARK
+                                )
+                                .build()
 
-                        customTabsIntent.launchUrl(ctx, Uri.parse(monetagLinkRemote))
+                        customTabsIntent.intent.addFlags(
+                            Intent.FLAG_ACTIVITY_NO_HISTORY
+                        )
+
+                        customTabsIntent.intent.addFlags(
+                            Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        )
+
+                        customTabsIntent.intent.addFlags(
+                            Intent.FLAG_ACTIVITY_SINGLE_TOP
+                        )
+
+                        customTabsIntent.launchUrl(
+                            ctx,
+                            Uri.parse(monetagLinkRemote)
+                        )
 
                         view.postDelayed({
+
                             Toast.makeText(
                                 ctx,
                                 "Esta é uma página de anúncio.\nFeche no X ou use o botão Voltar.",
                                 Toast.LENGTH_LONG
                             ).show()
+
                         }, 300)
 
                     } catch (e: Exception) {
+
                         e.printStackTrace()
+
                         Toast.makeText(
                             ctx,
                             "Não foi possível abrir o anúncio.",
@@ -839,8 +1257,14 @@ class GameAdapter(
             }
 
         } catch (e: Exception) {
+
             e.printStackTrace()
-            Toast.makeText(ctx, "Erro ao abrir o canal.", Toast.LENGTH_SHORT).show()
+
+            Toast.makeText(
+                ctx,
+                "Erro ao abrir o canal.",
+                Toast.LENGTH_SHORT
+            ).show()
         }
     }
 }
