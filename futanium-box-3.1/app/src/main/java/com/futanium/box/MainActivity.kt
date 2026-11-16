@@ -241,10 +241,6 @@ class MainActivity : AppCompatActivity() {
 
         // POSICIONAMENTO DA LISTA - SOMENTE TV
 if (isTvDevice) {
-    val swipeParams = vb.swipe.layoutParams as FrameLayout.LayoutParams
-    swipeParams.topMargin = vb.todayRail.layoutParams.height
-    vb.swipe.layoutParams = swipeParams
-
     vb.rvGames.setPadding(
         vb.rvGames.paddingLeft,
         0,
