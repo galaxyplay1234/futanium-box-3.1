@@ -1,4 +1,3 @@
-
 package com.futanium.box
 
 import android.animation.ObjectAnimator
