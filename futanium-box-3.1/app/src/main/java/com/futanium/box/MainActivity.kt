@@ -493,33 +493,48 @@ vb.root.post {
 }
                         }
 
-                    // O aviso não recebe foco como card.
-                    // Os botões internos recebem o foco.
-                    view.isFocusable = !isNotice
-                    view.isFocusableInTouchMode = !isNotice
+                    // O aviso também recebe foco, como no código original.
+view.isFocusable = true
+view.isFocusableInTouchMode = true
 
-                    if (isNotice) {
-                        view.setOnKeyListener(null)
-                        return
-                    }
+view.setOnKeyListener { v, key, ev ->
 
-                    view.setOnKeyListener { v, key, ev ->
+    if (ev.action != KeyEvent.ACTION_DOWN) {
+        return@setOnKeyListener false
+    }
 
-                        if (ev.action != KeyEvent.ACTION_DOWN) {
-                            return@setOnKeyListener false
-                        }
+    if (
+        key == KeyEvent.KEYCODE_DPAD_CENTER ||
+        key == KeyEvent.KEYCODE_ENTER
+    ) {
+        v.performClick()
 
-                        if (
-                            key == KeyEvent.KEYCODE_DPAD_CENTER ||
-                            key == KeyEvent.KEYCODE_ENTER
-                        ) {
-                            v.performClick()
-                            true
-                        } else {
-                            false
-                        }
-                    }
-                }
+        v.postDelayed({
+            findFirstVisibleFocusableButton(v)?.requestFocus()
+        }, 80)
+
+        return@setOnKeyListener true
+    }
+
+    if (
+        key == KeyEvent.KEYCODE_DPAD_LEFT ||
+        key == KeyEvent.KEYCODE_DPAD_RIGHT
+    ) {
+        val target =
+            if (key == KeyEvent.KEYCODE_DPAD_RIGHT) {
+                findFirstVisibleFocusableButton(v)
+            } else {
+                findLastVisibleFocusableButton(v)
+            }
+
+        if (target != null) {
+            target.requestFocus()
+            return@setOnKeyListener true
+        }
+    }
+
+    false
+}
 
                 override fun onChildViewDetachedFromWindow(view: View) {
                     // Nada a fazer
