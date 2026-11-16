@@ -456,51 +456,50 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
 
-                    if (isTvDevice) {
+                   
+if (isTvDevice) {
 
-                        // Aviso ocupa a largura inteira e tem
-                        // altura limitada para não ficar enorme.
-                        val position =
-                            vb.rvGames.getChildAdapterPosition(view)
+    val position =
+        vb.rvGames.getChildAdapterPosition(view)
 
-                        if (
-                            position != RecyclerView.NO_POSITION &&
-                            adapter.isNoticeAt(position)
-                        ) {
-                            view.layoutParams =
-                                view.layoutParams.apply {
-                                    height = dp(120)
-                                }
-                        }
+    if (position != RecyclerView.NO_POSITION) {
 
-                        view.isFocusable = true
-                        view.isFocusableInTouchMode = true
+        val isNotice = adapter.isNoticeAt(position)
 
-                        view.setOnKeyListener { v, key, ev ->
-
-                            if (
-                                ev.action != KeyEvent.ACTION_DOWN
-                            ) {
-                                return@setOnKeyListener false
-                            }
-
-                            if (
-                                key == KeyEvent.KEYCODE_DPAD_CENTER ||
-                                key == KeyEvent.KEYCODE_ENTER
-                            ) {
-                                v.performClick()
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    }
+        view.layoutParams =
+            view.layoutParams.apply {
+                height = if (isNotice) {
+                    dp(120)
+                } else {
+                    dp(190)
                 }
+            }
+    }
 
+    view.isFocusable = true
+    view.isFocusableInTouchMode = true
+
+    view.setOnKeyListener { v, key, ev ->
+
+        if (ev.action != KeyEvent.ACTION_DOWN) {
+            return@setOnKeyListener false
+        }
+
+        if (
+            key == KeyEvent.KEYCODE_DPAD_CENTER ||
+            key == KeyEvent.KEYCODE_ENTER
+        ) {
+            v.performClick()
+            true
+        } else {
+            false
+        }
+    }
+}
                 override fun onChildViewDetachedFromWindow(view: View) {
                     // Nada a fazer
                 }
-            }
+
         )
 
         // =====================================================
