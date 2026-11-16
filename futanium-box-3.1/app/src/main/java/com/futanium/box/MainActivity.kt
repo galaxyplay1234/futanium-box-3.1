@@ -239,17 +239,43 @@ class MainActivity : AppCompatActivity() {
         vb.todayChipText.text =
             "Jogos de Hoje - ${df.format(java.util.Date())}"
 
+                // =====================================================
         // POSICIONAMENTO DA LISTA - SOMENTE TV
-if (isTvDevice) {
-    vb.rvGames.setPadding(
-        vb.rvGames.paddingLeft,
-        0,
-        vb.rvGames.paddingRight,
-        0
-    )
+        // =====================================================
 
-    vb.rvGames.clipToPadding = true
-}
+        if (isTvDevice) {
+
+            // Mantém o cabeçalho acima da lista
+            vb.todayRail.bringToFront()
+
+            // Aguarda o layout calcular a posição real do cabeçalho
+            vb.root.post {
+
+                val topSpace = vb.todayRail.bottom + dp(4)
+
+                // Reserva espaço para o cabeçalho.
+                // Assim o primeiro card começa abaixo de "Jogos de Hoje".
+                vb.rvGames.setPadding(
+                    vb.rvGames.paddingLeft,
+                    topSpace,
+                    vb.rvGames.paddingRight,
+                    vb.rvGames.paddingBottom
+                )
+
+                // Impede os cards de desenharem por cima da área reservada
+                vb.rvGames.clipToPadding = true
+
+                // Posiciona o indicador de atualização abaixo do cabeçalho
+                val start = vb.todayRail.bottom + dp(6)
+                val end = start + dp(44)
+
+                vb.swipe.setProgressViewOffset(
+                    true,
+                    start,
+                    end
+                )
+            }
+        }
 
         // =====================================================
         // LAYOUT DA LISTA
