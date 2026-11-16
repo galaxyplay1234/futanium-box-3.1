@@ -132,7 +132,6 @@ class GameAdapter(
             5f * v.resources.displayMetrics.density
         }
     }
-}
             }
         }
 
