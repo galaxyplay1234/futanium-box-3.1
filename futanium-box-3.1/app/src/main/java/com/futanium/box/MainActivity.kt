@@ -249,13 +249,7 @@ vb.root.post {
 
     val topSpace = vb.todayRail.bottom + dp(4)
 
-    // Espaço inferior: 40dp no celular.
-    // Na TV, mantém o espaço da decoração dos cards.
-    val bottomSpace = if (isTvDevice) {
-        vb.rvGames.paddingBottom
-    } else {
-        dp(40)
-    }
+    val bottomSpace = dp(40)
 
     vb.rvGames.setPadding(
         vb.rvGames.paddingLeft,
@@ -350,15 +344,12 @@ vb.root.post {
         ) {
             val halfSpacing = dp(cardSpacing) / 2
 
-            val position = parent.getChildAdapterPosition(view)
-            val isLastCard = position == state.itemCount - 1
-
             outRect.set(
-                halfSpacing,
-                halfSpacing,
-                halfSpacing,
-                halfSpacing + if (isLastCard) dp(40) else 0
-            )
+    halfSpacing,
+    halfSpacing,
+    halfSpacing,
+    halfSpacing
+)
         }
     }
 )
