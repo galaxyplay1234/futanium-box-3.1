@@ -519,9 +519,9 @@ if (isTvDevice) {
                     view.layoutParams =
                         view.layoutParams.apply {
                             height = if (isNotice) {
-    dp(125)
+    dp(105)
 } else {
-    dp(145)
+    dp(130)
 }
                         }
 
