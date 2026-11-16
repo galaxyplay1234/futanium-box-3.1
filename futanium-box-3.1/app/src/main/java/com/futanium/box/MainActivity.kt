@@ -1,3 +1,4 @@
+
 package com.futanium.box
 
 import android.animation.ObjectAnimator
@@ -181,23 +182,19 @@ class MainActivity : AppCompatActivity() {
 
         adapter.isTv = isTvDevice
 
-      // =====================================================
-// TEMA ESCURO SOMENTE NA TV
-// =====================================================
+        // =====================================================
+        // FUNDO ORIGINAL NA TV
+        // =====================================================
 
-if (isTvDevice) {
+        if (isTvDevice) {
 
-    val backgroundColor =
-        Color.parseColor("#10131C")
+            val backgroundColor =
+                Color.parseColor("#F3F3F3")
 
-    window.decorView.setBackgroundColor(backgroundColor)
-
-    vb.root.setBackgroundColor(backgroundColor)
-
-    vb.swipe.setBackgroundColor(backgroundColor)
-
-    vb.rvGames.setBackgroundColor(backgroundColor)
-}
+            vb.root.setBackgroundColor(backgroundColor)
+            vb.swipe.setBackgroundColor(backgroundColor)
+            vb.rvGames.setBackgroundColor(backgroundColor)
+        }
 
         ensureNotifPermission()
 
@@ -243,10 +240,24 @@ if (isTvDevice) {
 
         vb.todayRail.bringToFront()
 
+        // =====================================================
+        // ESPAÇO SUPERIOR DA LISTA
+        // =====================================================
+
         vb.root.post {
 
-            val topSpace =
-                vb.todayRail.bottom + dp(4)
+            val railLocation = IntArray(2)
+            val listLocation = IntArray(2)
+
+            vb.todayRail.getLocationInWindow(railLocation)
+            vb.rvGames.getLocationInWindow(listLocation)
+
+            val topSpace = (
+                railLocation[1] +
+                vb.todayRail.height -
+                listLocation[1] +
+                dp(12)
+            ).coerceAtLeast(dp(12))
 
             vb.rvGames.setPadding(
                 vb.rvGames.paddingLeft,
@@ -255,11 +266,8 @@ if (isTvDevice) {
                 vb.rvGames.paddingBottom
             )
 
-            val start =
-                vb.todayRail.bottom + dp(6)
-
-            val end =
-                start + dp(44)
+            val start = topSpace + dp(6)
+            val end = start + dp(44)
 
             vb.swipe.setProgressViewOffset(
                 true,
@@ -435,7 +443,6 @@ if (isTvDevice) {
             applyCardWidthConstraint()
         }
 
-       
         // =====================================================
         // FOCO DOS CARDS NA TV
         // =====================================================
@@ -487,13 +494,13 @@ if (isTvDevice) {
                         adapter.isNoticeAt(position)
 
                     view.layoutParams =
-    view.layoutParams.apply {
-        height = if (isNotice) {
-            dp(175)
-        } else {
-            dp(145)
-        }
-    }
+                        view.layoutParams.apply {
+                            height = if (isNotice) {
+                                dp(175)
+                            } else {
+                                dp(145)
+                            }
+                        }
 
                     // O aviso não recebe foco como card.
                     // Os botões internos recebem o foco.
@@ -528,7 +535,6 @@ if (isTvDevice) {
                 }
             }
         )
-
 
         // =====================================================
         // ABRIR LINKS
@@ -673,7 +679,6 @@ if (isTvDevice) {
             liveRunnable,
             30000
         )
-
     }
 
     override fun onPause() {
