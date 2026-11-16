@@ -554,10 +554,11 @@ if (isTvDevice) {
         }
 
         // =====================================================
+// =====================================================
 // ESPAÇO FINAL DA LISTA
 // =====================================================
 
-val bottomSpace = if (isTvDevice) 0 else dp(40)
+val bottomSpace = if (isTvDevice) dp(40) else dp(40)
 
 vb.rvGames.setPadding(
     vb.rvGames.paddingLeft,
