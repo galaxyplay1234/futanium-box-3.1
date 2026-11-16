@@ -115,23 +115,24 @@ class GameAdapter(
             view.isFocusable = true
             view.isFocusableInTouchMode = true
 
-            view.setOnFocusChangeListener { v, hasFocus ->
-                if (v is MaterialCardView) {
-                    v.strokeColor = ColorStateList.valueOf(
-                        if (hasFocus) focusBlue else normalStroke
-                    )
-                    v.strokeWidth = if (hasFocus) {
-                        (3 * v.resources.displayMetrics.density).toInt()
-                    } else {
-                        (1 * v.resources.displayMetrics.density).toInt()
-                    }
+          view.setOnFocusChangeListener { v, hasFocus ->
+    if (v is MaterialCardView) {
 
-                    v.cardElevation = if (hasFocus) {
-                        9f * v.resources.displayMetrics.density
-                    } else {
-                        5f * v.resources.displayMetrics.density
-                    }
-                }
+        v.strokeColor = if (hasFocus) focusBlue else normalStroke
+
+        v.strokeWidth = if (hasFocus) {
+            (3 * v.resources.displayMetrics.density).toInt()
+        } else {
+            (1 * v.resources.displayMetrics.density).toInt()
+        }
+
+        v.cardElevation = if (hasFocus) {
+            9f * v.resources.displayMetrics.density
+        } else {
+            5f * v.resources.displayMetrics.density
+        }
+    }
+}
             }
         }
 
