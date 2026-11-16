@@ -1,3 +1,4 @@
+
 package com.futanium.box.ui
 
 import android.content.Intent
@@ -334,14 +335,14 @@ class GameAdapter(
 
                         if (isTv) {
 
-    setBackground(
-        createNoticeButtonBackground(false, d)
-    )
+                            setBackground(
+                                createNoticeButtonBackground(false, d)
+                            )
 
-    // Remove a tonalidade padrão do Button
-    backgroundTintList = null
+                            backgroundTintList = null
 
-} else {
+                        } else {
+
                             background =
                                 androidx.appcompat.content.res.AppCompatResources.getDrawable(
                                     ctx,
@@ -406,7 +407,6 @@ class GameAdapter(
                     h.btnContainer.addView(b, lp)
                 }
 
-                // Os botões ficam disponíveis individualmente na TV.
                 if (isTv) {
 
                     h.btnContainer.descendantFocusability =
@@ -417,8 +417,6 @@ class GameAdapter(
                 }
             }
 
-            // O card de aviso não recebe foco.
-            // O foco fica nos botões individuais.
             h.itemView.isFocusable = false
             h.itemView.isFocusableInTouchMode = false
             h.itemView.isClickable = false
@@ -645,7 +643,7 @@ class GameAdapter(
             btns.isNotEmpty()
 
         val isExpanded =
-    position == expandedPos && hasButtons
+            position == expandedPos && hasButtons
 
         h.btnContainer.visibility =
             if (isExpanded) View.VISIBLE else View.GONE
@@ -777,32 +775,32 @@ class GameAdapter(
             }
         }
 
+        // Ao selecionar o card, apenas expande ou recolhe os players.
         h.itemView.setOnClickListener {
 
-    val current = h.bindingAdapterPosition
+            val current = h.bindingAdapterPosition
 
-    if (current == RecyclerView.NO_POSITION) {
-        return@setOnClickListener
-    }
+            if (current == RecyclerView.NO_POSITION) {
+                return@setOnClickListener
+            }
 
-    val prev = expandedPos
+            val prev = expandedPos
 
-    if (prev == current) {
+            if (prev == current) {
 
-        expandedPos = -1
-        notifyItemChanged(current)
+                expandedPos = -1
+                notifyItemChanged(current)
 
-    } else {
+            } else {
 
-        expandedPos = current
+                expandedPos = current
 
-        if (prev != -1) {
-            notifyItemChanged(prev)
-        }
+                if (prev != -1) {
+                    notifyItemChanged(prev)
+                }
 
-        notifyItemChanged(current)
-    }
-}
+                notifyItemChanged(current)
+            }
         }
     }
 
@@ -811,49 +809,49 @@ class GameAdapter(
     // =====================================================
 
     private fun createNoticeButtonBackground(
-    focused: Boolean,
-    density: Float
-): RippleDrawable {
+        focused: Boolean,
+        density: Float
+    ): RippleDrawable {
 
-    val drawable = GradientDrawable().apply {
+        val drawable = GradientDrawable().apply {
 
-        shape = GradientDrawable.RECTANGLE
+            shape = GradientDrawable.RECTANGLE
 
-        cornerRadius = 10f * density
+            cornerRadius = 10f * density
 
-        setColor(buttonGray)
+            setColor(buttonGray)
 
-        setStroke(
-            if (focused) {
-                (2 * density).toInt()
-            } else {
-                (1 * density).toInt()
-            },
-            if (focused) {
-                focusBlue
-            } else {
-                Color.parseColor("#D3D6DA")
-            }
+            setStroke(
+                if (focused) {
+                    (2 * density).toInt()
+                } else {
+                    (1 * density).toInt()
+                },
+                if (focused) {
+                    focusBlue
+                } else {
+                    Color.parseColor("#D3D6DA")
+                }
+            )
+        }
+
+        val mask = GradientDrawable().apply {
+
+            shape = GradientDrawable.RECTANGLE
+
+            cornerRadius = 10f * density
+
+            setColor(Color.WHITE)
+        }
+
+        return RippleDrawable(
+            ColorStateList.valueOf(
+                Color.parseColor("#33000000")
+            ),
+            drawable,
+            mask
         )
     }
-
-    val mask = GradientDrawable().apply {
-
-        shape = GradientDrawable.RECTANGLE
-
-        cornerRadius = 10f * density
-
-        setColor(Color.WHITE)
-    }
-
-    return RippleDrawable(
-        ColorStateList.valueOf(
-            Color.parseColor("#33000000")
-        ),
-        drawable,
-        mask
-    )
-}
 
     override fun onViewAttachedToWindow(holder: VH) {
 
