@@ -16,79 +16,68 @@
         app:titleCentered="false"
         app:titleTextColor="@android:color/white" />
 
+    <!-- Conteúdo abaixo da toolbar -->
     <FrameLayout
         android:id="@+id/contentRoot"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_marginTop="?attr/actionBarSize">
 
-        <!-- Estrutura vertical: cabeçalho e lista separados -->
-        <LinearLayout
+        <!-- Lista com swipe -->
+        <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+            android:id="@+id/swipe"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:orientation="vertical">
+            android:layout_height="match_parent">
 
-            <!-- Cabeçalho fixo -->
-            <LinearLayout
-                android:id="@+id/todayRail"
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvGames"
                 android:layout_width="match_parent"
-                android:layout_height="52dp"
-                android:orientation="vertical"
-                android:gravity="center"
-                android:background="#F3F3F3"
-                android:elevation="0dp">
+                android:layout_height="match_parent"
+                android:clipToPadding="false"
+                android:paddingTop="0dp"
+                android:paddingBottom="4dp"/>
+        </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
-                <TextView
-                    android:id="@+id/todayChipText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:background="@drawable/bg_today_chip"
-                    android:paddingStart="14dp"
-                    android:paddingEnd="14dp"
-                    android:paddingTop="6dp"
-                    android:paddingBottom="6dp"
-                    android:text="Jogos de Hoje - 24/08"
-                    android:textColor="#151723"
-                    android:textSize="14sp"
-                    android:maxLines="1"
-                    android:ellipsize="end"
-                    android:elevation="3dp"
-                    android:translationZ="3dp"/>
+       <TextView
+    android:id="@+id/emptyView"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:text="Nenhum jogo disponível no momento, estamos atualizando..."
+    android:textSize="18sp"
+    android:textColor="#A5A5A5"
+    android:textStyle="bold"
+    android:gravity="center"
+    android:visibility="gone"
+    android:padding="24dp"/>
 
-            </LinearLayout>
+        <!-- Rail (barra) sem sombra, cor do fundo, de fora a fora -->
+        <!-- Rail (barra) sem sombra, cor do fundo, largura total -->
+<LinearLayout
+    android:id="@+id/todayRail"
+    android:layout_width="match_parent"
+    android:layout_height="52dp"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:background="#F3F3F3"
+    android:elevation="0dp">
 
-            <!-- Lista começa depois do cabeçalho -->
-            <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-                android:id="@+id/swipe"
-                android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_weight="1">
-
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/rvGames"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:clipToPadding="true"
-                    android:paddingTop="0dp"
-                    android:paddingBottom="0dp"/>
-
-            </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
-
-        </LinearLayout>
-
-        <!-- Mensagem de lista vazia -->
-        <TextView
-            android:id="@+id/emptyView"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:text="Nenhum jogo disponível no momento, estamos atualizando..."
-            android:textSize="18sp"
-            android:textColor="#A5A5A5"
-            android:textStyle="bold"
-            android:gravity="center"
-            android:visibility="gone"
-            android:padding="24dp"/>
-
+    <!-- Chip branco centralizado, com sombra leve -->
+    <TextView
+        android:id="@+id/todayChipText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="@drawable/bg_today_chip"
+        android:paddingStart="14dp"
+        android:paddingEnd="14dp"
+        android:paddingTop="6dp"
+        android:paddingBottom="6dp"
+        android:text="Jogos de Hoje - 24/08"
+        android:textColor="#151723"
+        android:textSize="14sp"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:elevation="3dp"
+        android:translationZ="3dp"/>
+</LinearLayout>
     </FrameLayout>
-
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
