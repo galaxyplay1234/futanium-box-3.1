@@ -1,4 +1,3 @@
-
 package com.futanium.box
 
 import android.animation.ObjectAnimator
@@ -15,6 +14,7 @@ import android.graphics.Typeface
 import android.graphics.drawable.InsetDrawable
 import android.graphics.drawable.RippleDrawable
 import android.graphics.drawable.ShapeDrawable
+import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.shapes.OvalShape
 import android.util.TypedValue
 import android.view.Menu
@@ -32,6 +32,7 @@ import androidx.appcompat.widget.AppCompatImageView
 import androidx.core.content.FileProvider
 import androidx.core.view.MenuItemCompat
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.futanium.box.databinding.ActivityMainBinding
 import com.futanium.box.model.Game
@@ -51,7 +52,7 @@ import kotlin.math.min
 import com.google.firebase.database.FirebaseDatabase
 import java.util.UUID
 
-// 🔔 IMPORTES ADICIONADOS PARA NOTIFICAÇÃO
+// Notificações
 import android.Manifest
 import com.google.firebase.messaging.FirebaseMessaging
 
@@ -64,13 +65,16 @@ class MainActivity : AppCompatActivity() {
     private lateinit var vb: ActivityMainBinding
     private val client = OkHttpClient()
     private val adapter = GameAdapter()
+
     private var onlineRefId: String? = null
     private var isOnlineActive = false
 
     // Detecta se o aparelho é uma TV
     private var isTvDevice = false
 
-    private val API_URL = "https://futaniumwebapp.vercel.app/api/games"
+    private val API_URL =
+        "https://futaniumwebapp.vercel.app/api/games"
+
     private val LIVE_API_URL =
         "https://futanium-live.galaxyplay1234.workers.dev/"
 
@@ -86,7 +90,8 @@ class MainActivity : AppCompatActivity() {
     private var pendingApkUri: Uri? = null
     private var downloadingDialog: AlertDialog? = null
 
-    private val liveHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val liveHandler =
+        android.os.Handler(android.os.Looper.getMainLooper())
 
     private val liveRunnable = object : Runnable {
         override fun run() {
@@ -95,48 +100,66 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private val unknownSourcesLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { _ ->
-        pendingApkUri?.let { uri ->
-            if (canInstallUnknownSources()) startApkInstall(uri)
-            else Toast.makeText(
-                this,
-                "Permita instalar apps deste fonte para atualizar.",
-                Toast.LENGTH_LONG
-            ).show()
+    private val unknownSourcesLauncher =
+        registerForActivityResult(
+            ActivityResultContracts.StartActivityForResult()
+        ) { _ ->
+
+            pendingApkUri?.let { uri ->
+                if (canInstallUnknownSources()) {
+                    startApkInstall(uri)
+                } else {
+                    Toast.makeText(
+                        this,
+                        "Permita instalar apps deste fonte para atualizar.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
         }
-    }
 
-    // 🔔 LAUNCHER DA PERMISSÃO DE NOTIFICAÇÃO (Android 13+)
+    // Permissão de notificações Android 13+
     private val requestNotif =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* ignore */ }
+        registerForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { /* ignore */ }
 
-    // 🔔 FUNÇÃO QUE GARANTE A PERMISSÃO (só Tiramisu+)
     private fun ensureNotifPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
-                != PackageManager.PERMISSION_GRANTED
+            if (
+                checkSelfPermission(
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
             ) {
-                requestNotif.launch(Manifest.permission.POST_NOTIFICATIONS)
+                requestNotif.launch(
+                    Manifest.permission.POST_NOTIFICATIONS
+                )
             }
         }
     }
 
     private fun setOnlineStatus(active: Boolean) {
+
         val db = FirebaseDatabase.getInstance(
             "https://futanium-web-default-rtdb.firebaseio.com/"
         )
+
         val onlineRef = db.getReference("online")
 
         if (active) {
-            // Gera ID aleatório anônimo
+
             onlineRefId = UUID.randomUUID().toString()
+
             onlineRef.child(onlineRefId!!).setValue(true)
-            onlineRef.child(onlineRefId!!).onDisconnect().removeValue()
+
+            onlineRef.child(onlineRefId!!)
+                .onDisconnect()
+                .removeValue()
+
             isOnlineActive = true
+
         } else {
-            // Remove quando o app vai para segundo plano
+
             onlineRefId?.let {
                 onlineRef.child(it).removeValue()
                 onlineRefId = null
@@ -147,48 +170,74 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         vb = ActivityMainBinding.inflate(layoutInflater)
         setContentView(vb.root)
 
-        // Detecta TV e informa ao adapter
+        // Detecta TV
         isTvDevice =
-            packageManager.hasSystemFeature("android.software.leanback") ||
-            packageManager.hasSystemFeature("android.hardware.type.television")
+            packageManager.hasSystemFeature(
+                "android.software.leanback"
+            ) ||
+            packageManager.hasSystemFeature(
+                "android.hardware.type.television"
+            )
 
         adapter.isTv = isTvDevice
 
-        // 🔔 PEDIR PERMISSÃO E ASSINAR TÓPICO GLOBAL
+        // Notificações
         ensureNotifPermission()
-        FirebaseMessaging.getInstance().subscribeToTopic("global")
+
+        FirebaseMessaging.getInstance()
+            .subscribeToTopic("global")
             .addOnCompleteListener {
-                android.util.Log.d("FCM", "Inscrito no tópico global")
+                android.util.Log.d(
+                    "FCM",
+                    "Inscrito no tópico global"
+                )
             }
 
         setSupportActionBar(vb.toolbar)
-        window.statusBarColor = Color.parseColor("#10131C")
+
+        window.statusBarColor =
+            Color.parseColor("#10131C")
+
         vb.toolbar.elevation = 6f
         vb.toolbar.contentInsetEndWithActions = dp(44)
 
         vb.toolbar.post {
             for (i in 0 until vb.toolbar.childCount) {
+
                 val child = vb.toolbar.getChildAt(i)
+
                 if (child is TextView) {
-                    child.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
+                    child.setTextSize(
+                        TypedValue.COMPLEX_UNIT_SP,
+                        18f
+                    )
+
                     child.typeface = Typeface.DEFAULT_BOLD
                     break
                 }
             }
         }
 
+        // Data do dia
         val df = java.text.SimpleDateFormat(
             "dd/MM",
             java.util.Locale.getDefault()
         )
-        vb.todayChipText.text = "Jogos de Hoje - ${df.format(java.util.Date())}"
+
+        vb.todayChipText.text =
+            "Jogos de Hoje - ${df.format(java.util.Date())}"
 
         vb.todayRail.bringToFront()
+
         vb.root.post {
-            val topSpace = vb.todayRail.bottom + dp(4)
+
+            val topSpace =
+                vb.todayRail.bottom + dp(4)
+
             vb.rvGames.setPadding(
                 vb.rvGames.paddingLeft,
                 topSpace,
@@ -196,19 +245,51 @@ class MainActivity : AppCompatActivity() {
                 vb.rvGames.paddingBottom
             )
 
-            val start = vb.todayRail.bottom + dp(6)
-            val end = start + dp(44)
-            vb.swipe.setProgressViewOffset(true, start, end)
+            val start =
+                vb.todayRail.bottom + dp(6)
+
+            val end =
+                start + dp(44)
+
+            vb.swipe.setProgressViewOffset(
+                true,
+                start,
+                end
+            )
         }
 
-        // TV: lista horizontal. Celular: lista vertical.
+        // =====================================================
+        // LAYOUT DA LISTA
+        // TV: grade com 3 colunas.
+        // AVISO: ocupa as 3 colunas.
+        // CELULAR: lista vertical original.
+        // =====================================================
+
         vb.rvGames.layoutManager = if (isTvDevice) {
-            LinearLayoutManager(
+
+            GridLayoutManager(
                 this,
-                RecyclerView.HORIZONTAL,
-                false
-            )
+                3
+            ).apply {
+
+                spanSizeLookup =
+                    object : GridLayoutManager.SpanSizeLookup() {
+
+                        override fun getSpanSize(position: Int): Int {
+
+                            return if (
+                                adapter.isNoticeAt(position)
+                            ) {
+                                3
+                            } else {
+                                1
+                            }
+                        }
+                    }
+            }
+
         } else {
+
             LinearLayoutManager(
                 this,
                 RecyclerView.VERTICAL,
@@ -218,28 +299,32 @@ class MainActivity : AppCompatActivity() {
 
         vb.rvGames.adapter = adapter
 
-        // 🔧 Evita que o RecyclerView feche ou anime cards ao atualizar
         vb.rvGames.setHasFixedSize(false)
         vb.rvGames.itemAnimator = null
 
-        // ======= Largura máx. 600dp em telas grandes / TV =======
-        val maxCardPx = (600 * resources.displayMetrics.density).toInt()
+        // Largura máxima original para telas grandes/celular
+        val maxCardPx =
+            (600 * resources.displayMetrics.density).toInt()
 
         fun isLargeNow(): Boolean {
             val dm = resources.displayMetrics
             val widthDpNow = dm.widthPixels / dm.density
+
             return widthDpNow >= 600f || isTvDevice
         }
 
         fun applyCardWidthConstraint() {
-            // Na TV, a largura é aplicada individualmente aos cards
+
+            // A grade da TV calcula a largura dos cards.
             if (isTvDevice) return
 
             val w = vb.rvGames.width
             if (w <= 0) return
 
             if (isLargeNow()) {
+
                 vb.rvGames.clipToPadding = false
+
                 val target = min(w, maxCardPx)
                 val side = max(0, (w - target) / 2)
 
@@ -251,12 +336,18 @@ class MainActivity : AppCompatActivity() {
                 )
 
                 for (i in 0 until vb.rvGames.childCount) {
+
                     val child = vb.rvGames.getChildAt(i)
-                    val lp = child.layoutParams as RecyclerView.LayoutParams
+
+                    val lp =
+                        child.layoutParams as RecyclerView.LayoutParams
+
                     lp.width = target
                     child.layoutParams = lp
                 }
+
             } else {
+
                 vb.rvGames.setPadding(
                     0,
                     vb.rvGames.paddingTop,
@@ -265,9 +356,15 @@ class MainActivity : AppCompatActivity() {
                 )
 
                 for (i in 0 until vb.rvGames.childCount) {
+
                     val child = vb.rvGames.getChildAt(i)
-                    val lp = child.layoutParams as RecyclerView.LayoutParams
-                    lp.width = ViewGroup.LayoutParams.MATCH_PARENT
+
+                    val lp =
+                        child.layoutParams as RecyclerView.LayoutParams
+
+                    lp.width =
+                        ViewGroup.LayoutParams.MATCH_PARENT
+
                     child.layoutParams = lp
                 }
             }
@@ -275,43 +372,64 @@ class MainActivity : AppCompatActivity() {
 
         vb.rvGames.addOnLayoutChangeListener {
                 _, _, _, _, _, _, _, _, _ ->
+
             applyCardWidthConstraint()
         }
 
+        // =====================================================
+        // FOCO DOS CARDS NA TV
+        // =====================================================
+
         vb.rvGames.addOnChildAttachStateChangeListener(
+
             object : RecyclerView.OnChildAttachStateChangeListener {
 
                 override fun onChildViewAttachedToWindow(view: View) {
 
-                    // Ajusta largura somente no celular
+                    // Largura original somente no celular
                     if (!isTvDevice) {
+
                         if (isLargeNow()) {
+
                             val target = min(
                                 vb.rvGames.width,
                                 maxCardPx
                             )
 
-                            (view.layoutParams as RecyclerView.LayoutParams).apply {
+                            (
+                                view.layoutParams as RecyclerView.LayoutParams
+                            ).apply {
+
                                 width = target
                                 view.layoutParams = this
                             }
+
                         } else {
-                            (view.layoutParams as RecyclerView.LayoutParams).apply {
-                                width = ViewGroup.LayoutParams.MATCH_PARENT
+
+                            (
+                                view.layoutParams as RecyclerView.LayoutParams
+                            ).apply {
+
+                                width =
+                                    ViewGroup.LayoutParams.MATCH_PARENT
+
                                 view.layoutParams = this
                             }
                         }
                     }
 
                     if (isTvDevice) {
-                        // O CARD é focável na TV
+
                         view.isFocusable = true
                         view.isFocusableInTouchMode = true
 
-                        // OK abre diretamente o primeiro canal.
-                        // A seleção do canal fica no GameAdapter.
+                        // OK/ENTER abre o primeiro canal.
+                        // As setas ficam livres para a navegação da grade.
                         view.setOnKeyListener { v, key, ev ->
-                            if (ev.action != KeyEvent.ACTION_DOWN) {
+
+                            if (
+                                ev.action != KeyEvent.ACTION_DOWN
+                            ) {
                                 return@setOnKeyListener false
                             }
 
@@ -319,25 +437,37 @@ class MainActivity : AppCompatActivity() {
                                 key == KeyEvent.KEYCODE_DPAD_CENTER ||
                                 key == KeyEvent.KEYCODE_ENTER
                             ) {
+
                                 v.performClick()
                                 true
+
                             } else {
+
                                 false
                             }
                         }
                     }
                 }
 
-                override fun onChildViewDetachedFromWindow(view: View) {}
+                override fun onChildViewDetachedFromWindow(
+                    view: View
+                ) {
+                    // Nada a fazer
+                }
             }
         )
 
-        // ===========================================================
+        // =====================================================
 
-        adapter.onOpenLink = { url, title, referer, ua ->
+        adapter.onOpenLink = {
+                url, title, referer, ua ->
+
             if (!isOnline()) {
+
                 showOfflineDialog {
+
                     if (isOnline()) {
+
                         LinkHelper.openLinkSmart(
                             this,
                             url,
@@ -345,11 +475,15 @@ class MainActivity : AppCompatActivity() {
                             referer,
                             ua
                         )
+
                     } else {
+
                         showOfflineDialog { }
                     }
                 }
+
             } else {
+
                 LinkHelper.openLinkSmart(
                     this,
                     url,
@@ -360,8 +494,9 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // 🔹 Espaço extra no final da lista (sem afetar os cards)
-        val bottomSpace = (40 * resources.displayMetrics.density).toInt()
+        // Espaço extra no final da lista
+        val bottomSpace =
+            (40 * resources.displayMetrics.density).toInt()
 
         vb.rvGames.setPadding(
             vb.rvGames.paddingLeft,
@@ -372,25 +507,38 @@ class MainActivity : AppCompatActivity() {
 
         vb.rvGames.clipToPadding = false
 
+        // Atualizar por gesto
         vb.swipe.setOnRefreshListener {
+
             if (!vb.swipe.isRefreshing) {
                 vb.swipe.isRefreshing = true
             }
 
             startRefreshSpin()
-            fetchGames(onFinally = { stopRefreshSpin() })
+
+            fetchGames(
+                onFinally = {
+                    stopRefreshSpin()
+                }
+            )
         }
 
+        // Carregamento inicial
         if (isOnline()) {
+
             fetchGames()
 
             checkAppUpdateExternal(
                 metaUrl = "https://raw.githubusercontent.com/galaxyplay1234/futanium-box-3.1/refs/heads/main/update.json",
                 showNoUpdateToast = false
             )
+
         } else {
+
             showOfflineDialog {
+
                 vb.swipe.isRefreshing = true
+
                 fetchGames()
 
                 checkAppUpdateExternal(
@@ -402,23 +550,30 @@ class MainActivity : AppCompatActivity() {
 
         setOnlineStatus(true)
 
-        // 🔹 Firebase Database
+        // Firebase Database
         val db = FirebaseDatabase.getInstance(
             "https://futanium-web-default-rtdb.firebaseio.com/"
         )
-        val installsRef = db.getReference("instalados")
 
-        // 🔹 ID único e anônimo do aparelho
+        val installsRef =
+            db.getReference("instalados")
+
+        // ID único e anônimo do aparelho
         val androidId = Settings.Secure.getString(
             contentResolver,
             Settings.Secure.ANDROID_ID
         )
 
-        // 🔹 Dados do aparelho e versão
+        // Dados do aparelho e versão
         val versionName = try {
-            packageManager.getPackageInfo(packageName, 0).versionName
-                ?: "desconhecida"
+
+            packageManager.getPackageInfo(
+                packageName,
+                0
+            ).versionName ?: "desconhecida"
+
         } catch (e: Exception) {
+
             "desconhecida"
         }
 
@@ -426,13 +581,16 @@ class MainActivity : AppCompatActivity() {
             "version" to versionName,
             "model" to Build.MODEL,
             "android" to Build.VERSION.RELEASE,
-            "last_open" to com.google.firebase.database.ServerValue.TIMESTAMP
+            "last_open" to
+                com.google.firebase.database.ServerValue.TIMESTAMP
         )
 
-        // 🔹 Atualiza registro
         installsRef.child(androidId).setValue(userData)
 
-        liveHandler.postDelayed(liveRunnable, 30000)
+        liveHandler.postDelayed(
+            liveRunnable,
+            30000
+        )
 
     } // onCreate
 
@@ -455,29 +613,46 @@ class MainActivity : AppCompatActivity() {
 
         if (navigatingInsideApp) {
 
-            // Atualiza somente placar/minuto ao voltar do player
             refreshLiveOnly()
 
         } else if (isOnline()) {
 
-            // Atualização completa apenas quando volta do segundo plano
             refreshGamesSilent()
         }
 
         navigatingInsideApp = false
 
-        liveHandler.postDelayed(liveRunnable, 30000)
+        liveHandler.postDelayed(
+            liveRunnable,
+            30000
+        )
     }
 
+    // =====================================================
+    // MENU / BOTÃO ATUALIZAR
+    // =====================================================
+
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        menuInflater.inflate(R.menu.main_menu, menu)
-        refreshItem = menu.findItem(R.id.action_refresh)
+
+        menuInflater.inflate(
+            R.menu.main_menu,
+            menu
+        )
+
+        refreshItem =
+            menu.findItem(R.id.action_refresh)
 
         val size = obtainActionBarSize()
 
         val iv = AppCompatImageView(this).apply {
-            layoutParams = ViewGroup.LayoutParams(size, size)
+
+            layoutParams = ViewGroup.LayoutParams(
+                size,
+                size
+            )
+
             setImageDrawable(refreshItem!!.icon)
+
             scaleType = ImageView.ScaleType.CENTER
 
             val rippleColor = ColorStateList.valueOf(
@@ -485,6 +660,7 @@ class MainActivity : AppCompatActivity() {
             )
 
             val inset = dp(5)
+
             val mask = InsetDrawable(
                 ShapeDrawable(OvalShape()),
                 inset,
@@ -493,41 +669,114 @@ class MainActivity : AppCompatActivity() {
                 inset
             )
 
-            background = RippleDrawable(rippleColor, null, mask)
-            setPadding(dp(8), dp(8), dp(8), dp(8))
+            background = RippleDrawable(
+                rippleColor,
+                null,
+                mask
+            )
+
+            setPadding(
+                dp(8),
+                dp(8),
+                dp(8),
+                dp(8)
+            )
 
             contentDescription = refreshItem!!.title
+
             isClickable = true
             isFocusable = true
+
+            // Contorno azul ao receber foco na TV
+            setOnFocusChangeListener { v, hasFocus ->
+
+                if (isTvDevice) {
+
+                    if (hasFocus) {
+
+                        val focusBackground =
+                            GradientDrawable().apply {
+
+                                shape =
+                                    GradientDrawable.RECTANGLE
+
+                                cornerRadius =
+                                    dp(8).toFloat()
+
+                                setColor(Color.TRANSPARENT)
+
+                                setStroke(
+                                    dp(2),
+                                    Color.parseColor("#168BFF")
+                                )
+                            }
+
+                        v.background = focusBackground
+
+                    } else {
+
+                        val normalBackground =
+                            RippleDrawable(
+                                rippleColor,
+                                null,
+                                mask
+                            )
+
+                        v.background = normalBackground
+                    }
+                }
+            }
 
             setOnClickListener {
                 onOptionsItemSelected(refreshItem!!)
             }
         }
 
-        MenuItemCompat.setActionView(refreshItem, iv)
+        MenuItemCompat.setActionView(
+            refreshItem,
+            iv
+        )
+
         refreshView = iv
 
         refreshView?.apply {
-            setLayerType(View.LAYER_TYPE_HARDWARE, null)
+
+            setLayerType(
+                View.LAYER_TYPE_HARDWARE,
+                null
+            )
+
             postOnAnimation {
-                setLayerType(View.LAYER_TYPE_NONE, null)
+                setLayerType(
+                    View.LAYER_TYPE_NONE,
+                    null
+                )
             }
         }
 
         return true
     }
 
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+    override fun onOptionsItemSelected(
+        item: MenuItem
+    ): Boolean {
+
         return when (item.itemId) {
+
             R.id.action_refresh -> {
+
                 startRefreshSpin()
 
                 if (!vb.swipe.isRefreshing) {
                     vb.swipe.isRefreshing = true
                 }
 
-                fetchGames(onFinally = { stopRefreshSpin() })
+                fetchGames(
+                    onFinally = {
+                        stopRefreshSpin()
+                    }
+                )
+
                 true
             }
 
@@ -535,12 +784,22 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun fetchGames(onFinally: (() -> Unit)? = null) {
+    // =====================================================
+    // BUSCAR JOGOS
+    // =====================================================
+
+    private fun fetchGames(
+        onFinally: (() -> Unit)? = null
+    ) {
+
         if (!isOnline()) {
+
             vb.swipe.isRefreshing = false
 
             showOfflineDialog {
+
                 vb.swipe.isRefreshing = true
+
                 fetchGames(onFinally)
             }
 
@@ -552,32 +811,43 @@ class MainActivity : AppCompatActivity() {
         }
 
         Thread {
+
             try {
+
                 val req = Request.Builder()
                     .url(API_URL)
                     .build()
 
-                val res = client.newCall(req).execute()
-                val body = res.body?.string() ?: "[]"
+                val res =
+                    client.newCall(req).execute()
+
+                val body =
+                    res.body?.string() ?: "[]"
 
                 var liveBody: String? = null
 
                 try {
+
                     val liveReq = Request.Builder()
                         .url(LIVE_API_URL)
                         .build()
 
-                    val liveRes = client.newCall(liveReq).execute()
-                    liveBody = liveRes.body?.string()
+                    val liveRes =
+                        client.newCall(liveReq).execute()
+
+                    liveBody =
+                        liveRes.body?.string()
+
                 } catch (_: Exception) {
                 }
 
-                val games = parseGames(body, liveBody)
+                val games =
+                    parseGames(body, liveBody)
 
                 runOnUiThread {
-                    (vb.rvGames.adapter as GameAdapter).submit(games)
 
-                    // Conta os tipos de item
+                    adapter.submit(games)
+
                     val temAviso = games.any {
                         it.homeLogo == "Aviso"
                     }
@@ -586,53 +856,80 @@ class MainActivity : AppCompatActivity() {
                         it.homeLogo != "Aviso"
                     }
 
-                    // Caso não tenha nada mesmo (nem aviso)
                     if (!temAviso && !temJogo) {
+
                         vb.rvGames.visibility = View.GONE
                         vb.emptyView.visibility = View.VISIBLE
+
                     } else {
+
                         vb.rvGames.visibility = View.VISIBLE
 
-                        // Se não houver jogos reais, mostra mensagem junto com o aviso
                         vb.emptyView.visibility =
-                            if (!temJogo) View.VISIBLE else View.GONE
+                            if (!temJogo) {
+                                View.VISIBLE
+                            } else {
+                                View.GONE
+                            }
                     }
                 }
 
             } catch (_: Exception) {
-                // silêncio para não expor a API
+
+                // Silêncio para não expor a API
+
             } finally {
+
                 runOnUiThread {
+
                     vb.swipe.isRefreshing = false
+
                     onFinally?.invoke()
                 }
             }
+
         }.start()
     }
 
+    // =====================================================
+    // ATUALIZAÇÃO SILENCIOSA
+    // =====================================================
+
     private fun refreshGamesSilent() {
+
         Thread {
+
             try {
+
                 val req = Request.Builder()
                     .url(API_URL)
                     .build()
 
-                val res = client.newCall(req).execute()
-                val body = res.body?.string() ?: "[]"
+                val res =
+                    client.newCall(req).execute()
+
+                val body =
+                    res.body?.string() ?: "[]"
 
                 var liveBody: String? = null
 
                 try {
+
                     val liveReq = Request.Builder()
                         .url(LIVE_API_URL)
                         .build()
 
-                    val liveRes = client.newCall(liveReq).execute()
-                    liveBody = liveRes.body?.string()
+                    val liveRes =
+                        client.newCall(liveReq).execute()
+
+                    liveBody =
+                        liveRes.body?.string()
+
                 } catch (_: Exception) {
                 }
 
-                val games = parseGames(body, liveBody)
+                val games =
+                    parseGames(body, liveBody)
 
                 runOnUiThread {
                     adapter.submit(games)
@@ -640,43 +937,69 @@ class MainActivity : AppCompatActivity() {
 
             } catch (_: Exception) {
             }
+
         }.start()
     }
+
+    // =====================================================
+    // VERIFICAR ATUALIZAÇÃO DO APP
+    // =====================================================
 
     private fun checkAppUpdateExternal(
         metaUrl: String,
         showNoUpdateToast: Boolean = false
     ) {
+
         Thread {
+
             try {
+
                 val req = Request.Builder()
                     .url(metaUrl)
                     .build()
 
-                val res = OkHttpClient().newCall(req).execute()
-                val body = res.body?.string().orEmpty()
+                val res =
+                    OkHttpClient()
+                        .newCall(req)
+                        .execute()
+
+                val body =
+                    res.body?.string().orEmpty()
 
                 if (body.isBlank()) return@Thread
 
                 val obj = JSONObject(body)
-                val remoteCode = obj.optInt("versionCode", -1)
-                val apkUrl = obj.optString("apkUrl", "")
-                val title = obj.optString(
-                    "title",
-                    "Nova versão disponível"
-                )
-                val changelog = obj.optString("changelog", "")
+
+                val remoteCode =
+                    obj.optInt("versionCode", -1)
+
+                val apkUrl =
+                    obj.optString("apkUrl", "")
+
+                val title =
+                    obj.optString(
+                        "title",
+                        "Nova versão disponível"
+                    )
+
+                val changelog =
+                    obj.optString("changelog", "")
 
                 if (remoteCode > currentVersionCode()) {
+
                     runOnUiThread {
+
                         showUpdateAvailableDialog(
                             title,
                             changelog,
                             apkUrl
                         )
                     }
+
                 } else if (showNoUpdateToast) {
+
                     runOnUiThread {
+
                         Toast.makeText(
                             this,
                             "Você já está na última versão.",
@@ -686,8 +1009,11 @@ class MainActivity : AppCompatActivity() {
                 }
 
             } catch (_: Exception) {
+
                 if (showNoUpdateToast) {
+
                     runOnUiThread {
+
                         Toast.makeText(
                             this,
                             "Falha ao checar atualização.",
@@ -696,6 +1022,7 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             }
+
         }.start()
     }
 
@@ -704,6 +1031,7 @@ class MainActivity : AppCompatActivity() {
         changelog: String,
         apkUrl: String
     ) {
+
         val msg = if (changelog.isNotBlank()) {
             changelog
         } else {
@@ -711,7 +1039,11 @@ class MainActivity : AppCompatActivity() {
         }
 
         val dialog = AlertDialog.Builder(this)
-            .setTitle(title.ifBlank { "Nova versão disponível" })
+            .setTitle(
+                title.ifBlank {
+                    "Nova versão disponível"
+                }
+            )
             .setMessage(msg)
             .setIcon(applicationInfo.icon)
             .setNegativeButton("CANCELAR", null)
@@ -721,19 +1053,31 @@ class MainActivity : AppCompatActivity() {
             .create()
 
         dialog.setOnShowListener {
+
             val c = getColor(R.color.menuColor)
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-                ?.setTextColor(c)
-            dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
-                ?.setTextColor(c)
+
+            dialog.getButton(
+                AlertDialog.BUTTON_POSITIVE
+            )?.setTextColor(c)
+
+            dialog.getButton(
+                AlertDialog.BUTTON_NEGATIVE
+            )?.setTextColor(c)
         }
 
         dialog.show()
     }
 
+    // =====================================================
+    // DOWNLOAD DA ATUALIZAÇÃO
+    // =====================================================
+
     private fun showDownloadingDialog(): AlertDialog {
+
         val container = LinearLayout(this).apply {
+
             orientation = LinearLayout.VERTICAL
+
             setPadding(
                 dp(24),
                 dp(20),
@@ -747,8 +1091,15 @@ class MainActivity : AppCompatActivity() {
         }
 
         val tv = TextView(this).apply {
+
             text = "Baixando atualização…"
-            setPadding(0, dp(12), 0, 0)
+
+            setPadding(
+                0,
+                dp(12),
+                0,
+                0
+            )
         }
 
         container.addView(pb)
@@ -764,12 +1115,19 @@ class MainActivity : AppCompatActivity() {
             }
     }
 
-    private fun downloadAndPromptInstall(apkUrl: String) {
+    private fun downloadAndPromptInstall(
+        apkUrl: String
+    ) {
+
         downloadingDialog?.dismiss()
-        downloadingDialog = showDownloadingDialog()
+
+        downloadingDialog =
+            showDownloadingDialog()
 
         Thread {
+
             try {
+
                 val client = OkHttpClient()
 
                 val res = client.newCall(
@@ -779,15 +1137,24 @@ class MainActivity : AppCompatActivity() {
                 ).execute()
 
                 val body = res.body
-                    ?: throw IllegalStateException("Sem corpo na resposta")
+                    ?: throw IllegalStateException(
+                        "Sem corpo na resposta"
+                    )
 
-                val dir = File(cacheDir, "apks").apply {
+                val dir = File(
+                    cacheDir,
+                    "apks"
+                ).apply {
                     mkdirs()
                 }
 
-                val file = File(dir, "update.apk")
+                val file = File(
+                    dir,
+                    "update.apk"
+                )
 
                 body.byteStream().use { input ->
+
                     file.outputStream().use { output ->
                         input.copyTo(output)
                     }
@@ -800,13 +1167,17 @@ class MainActivity : AppCompatActivity() {
                 )
 
                 runOnUiThread {
+
                     downloadingDialog?.dismiss()
                     downloadingDialog = null
+
                     prepareInstall(uri)
                 }
 
             } catch (e: Exception) {
+
                 runOnUiThread {
+
                     downloadingDialog?.dismiss()
                     downloadingDialog = null
 
@@ -817,15 +1188,20 @@ class MainActivity : AppCompatActivity() {
                     ).show()
                 }
             }
+
         }.start()
     }
 
     private fun prepareInstall(uri: Uri) {
+
         pendingApkUri = uri
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+
             if (!canInstallUnknownSources()) {
+
                 try {
+
                     val intent = Intent(
                         Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                         Uri.parse("package:$packageName")
@@ -834,11 +1210,14 @@ class MainActivity : AppCompatActivity() {
                     unknownSourcesLauncher.launch(intent)
 
                 } catch (e: ActivityNotFoundException) {
+
                     val i = Intent(
                         Settings.ACTION_APPLICATION_DETAILS_SETTINGS
                     )
 
-                    i.data = Uri.parse("package:$packageName")
+                    i.data =
+                        Uri.parse("package:$packageName")
+
                     startActivity(i)
 
                     Toast.makeText(
@@ -856,18 +1235,25 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startApkInstall(uri: Uri) {
+
         val intent = Intent(Intent.ACTION_VIEW).apply {
+
             setDataAndType(
                 uri,
                 "application/vnd.android.package-archive"
             )
 
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(
+                Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
         }
 
         try {
+
             startActivity(intent)
+
         } catch (_: Exception) {
+
             Toast.makeText(
                 this,
                 "Não foi possível iniciar a instalação.",
@@ -877,24 +1263,38 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun canInstallUnknownSources(): Boolean {
+
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+
             try {
+
                 packageManager.canRequestPackageInstalls()
+
             } catch (_: SecurityException) {
+
                 false
             }
+
         } else {
+
             true
         }
     }
 
+    // =====================================================
+    // INTERNET
+    // =====================================================
+
     private fun isOnline(): Boolean {
+
         val cm = getSystemService(
             android.content.Context.CONNECTIVITY_SERVICE
         ) as android.net.ConnectivityManager
 
         val net = cm.activeNetwork ?: return false
-        val caps = cm.getNetworkCapabilities(net) ?: return false
+
+        val caps =
+            cm.getNetworkCapabilities(net) ?: return false
 
         return caps.hasTransport(
             android.net.NetworkCapabilities.TRANSPORT_WIFI
@@ -907,11 +1307,17 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
-    private fun showOfflineDialog(onRetry: (() -> Unit)? = null) {
+    private fun showOfflineDialog(
+        onRetry: (() -> Unit)? = null
+    ) {
+
         val d = androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle("⚠️ Sem conexão")
-            .setMessage("Verifique sua internet e tente novamente.")
+            .setMessage(
+                "Verifique sua internet e tente novamente."
+            )
             .setNegativeButton("CONFIGURAR WI-FI") { _, _ ->
+
                 startActivity(
                     android.content.Intent(
                         android.provider.Settings.ACTION_WIFI_SETTINGS
@@ -919,6 +1325,7 @@ class MainActivity : AppCompatActivity() {
                 )
             }
             .setPositiveButton("TENTAR NOVAMENTE") { _, _ ->
+
                 if (isOnline()) {
                     onRetry?.invoke()
                 } else {
@@ -928,6 +1335,7 @@ class MainActivity : AppCompatActivity() {
             .create()
 
         d.setOnShowListener {
+
             val c = getColor(R.color.menuColor)
 
             d.getButton(
@@ -942,11 +1350,19 @@ class MainActivity : AppCompatActivity() {
         d.show()
     }
 
+    // =====================================================
+    // DADOS AO VIVO
+    // =====================================================
+
     private fun teamMatches(
         appName: String?,
         liveName: String?
     ): Boolean {
-        if (appName.isNullOrBlank() || liveName.isNullOrBlank()) {
+
+        if (
+            appName.isNullOrBlank() ||
+            liveName.isNullOrBlank()
+        ) {
             return false
         }
 
@@ -957,59 +1373,91 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun refreshLiveOnly() {
+
         Thread {
+
             try {
+
                 val liveReq = Request.Builder()
                     .url(LIVE_API_URL)
                     .build()
 
-                val liveRes = client.newCall(liveReq).execute()
-                val liveBody = liveRes.body?.string()
-                    ?: return@Thread
+                val liveRes =
+                    client.newCall(liveReq).execute()
 
-                val liveGames = mutableListOf<JSONObject>()
+                val liveBody =
+                    liveRes.body?.string()
+                        ?: return@Thread
 
-                val liveObj = JSONObject(liveBody)
-                val liveArr = liveObj.optJSONArray("games")
+                val liveGames =
+                    mutableListOf<JSONObject>()
+
+                val liveObj =
+                    JSONObject(liveBody)
+
+                val liveArr =
+                    liveObj.optJSONArray("games")
 
                 if (liveArr != null) {
+
                     for (i in 0 until liveArr.length()) {
-                        liveGames.add(liveArr.getJSONObject(i))
+                        liveGames.add(
+                            liveArr.getJSONObject(i)
+                        )
                     }
                 }
 
-                val updatedGames = adapter.getCurrentGames().map { game ->
-
-                    if (game.liveMinute.equals("encerrado", true)) {
-                        return@map game
-                    }
-
-                    var score = game.liveScore
-                    var minute = game.liveMinute
-
-                    for (live in liveGames) {
-                        val liveHome = live.optString("home_team")
-                        val liveAway = live.optString("away_team")
+                val updatedGames =
+                    adapter.getCurrentGames().map { game ->
 
                         if (
-                            teamMatches(game.homeName, liveHome) &&
-                            teamMatches(game.awayName, liveAway)
+                            game.liveMinute.equals(
+                                "encerrado",
+                                true
+                            )
                         ) {
-                            score =
-                                "${live.optString("home_score")} x ${
-                                    live.optString("away_score")
-                                }"
-
-                            minute = live.optString("minute")
-                            break
+                            return@map game
                         }
-                    }
 
-                    game.copy(
-                        liveScore = score,
-                        liveMinute = minute
-                    )
-                }
+                        var score = game.liveScore
+                        var minute = game.liveMinute
+
+                        for (live in liveGames) {
+
+                            val liveHome =
+                                live.optString("home_team")
+
+                            val liveAway =
+                                live.optString("away_team")
+
+                            if (
+                                teamMatches(
+                                    game.homeName,
+                                    liveHome
+                                ) &&
+                                teamMatches(
+                                    game.awayName,
+                                    liveAway
+                                )
+                            ) {
+
+                                score =
+                                    "${live.optString("home_score")} x ${
+                                        live.optString("away_score")
+                                    }"
+
+                                minute =
+                                    live.optString("minute")
+
+                                break
+                            }
+                        }
+
+                        game.copy(
+                            liveScore = score,
+                            liveMinute = minute
+                        )
+                    }
 
                 runOnUiThread {
                     adapter.updateLiveData(updatedGames)
@@ -1017,8 +1465,13 @@ class MainActivity : AppCompatActivity() {
 
             } catch (_: Exception) {
             }
+
         }.start()
     }
+
+    // =====================================================
+    // PARSE DA API
+    // =====================================================
 
     private fun parseGames(
         json: String,
@@ -1026,35 +1479,56 @@ class MainActivity : AppCompatActivity() {
     ): List<Game> {
 
         val arr = JSONArray(json)
-        val list = ArrayList<Game>(arr.length())
 
-        val liveGames = mutableListOf<JSONObject>()
+        val list =
+            ArrayList<Game>(arr.length())
+
+        val liveGames =
+            mutableListOf<JSONObject>()
 
         if (!liveJson.isNullOrBlank()) {
+
             try {
-                val liveObj = JSONObject(liveJson)
-                val liveArr = liveObj.optJSONArray("games")
+
+                val liveObj =
+                    JSONObject(liveJson)
+
+                val liveArr =
+                    liveObj.optJSONArray("games")
 
                 if (liveArr != null) {
+
                     for (x in 0 until liveArr.length()) {
-                        liveGames.add(liveArr.getJSONObject(x))
+                        liveGames.add(
+                            liveArr.getJSONObject(x)
+                        )
                     }
                 }
+
             } catch (_: Exception) {
             }
         }
 
         for (i in 0 until arr.length()) {
+
             val o = arr.optJSONObject(i) ?: continue
+
             if (o.has("header")) continue
 
-            val championship = o.optString("championship", "")
+            val championship =
+                o.optString("championship", "")
+
             val championshipImageUrl =
                 o.optString("championship_image_url", null)
 
-            val startTime = o.optString("start_time", "")
-            val homeTeam = o.optString("home_team", "")
-            val visitingTeam = o.optString("visiting_team", "")
+            val startTime =
+                o.optString("start_time", "")
+
+            val homeTeam =
+                o.optString("home_team", "")
+
+            val visitingTeam =
+                o.optString("visiting_team", "")
 
             val homeLogo =
                 o.optString("home_team_image_url", null)
@@ -1062,15 +1536,20 @@ class MainActivity : AppCompatActivity() {
             val visitingLogo =
                 o.optString("visiting_team_image_url", null)
 
-            val isLive = o.optBoolean("is_live", false)
-            val isFinished = o.optBoolean("is_finished", false)
+            val isLive =
+                o.optBoolean("is_live", false)
+
+            val isFinished =
+                o.optBoolean("is_finished", false)
 
             var liveScore: String? = null
             var liveMinute: String? = null
 
             val buttonsList: List<Any>? =
                 o.optJSONArray("buttons")?.let { ja ->
-                    val tmp = ArrayList<Any>(ja.length())
+
+                    val tmp =
+                        ArrayList<Any>(ja.length())
 
                     for (j in 0 until ja.length()) {
                         tmp += ja.get(j)
@@ -1080,18 +1559,28 @@ class MainActivity : AppCompatActivity() {
                 }
 
             for (live in liveGames) {
-                val liveHome = live.optString("home_team")
-                val liveAway = live.optString("away_team")
+
+                val liveHome =
+                    live.optString("home_team")
+
+                val liveAway =
+                    live.optString("away_team")
 
                 if (
                     teamMatches(homeTeam, liveHome) &&
                     teamMatches(visitingTeam, liveAway)
                 ) {
-                    val hs = live.optString("home_score", "0")
-                    val ascore = live.optString("away_score", "0")
+
+                    val hs =
+                        live.optString("home_score", "0")
+
+                    val ascore =
+                        live.optString("away_score", "0")
 
                     liveScore = "$hs x $ascore"
-                    liveMinute = live.optString("minute", "")
+
+                    liveMinute =
+                        live.optString("minute", "")
 
                     break
                 }
@@ -1116,22 +1605,35 @@ class MainActivity : AppCompatActivity() {
         return list
     }
 
-    // ===== refresh icon spin (inalterado) =====
+    // =====================================================
+    // ANIMAÇÃO DO BOTÃO ATUALIZAR
+    // =====================================================
+
     private fun startRefreshSpin() {
+
         val v = refreshView ?: return
+
         if (v.getTag(SPIN_TAG_KEY) == true) return
 
         v.animate().cancel()
+
         spinAnimator?.cancel()
         spinAnimator = null
+
         spinRepeats = 0
         spinCompletedOne = false
         spinPendingStop = false
 
         v.setTag(SPIN_TAG_KEY, true)
-        v.setLayerType(View.LAYER_TYPE_HARDWARE, null)
 
-        val base = ((v.rotation % 360f) + 360f) % 360f
+        v.setLayerType(
+            View.LAYER_TYPE_HARDWARE,
+            null
+        )
+
+        val base =
+            ((v.rotation % 360f) + 360f) % 360f
+
         v.rotation = base
 
         spinAnimator = ObjectAnimator.ofFloat(
@@ -1140,50 +1642,78 @@ class MainActivity : AppCompatActivity() {
             base,
             base + 360f
         ).apply {
+
             duration = 1100
-            interpolator = LinearInterpolator()
-            repeatCount = ValueAnimator.INFINITE
-            repeatMode = ValueAnimator.RESTART
 
-            addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationRepeat(
-                    animation: android.animation.Animator
-                ) {
-                    spinRepeats++
-                    spinCompletedOne = true
+            interpolator =
+                LinearInterpolator()
 
-                    if (spinPendingStop && spinRepeats >= 1) {
-                        animation.cancel()
-                        finishToSnap(v)
+            repeatCount =
+                ValueAnimator.INFINITE
+
+            repeatMode =
+                ValueAnimator.RESTART
+
+            addListener(
+                object : AnimatorListenerAdapter() {
+
+                    override fun onAnimationRepeat(
+                        animation: android.animation.Animator
+                    ) {
+
+                        spinRepeats++
+                        spinCompletedOne = true
+
+                        if (
+                            spinPendingStop &&
+                            spinRepeats >= 1
+                        ) {
+
+                            animation.cancel()
+                            finishToSnap(v)
+                        }
                     }
                 }
-            })
+            )
 
             start()
         }
     }
 
     private fun stopRefreshSpin() {
+
         val v = refreshView ?: return
+
         if (v.getTag(SPIN_TAG_KEY) != true) return
 
         if (!spinCompletedOne) {
+
             spinPendingStop = true
             return
         }
 
         spinAnimator?.cancel()
         spinAnimator = null
+
         finishToSnap(v)
     }
 
     private fun finishToSnap(v: View) {
+
         v.setTag(SPIN_TAG_KEY, false)
 
-        val current = ((v.rotation % 360f) + 360f) % 360f
-        val remaining = if (current == 0f) 0f else 360f - current
+        val current =
+            ((v.rotation % 360f) + 360f) % 360f
+
+        val remaining =
+            if (current == 0f) {
+                0f
+            } else {
+                360f - current
+            }
 
         if (remaining > 0f) {
+
             val dur = (
                 remaining / 360f * 240
             ).toLong().coerceAtLeast(100L)
@@ -1193,13 +1723,24 @@ class MainActivity : AppCompatActivity() {
                 .setDuration(dur)
                 .setInterpolator(LinearInterpolator())
                 .withEndAction {
+
                     v.rotation = 0f
-                    v.setLayerType(View.LAYER_TYPE_NONE, null)
+
+                    v.setLayerType(
+                        View.LAYER_TYPE_NONE,
+                        null
+                    )
                 }
                 .start()
+
         } else {
+
             v.rotation = 0f
-            v.setLayerType(View.LAYER_TYPE_NONE, null)
+
+            v.setLayerType(
+                View.LAYER_TYPE_NONE,
+                null
+            )
         }
 
         spinRepeats = 0
@@ -1207,56 +1748,86 @@ class MainActivity : AppCompatActivity() {
         spinPendingStop = false
     }
 
+    // =====================================================
+    // HELPERS
+    // =====================================================
+
     private fun obtainActionBarSize(): Int {
+
         val tv = TypedValue()
+
         var size = dp(48)
 
-        if (theme.resolveAttribute(android.R.attr.actionBarSize, tv, true)) {
-            size = TypedValue.complexToDimensionPixelSize(
-                tv.data,
-                resources.displayMetrics
+        if (
+            theme.resolveAttribute(
+                android.R.attr.actionBarSize,
+                tv,
+                true
             )
+        ) {
+
+            size =
+                TypedValue.complexToDimensionPixelSize(
+                    tv.data,
+                    resources.displayMetrics
+                )
         }
 
         return size
     }
 
-    private fun dp(v: Int): Int =
-        (v * resources.displayMetrics.density).toInt()
+    private fun dp(v: Int): Int {
+        return (
+            v * resources.displayMetrics.density
+        ).toInt()
+    }
 
     private fun currentVersionCode(): Int {
+
         return try {
+
             val pm = packageManager
 
             val pi = if (Build.VERSION.SDK_INT >= 33) {
+
                 pm.getPackageInfo(
                     packageName,
                     PackageManager.PackageInfoFlags.of(0)
                 )
+
             } else {
+
                 @Suppress("DEPRECATION")
                 pm.getPackageInfo(packageName, 0)
             }
 
             if (Build.VERSION.SDK_INT >= 28) {
+
                 pi.longVersionCode.toInt()
+
             } else {
+
                 @Suppress("DEPRECATION")
                 pi.versionCode
             }
 
         } catch (_: Exception) {
+
             0
         }
     }
 
-    // ========= Helpers antigos de foco/TV =========
+    // =====================================================
+    // HELPERS ANTIGOS DE FOCO/TV
     // Mantidos para não remover código existente.
-    // Não são mais chamados no novo modo horizontal da TV.
+    // =====================================================
 
     private fun makeButtonsFocusableForTv(root: View) {
+
         if (root is ViewGroup) {
+
             for (i in 0 until root.childCount) {
+
                 val v = root.getChildAt(i)
 
                 if (v is ViewGroup) {
@@ -1264,11 +1835,15 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 if (v.isClickable) {
+
                     v.isFocusable = true
                     v.isFocusableInTouchMode = true
 
                     v.setOnKeyListener { btn, keyCode, ev ->
-                        if (ev.action != KeyEvent.ACTION_DOWN) {
+
+                        if (
+                            ev.action != KeyEvent.ACTION_DOWN
+                        ) {
                             return@setOnKeyListener false
                         }
 
@@ -1276,14 +1851,18 @@ class MainActivity : AppCompatActivity() {
                             keyCode == KeyEvent.KEYCODE_DPAD_UP ||
                             keyCode == KeyEvent.KEYCODE_DPAD_DOWN
                         ) {
+
                             val holder =
                                 vb.rvGames.findContainingViewHolder(btn)
                                     ?: return@setOnKeyListener false
 
-                            val pos = holder.bindingAdapterPosition
+                            val pos =
+                                holder.bindingAdapterPosition
 
                             val nextPos =
-                                if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
+                                if (
+                                    keyCode == KeyEvent.KEYCODE_DPAD_DOWN
+                                ) {
                                     pos + 1
                                 } else {
                                     pos - 1
@@ -1291,15 +1870,24 @@ class MainActivity : AppCompatActivity() {
 
                             if (
                                 nextPos < 0 ||
-                                nextPos >= (vb.rvGames.adapter?.itemCount ?: 0)
+                                nextPos >= (
+                                    vb.rvGames.adapter?.itemCount ?: 0
+                                )
                             ) {
                                 return@setOnKeyListener true
                             }
 
-                            (vb.rvGames.layoutManager as LinearLayoutManager)
-                                .scrollToPosition(nextPos)
+                            val layoutManager =
+                                vb.rvGames.layoutManager
+
+                            if (
+                                layoutManager is LinearLayoutManager
+                            ) {
+                                layoutManager.scrollToPosition(nextPos)
+                            }
 
                             vb.rvGames.post {
+
                                 vb.rvGames
                                     .findViewHolderForAdapterPosition(nextPos)
                                     ?.itemView
@@ -1316,10 +1904,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun findFirstVisibleFocusableButton(root: View): View? {
+    private fun findFirstVisibleFocusableButton(
+        root: View
+    ): View? {
+
         if (root !is ViewGroup) return null
 
         for (i in 0 until root.childCount) {
+
             val c = root.getChildAt(i)
 
             if (
@@ -1330,17 +1922,23 @@ class MainActivity : AppCompatActivity() {
                 return c
             }
 
-            val deeper = findFirstVisibleFocusableButton(c)
+            val deeper =
+                findFirstVisibleFocusableButton(c)
+
             if (deeper != null) return deeper
         }
 
         return null
     }
 
-    private fun findLastVisibleFocusableButton(root: View): View? {
+    private fun findLastVisibleFocusableButton(
+        root: View
+    ): View? {
+
         if (root !is ViewGroup) return null
 
         for (i in root.childCount - 1 downTo 0) {
+
             val c = root.getChildAt(i)
 
             if (
@@ -1351,7 +1949,9 @@ class MainActivity : AppCompatActivity() {
                 return c
             }
 
-            val deeper = findLastVisibleFocusableButton(c)
+            val deeper =
+                findLastVisibleFocusableButton(c)
+
             if (deeper != null) return deeper
         }
 
