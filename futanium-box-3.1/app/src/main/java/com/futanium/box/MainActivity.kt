@@ -238,15 +238,27 @@ class MainActivity : AppCompatActivity() {
         vb.todayChipText.text =
             "Jogos de Hoje - ${df.format(java.util.Date())}"
 
-        vb.todayRail.bringToFront()
+        // =====================================================
+// POSICIONAMENTO DA LISTA NA TV
+// =====================================================
+
+vb.todayRail.bringToFront()
 
 if (isTvDevice) {
+
     vb.rvGames.post {
+
         vb.rvGames.setPadding(
             vb.rvGames.paddingLeft,
-            vb.rvGames.paddingTop + dp(52),
+            dp(64),
             vb.rvGames.paddingRight,
             vb.rvGames.paddingBottom
+        )
+
+        vb.swipe.setProgressViewOffset(
+            true,
+            dp(70),
+            dp(114)
         )
     }
 }
@@ -507,10 +519,10 @@ if (isTvDevice) {
                     view.layoutParams =
                         view.layoutParams.apply {
                             height = if (isNotice) {
-                                dp(175)
-                            } else {
-                                dp(145)
-                            }
+    dp(125)
+} else {
+    dp(145)
+}
                         }
 
                     // O aviso não recebe foco como card.
