@@ -1,4 +1,3 @@
-
 package com.futanium.box.ui
 
 import android.content.Intent
@@ -775,12 +774,49 @@ class GameAdapter(
             }
         }
 
-        // Ao selecionar o card, apenas expande ou recolhe os players.
+        // =====================================================
+        // CLIQUE NO CARD
+        // TV: ABRE O PRIMEIRO CANAL MARCADO
+        // CELULAR: EXPANDE OU RECOLHE OS CANAIS
+        // =====================================================
+
         h.itemView.setOnClickListener {
 
             val current = h.bindingAdapterPosition
 
             if (current == RecyclerView.NO_POSITION) {
+                return@setOnClickListener
+            }
+
+            if (isTv) {
+
+                val selectedIndex = btns.indexOfFirst {
+                    isTvSelected(it)
+                }
+
+                if (selectedIndex == -1) {
+
+                    Toast.makeText(
+                        h.itemView.context,
+                        "Nenhum canal selecionado para TV.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+
+                    return@setOnClickListener
+                }
+
+                val selectedButton = btns[selectedIndex]
+
+                val (title, link, captureM3u8) =
+                    extractTitleAndLink(selectedButton, selectedIndex)
+
+                openLink(
+                    h.itemView,
+                    title,
+                    link,
+                    captureM3u8
+                )
+
                 return@setOnClickListener
             }
 
@@ -1058,6 +1094,30 @@ class GameAdapter(
     }
 
     // =====================================================
+    // IDENTIFICAR CANAL SELECIONADO PARA TV
+    // =====================================================
+
+    private fun isTvSelected(anyBtn: Any): Boolean {
+
+        return when (anyBtn) {
+
+            is ButtonInfo -> {
+                anyBtn.tv
+            }
+
+            is Map<*, *> -> {
+                anyBtn["tv"]?.toString()?.equals("true", true) == true
+            }
+
+            is JSONObject -> {
+                anyBtn.optBoolean("tv", false)
+            }
+
+            else -> false
+        }
+    }
+
+    // =====================================================
     // ABRIR CANAL
     // =====================================================
 
@@ -1235,5 +1295,6 @@ class GameAdapter(
 data class ButtonInfo(
     val name: String?,
     val url: String?,
-    val captureM3u8: Boolean = false
+    val captureM3u8: Boolean = false,
+    val tv: Boolean = false
 )
