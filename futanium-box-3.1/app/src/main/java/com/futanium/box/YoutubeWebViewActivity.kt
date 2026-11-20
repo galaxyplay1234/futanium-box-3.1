@@ -555,22 +555,27 @@ class YoutubeWebViewActivity : AppCompatActivity() {
             channel.url.contains("youtube.com", true) ||
             channel.url.contains("youtu.be", true)
 
-        if (isYoutube) {
+        
+if (isYoutube) {
 
-            channelNameText?.text = "Canal ${index + 1}"
+    val youtubeIntent = Intent(
+        this,
+        YoutubeWebViewActivity::class.java
+    ).apply {
 
-            intent.putExtra(
-                "selected_channel_index",
-                index
-            )
+        putExtra(
+            YoutubeWebViewActivity.EXTRA_URL,
+            channel.url
+        )
 
-            hideChannelControls()
+        addChannelExtras(this, index)
+    }
 
-            web.stopLoading()
-            web.loadUrl(channel.url)
+    startActivity(youtubeIntent)
+    finish()
+    return
+}
 
-            return
-        }
 
         val webIntent = Intent(
             this,
