@@ -3,14 +3,21 @@ package com.futanium.box
 
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.view.Gravity
+import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.widget.FrameLayout
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
@@ -49,10 +56,14 @@ class PlayerActivity : AppCompatActivity() {
         const val EXTRA_SUBTITLE = "subtitle"
         const val EXTRA_COOKIE = "cookie"
         const val EXTRA_ORIGIN = "origin"
-
         const val EXTRA_DRM_LICENSE_URL = "drm_license_url"
 
         private const val TAG = "FUTANIUM_PLAYER"
+
+        private const val EXTRA_TV_CHANNEL_NAMES = "tv_channel_names"
+        private const val EXTRA_TV_CHANNEL_URLS = "tv_channel_urls"
+        private const val EXTRA_TV_CHANNEL_CAPTURE = "tv_channel_capture"
+        private const val EXTRA_SELECTED_CHANNEL = "selected_channel_index"
     }
 
     private lateinit var playerView: PlayerView
@@ -100,6 +111,35 @@ class PlayerActivity : AppCompatActivity() {
         .build()
 
     // =========================================================
+    // CANAIS
+    // =========================================================
+
+    private data class TvChannel(
+        val name: String,
+        val url: String,
+        val captureM3u8: Boolean
+    )
+
+    private val tvChannels = mutableListOf<TvChannel>()
+
+    private var selectedChannelIndex = 0
+    private var channelControlsVisible = false
+    private var channelPanelVisible = false
+
+    private var channelRoot: FrameLayout? = null
+    private var channelBottom: LinearLayout? = null
+    private var channelPanel: LinearLayout? = null
+    private var channelListContainer: LinearLayout? = null
+    private var channelNameText: TextView? = null
+    private var channelButton: TextView? = null
+
+    private var currentReferer: String? = null
+    private var currentUserAgent: String? = null
+    private var currentCookie: String? = null
+    private var currentOrigin: String? = null
+    private var currentSubtitle: String? = null
+
+    // =========================================================
     // FIREBASE
     // =========================================================
 
@@ -119,7 +159,6 @@ class PlayerActivity : AppCompatActivity() {
             m3u8Ref.child(m3u8RefId!!).onDisconnect().removeValue()
 
             isM3u8Active = true
-
         } else {
             m3u8RefId?.let {
                 m3u8Ref.child(it).removeValue()
@@ -138,6 +177,490 @@ class PlayerActivity : AppCompatActivity() {
         controllerHandler.removeCallbacks(controllerAutoHide)
         controllerHandler.postDelayed(controllerAutoHide, 3000)
     }
+
+    // =========================================================
+    // INTERFACE DOS CANAIS
+    // =========================================================
+
+    private fun createChannelBackground(
+        color: Int,
+        radius: Int
+    ): GradientDrawable {
+        return GradientDrawable().apply {
+            setColor(color)
+            cornerRadius = dp(radius).toFloat()
+        }
+    }
+
+    private fun createChannelText(
+        text: String,
+        size: Float,
+        color: Int,
+        bold: Boolean = false
+    ): TextView {
+        return TextView(this).apply {
+            this.text = text
+            textSize = size
+            setTextColor(color)
+            gravity = Gravity.CENTER_VERTICAL
+
+            if (bold) {
+                setTypeface(null, android.graphics.Typeface.BOLD)
+            }
+        }
+    }
+
+    private fun readTvChannels() {
+        tvChannels.clear()
+
+        val names = intent.getStringArrayListExtra(EXTRA_TV_CHANNEL_NAMES)
+        val urls = intent.getStringArrayListExtra(EXTRA_TV_CHANNEL_URLS)
+        val captures = intent.getBooleanArrayExtra(EXTRA_TV_CHANNEL_CAPTURE)
+
+        if (names == null || urls == null) return
+
+        val total = minOf(names.size, urls.size)
+
+        for (i in 0 until total) {
+            val channelUrl = urls[i].trim()
+
+            if (channelUrl.isNotBlank()) {
+                tvChannels.add(
+                    TvChannel(
+                        name = names[i].ifBlank { "Canal ${i + 1}" },
+                        url = channelUrl,
+                        captureM3u8 = captures?.getOrNull(i) ?: false
+                    )
+                )
+            }
+        }
+
+        selectedChannelIndex = intent.getIntExtra(
+            EXTRA_SELECTED_CHANNEL,
+            0
+        ).coerceIn(
+            0,
+            (tvChannels.size - 1).coerceAtLeast(0)
+        )
+    }
+
+    private fun setupChannelInterface() {
+        if (tvChannels.isEmpty()) return
+
+        channelRoot = playerView.parent as? FrameLayout ?: return
+
+        // -----------------------------------------------------
+        // RODAPÉ
+        // -----------------------------------------------------
+
+        channelBottom = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(22), dp(12), dp(22), dp(12))
+
+            background = createChannelBackground(
+                Color.rgb(20, 22, 27),
+                10
+            )
+
+            visibility = View.GONE
+            elevation = dp(15).toFloat()
+        }
+
+        channelNameText = createChannelText(
+            "",
+            16f,
+            Color.WHITE,
+            true
+        )
+
+        channelButton = createChannelText(
+            "▣   Canais",
+            14f,
+            Color.WHITE,
+            true
+        ).apply {
+            gravity = Gravity.CENTER
+            setPadding(dp(18), dp(9), dp(18), dp(9))
+
+            background = createChannelBackground(
+                Color.rgb(25, 111, 220),
+                6
+            )
+
+            isFocusable = true
+            isFocusableInTouchMode = true
+
+            setOnClickListener {
+                openChannelPanel()
+            }
+        }
+
+        channelBottom?.addView(
+            channelNameText,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(32)
+            )
+        )
+
+        channelBottom?.addView(
+            channelButton,
+            LinearLayout.LayoutParams(
+                dp(130),
+                dp(42)
+            ).apply {
+                topMargin = dp(8)
+            }
+        )
+
+        channelRoot?.addView(
+            channelBottom,
+            FrameLayout.LayoutParams(
+                dp(230),
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.BOTTOM or Gravity.START
+            ).apply {
+                leftMargin = dp(28)
+                bottomMargin = dp(35)
+            }
+        )
+
+        // -----------------------------------------------------
+        // PAINEL LATERAL
+        // -----------------------------------------------------
+
+        channelPanel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+
+            setPadding(
+                dp(18),
+                dp(22),
+                dp(18),
+                dp(18)
+            )
+
+            background = createChannelBackground(
+                Color.rgb(15, 17, 22),
+                0
+            )
+
+            visibility = View.GONE
+            elevation = dp(25).toFloat()
+        }
+
+        val panelTitle = createChannelText(
+            "Canais",
+            21f,
+            Color.WHITE,
+            true
+        )
+
+        channelPanel?.addView(
+            panelTitle,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(48)
+            )
+        )
+
+        val divider = View(this).apply {
+            setBackgroundColor(Color.rgb(55, 59, 67))
+        }
+
+        channelPanel?.addView(
+            divider,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(1)
+            )
+        )
+
+        val scroll = ScrollView(this).apply {
+            isFillViewport = true
+            overScrollMode = View.OVER_SCROLL_NEVER
+        }
+
+        channelListContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+
+        scroll.addView(channelListContainer)
+
+        channelPanel?.addView(
+            scroll,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                0,
+                1f
+            )
+        )
+
+        channelRoot?.addView(
+            channelPanel,
+            FrameLayout.LayoutParams(
+                dp(330),
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                Gravity.END
+            )
+        )
+
+        updateChannelList()
+    }
+
+    private fun updateChannelList() {
+        val container = channelListContainer ?: return
+
+        container.removeAllViews()
+
+        tvChannels.forEachIndexed { index, channel ->
+
+            val item = TextView(this).apply {
+                text = channel.name
+                textSize = 15f
+                setTextColor(Color.WHITE)
+
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(14), 0, dp(10), 0)
+
+                isFocusable = true
+                isFocusableInTouchMode = true
+
+                background = createChannelBackground(
+                    if (index == selectedChannelIndex) {
+                        Color.rgb(25, 111, 220)
+                    } else {
+                        Color.TRANSPARENT
+                    },
+                    6
+                )
+
+                setOnClickListener {
+                    selectChannel(index)
+                }
+
+                setOnFocusChangeListener { view, hasFocus ->
+                    if (hasFocus) {
+                        selectedChannelIndex = index
+                        updateChannelList()
+                        channelListContainer
+                            ?.getChildAt(index)
+                            ?.requestFocus()
+                    }
+                }
+            }
+
+            container.addView(
+                item,
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    dp(48)
+                ).apply {
+                    topMargin = dp(5)
+                    bottomMargin = dp(5)
+                }
+            )
+        }
+    }
+
+    private fun showChannelControls() {
+        if (tvChannels.isEmpty()) return
+
+        channelControlsVisible = true
+
+        channelNameText?.text =
+            tvChannels.getOrNull(selectedChannelIndex)?.name ?: "Canal"
+
+        channelBottom?.visibility = View.VISIBLE
+        channelButton?.requestFocus()
+
+        controllerHandler.removeCallbacks(controllerAutoHide)
+    }
+
+    private fun openChannelPanel() {
+        if (tvChannels.isEmpty()) return
+
+        channelControlsVisible = true
+        channelPanelVisible = true
+
+        channelBottom?.visibility = View.GONE
+        channelPanel?.visibility = View.VISIBLE
+
+        updateChannelList()
+
+        channelListContainer
+            ?.getChildAt(selectedChannelIndex)
+            ?.requestFocus()
+    }
+
+    private fun closeChannelPanel() {
+        channelPanelVisible = false
+
+        channelPanel?.visibility = View.GONE
+
+        if (channelControlsVisible) {
+            channelBottom?.visibility = View.VISIBLE
+            channelButton?.requestFocus()
+        }
+    }
+
+    private fun hideChannelControls() {
+        channelControlsVisible = false
+        channelPanelVisible = false
+
+        channelBottom?.visibility = View.GONE
+        channelPanel?.visibility = View.GONE
+    }
+
+    // =========================================================
+    // TROCAR CANAL
+    // =========================================================
+
+    private fun selectChannel(index: Int) {
+        if (index !in tvChannels.indices) return
+
+        selectedChannelIndex = index
+
+        val channel = tvChannels[index]
+
+        // Canal que precisa passar pelo WebView para captura
+        if (channel.captureM3u8) {
+            val webIntent = Intent(
+                this,
+                WebViewActivity::class.java
+            ).apply {
+                putExtra(
+                    WebViewActivity.EXTRA_URL,
+                    channel.url
+                )
+
+                putExtra(EXTRA_TITLE, channel.name)
+
+                putStringArrayListExtra(
+                    EXTRA_TV_CHANNEL_NAMES,
+                    ArrayList(tvChannels.map { it.name })
+                )
+
+                putStringArrayListExtra(
+                    EXTRA_TV_CHANNEL_URLS,
+                    ArrayList(tvChannels.map { it.url })
+                )
+
+                putExtra(
+                    EXTRA_TV_CHANNEL_CAPTURE,
+                    BooleanArray(tvChannels.size) {
+                        tvChannels[it].captureM3u8
+                    }
+                )
+
+                putExtra(EXTRA_SELECTED_CHANNEL, index)
+            }
+
+            startActivity(webIntent)
+            finish()
+            return
+        }
+
+        hideChannelControls()
+
+        main.removeCallbacks(bufferingWatchdog)
+
+        playerView.player = null
+
+        player?.release()
+        player = null
+
+        initPlayer(
+            channel.url,
+            channel.name,
+            currentReferer,
+            currentUserAgent,
+            currentCookie,
+            currentSubtitle,
+            currentOrigin
+        )
+    }
+
+    // =========================================================
+    // CONTROLE REMOTO
+    // =========================================================
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.action != KeyEvent.ACTION_DOWN) {
+            return super.dispatchKeyEvent(event)
+        }
+
+        when (event.keyCode) {
+
+            KeyEvent.KEYCODE_BACK,
+            KeyEvent.KEYCODE_ESCAPE -> {
+                if (channelPanelVisible) {
+                    closeChannelPanel()
+                    return true
+                }
+
+                if (channelControlsVisible) {
+                    hideChannelControls()
+                    return true
+                }
+            }
+
+            KeyEvent.KEYCODE_DPAD_UP -> {
+                if (channelPanelVisible) {
+                    selectedChannelIndex =
+                        (selectedChannelIndex - 1).coerceAtLeast(0)
+
+                    updateChannelList()
+
+                    channelListContainer
+                        ?.getChildAt(selectedChannelIndex)
+                        ?.requestFocus()
+
+                    return true
+                }
+            }
+
+            KeyEvent.KEYCODE_DPAD_DOWN -> {
+                if (channelPanelVisible) {
+                    selectedChannelIndex =
+                        (selectedChannelIndex + 1)
+                            .coerceAtMost(tvChannels.lastIndex)
+
+                    updateChannelList()
+
+                    channelListContainer
+                        ?.getChildAt(selectedChannelIndex)
+                        ?.requestFocus()
+
+                    return true
+                }
+            }
+
+            KeyEvent.KEYCODE_DPAD_CENTER,
+            KeyEvent.KEYCODE_ENTER,
+            KeyEvent.KEYCODE_NUMPAD_ENTER -> {
+                if (channelPanelVisible) {
+                    selectChannel(selectedChannelIndex)
+                    return true
+                }
+
+                if (channelControlsVisible) {
+                    openChannelPanel()
+                    return true
+                }
+
+                if (tvChannels.isNotEmpty()) {
+                    showChannelControls()
+                    return true
+                }
+            }
+        }
+
+        return super.dispatchKeyEvent(event)
+    }
+
+    // =========================================================
+    // CRIAÇÃO DA TELA
+    // =========================================================
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -169,6 +692,8 @@ class PlayerActivity : AppCompatActivity() {
         setContentView(R.layout.activity_player)
 
         playerView = findViewById(R.id.playerView)
+
+        readTvChannels()
 
         playerView.setBackgroundColor(Color.BLACK)
         playerView.clipToPadding = false
@@ -286,6 +811,14 @@ class PlayerActivity : AppCompatActivity() {
         val subtitleUrl = intent.getStringExtra(EXTRA_SUBTITLE)
         val cookie = intent.getStringExtra(EXTRA_COOKIE)
         val origin = intent.getStringExtra(EXTRA_ORIGIN)
+
+        currentReferer = referer
+        currentUserAgent = ua
+        currentCookie = cookie
+        currentOrigin = origin
+        currentSubtitle = subtitleUrl
+
+        setupChannelInterface()
 
         if (!isSupported(url)) {
             startActivity(
@@ -678,7 +1211,6 @@ class PlayerActivity : AppCompatActivity() {
         }
 
         val dsFactory = DefaultHttpDataSource.Factory().apply {
-
             setAllowCrossProtocolRedirects(true)
 
             if (!ua.isNullOrBlank()) {
@@ -774,10 +1306,6 @@ class PlayerActivity : AppCompatActivity() {
             val itemBuilder = MediaItem.Builder()
                 .setUri(Uri.parse(url))
 
-            // -------------------------------------------------
-            // IDENTIFICAÇÃO DO FORMATO
-            // -------------------------------------------------
-
             when {
 
                 path.endsWith(".mpd") -> {
@@ -819,7 +1347,7 @@ class PlayerActivity : AppCompatActivity() {
             }
 
             // =================================================
-            // MPD: MANTIDO COMO ESTAVA
+            // MPD: MANTIDO
             // =================================================
 
             if (isMpd(url)) {
@@ -932,6 +1460,17 @@ class PlayerActivity : AppCompatActivity() {
 
     @Deprecated("Deprecated in Android")
     override fun onBackPressed() {
+
+        if (channelPanelVisible) {
+            closeChannelPanel()
+            return
+        }
+
+        if (channelControlsVisible) {
+            hideChannelControls()
+            return
+        }
+
         finish()
     }
 
@@ -969,3 +1508,4 @@ class PlayerActivity : AppCompatActivity() {
         return (v * resources.displayMetrics.density).toInt()
     }
 }
+
