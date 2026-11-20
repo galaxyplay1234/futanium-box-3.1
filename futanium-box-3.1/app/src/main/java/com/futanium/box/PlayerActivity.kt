@@ -143,6 +143,53 @@ class PlayerActivity : AppCompatActivity() {
     private var currentSubtitle: String? = null
 
     // =========================================================
+    // FECHAMENTO AUTOMÁTICO DOS MENUS DA TV
+    // =========================================================
+
+    private val channelIdleHandler = Handler(Looper.getMainLooper())
+
+    private val CHANNEL_IDLE_TIMEOUT = 5_000L
+
+    private val channelControlsAutoHide = Runnable {
+        if (channelControlsVisible && !channelPanelVisible) {
+            hideChannelControls()
+        }
+    }
+
+    private val channelPanelAutoHide = Runnable {
+        if (channelPanelVisible) {
+            closeChannelPanel()
+        }
+    }
+
+    private fun scheduleChannelAutoHide() {
+
+        channelIdleHandler.removeCallbacks(channelControlsAutoHide)
+        channelIdleHandler.removeCallbacks(channelPanelAutoHide)
+
+        when {
+            channelPanelVisible -> {
+                channelIdleHandler.postDelayed(
+                    channelPanelAutoHide,
+                    CHANNEL_IDLE_TIMEOUT
+                )
+            }
+
+            channelControlsVisible -> {
+                channelIdleHandler.postDelayed(
+                    channelControlsAutoHide,
+                    CHANNEL_IDLE_TIMEOUT
+                )
+            }
+        }
+    }
+
+    private fun cancelChannelAutoHide() {
+        channelIdleHandler.removeCallbacks(channelControlsAutoHide)
+        channelIdleHandler.removeCallbacks(channelPanelAutoHide)
+    }
+
+    // =========================================================
     // FIREBASE
     // =========================================================
 
@@ -254,7 +301,6 @@ class PlayerActivity : AppCompatActivity() {
 
         // -----------------------------------------------------
         // GRADIENTE INFERIOR
-        // Começa invisível e só aparece ao apertar OK.
         // -----------------------------------------------------
 
         channelGradient = View(this).apply {
@@ -505,6 +551,7 @@ class PlayerActivity : AppCompatActivity() {
         if (tvChannels.isEmpty()) return
 
         channelControlsVisible = true
+        channelPanelVisible = false
 
         channelNameText?.text =
             tvChannels.getOrNull(selectedChannelIndex)?.name ?: "Canal"
@@ -515,6 +562,8 @@ class PlayerActivity : AppCompatActivity() {
         channelButton?.requestFocus()
 
         controllerHandler.removeCallbacks(controllerAutoHide)
+
+        scheduleChannelAutoHide()
     }
 
     // =========================================================
@@ -527,7 +576,8 @@ class PlayerActivity : AppCompatActivity() {
         channelControlsVisible = true
         channelPanelVisible = true
 
-        // Esconde o gradiente junto com o rodapé.
+        cancelChannelAutoHide()
+
         channelGradient?.visibility = View.GONE
         channelBottom?.visibility = View.GONE
 
@@ -535,6 +585,8 @@ class PlayerActivity : AppCompatActivity() {
 
         updateChannelList()
         focusSelectedChannel()
+
+        scheduleChannelAutoHide()
     }
 
     // =========================================================
@@ -547,11 +599,17 @@ class PlayerActivity : AppCompatActivity() {
         channelPanel?.visibility = View.GONE
 
         if (channelControlsVisible) {
-            // Restaura o gradiente junto com o botão Canais.
+
             channelGradient?.visibility = View.VISIBLE
             channelBottom?.visibility = View.VISIBLE
 
             channelButton?.requestFocus()
+
+            // Nova contagem após voltar do menu.
+            scheduleChannelAutoHide()
+
+        } else {
+            hideChannelControls()
         }
     }
 
@@ -560,10 +618,11 @@ class PlayerActivity : AppCompatActivity() {
     // =========================================================
 
     private fun hideChannelControls() {
+        cancelChannelAutoHide()
+
         channelControlsVisible = false
         channelPanelVisible = false
 
-        // Esconde tudo, inclusive o gradiente.
         channelGradient?.visibility = View.GONE
         channelBottom?.visibility = View.GONE
         channelPanel?.visibility = View.GONE
@@ -577,6 +636,8 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun selectChannel(index: Int) {
         if (index !in tvChannels.indices) return
+
+        cancelChannelAutoHide()
 
         selectedChannelIndex = index
 
@@ -653,6 +714,11 @@ class PlayerActivity : AppCompatActivity() {
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (event.action != KeyEvent.ACTION_DOWN) {
             return super.dispatchKeyEvent(event)
+        }
+
+        // Qualquer tecla reinicia a contagem de inatividade.
+        if (channelPanelVisible || channelControlsVisible) {
+            scheduleChannelAutoHide()
         }
 
         when (event.keyCode) {
@@ -1542,6 +1608,8 @@ class PlayerActivity : AppCompatActivity() {
 
         main.removeCallbacks(bufferingWatchdog)
         controllerHandler.removeCallbacks(controllerAutoHide)
+
+        cancelChannelAutoHide()
 
         if (::playerView.isInitialized) {
             playerView.player = null
