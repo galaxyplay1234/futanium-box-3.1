@@ -1300,23 +1300,30 @@ if (
             }
 
             override fun onPageFinished(
-                view: WebView,
-                url: String
-            ) {
+    view: WebView,
+    url: String
+) {
 
-                super.onPageFinished(view, url)
+    super.onPageFinished(view, url)
 
-                webLoader.visibility = View.GONE
+    webLoader.visibility = View.GONE
 
-                if (!isYoutubeMode) {
+    if (!isYoutubeMode) {
 
-                    if (blockReady.get()) {
-                        injectAdShieldJS()
-                    } else {
-                        injectCoreShieldJS(emptyList())
-                    }
-                }
+        if (blockReady.get()) {
+            injectAdShieldJS()
+        } else {
+            injectCoreShieldJS(emptyList())
+        }
+
+        // Tenta iniciar automaticamente o vídeo
+        view.postDelayed({
+            if (!isFinishing && !isDestroyed) {
+                injectAutoPlayJS()
             }
+        }, 1000)
+    }
+}
 
             override fun onReceivedHttpError(
                 view: WebView?,
@@ -2014,6 +2021,64 @@ if (
 
         web.evaluateJavascript(js, null)
     }
+
+
+private fun injectAutoPlayJS() {
+
+    val js = """
+        (function() {
+            if (window.__futaniumAutoPlayStarted) return;
+            window.__futaniumAutoPlayStarted = true;
+
+            function tryPlay() {
+                const videos = document.querySelectorAll('video');
+
+                videos.forEach(function(video) {
+                    video.setAttribute('autoplay', '');
+                    video.setAttribute('playsinline', '');
+
+                    if (video.paused) {
+                        const result = video.play();
+
+                        if (result && result.catch) {
+                            result.catch(function(error) {});
+                        }
+                    }
+                });
+            }
+
+            tryPlay();
+
+            document.addEventListener('loadedmetadata', tryPlay, true);
+            document.addEventListener('canplay', tryPlay, true);
+
+            const observer = new MutationObserver(function() {
+                tryPlay();
+            });
+
+            observer.observe(document.documentElement, {
+                childList: true,
+                subtree: true
+            });
+
+            let attempts = 0;
+
+            const timer = setInterval(function() {
+                tryPlay();
+                attempts++;
+
+                if (attempts >= 20) {
+                    clearInterval(timer);
+                    observer.disconnect();
+                }
+            }, 1000);
+
+        })();
+    """.trimIndent()
+
+    web.evaluateJavascript(js, null)
+}
+
 
     // =====================================================
     // UTILIDADES
