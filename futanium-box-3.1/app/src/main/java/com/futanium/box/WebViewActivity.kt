@@ -398,7 +398,7 @@ class WebViewActivity : AppCompatActivity() {
         tvChannels.forEachIndexed { index, channel ->
 
             val item = TextView(this).apply {
-                text = channel.name
+                text = "Canal ${index + 1}"
                 textSize = 15f
                 setTextColor(Color.WHITE)
 
@@ -456,7 +456,8 @@ class WebViewActivity : AppCompatActivity() {
         channelPanelVisible = false
 
         channelNameText?.text =
-            tvChannels.getOrNull(selectedChannelIndex)?.name ?: "Canal"
+    "Canal ${selectedChannelIndex + 1}"
+
 
         channelGradient?.visibility = View.VISIBLE
         channelBottom?.visibility = View.VISIBLE
@@ -624,7 +625,8 @@ class WebViewActivity : AppCompatActivity() {
             channel.url.contains("youtube.com/embed", true) ||
                 channel.url.contains("youtube-nocookie.com/embed", true)
 
-        channelNameText?.text = channel.name
+        channelNameText?.text =
+    "Canal ${selectedChannelIndex + 1}"
 
         hideChannelControls()
 
