@@ -1,4 +1,3 @@
-
 package com.futanium.box
 
 import android.annotation.SuppressLint
@@ -55,6 +54,8 @@ class YoutubeWebViewActivity : AppCompatActivity() {
     private var channelBottom: LinearLayout? = null
     private var channelPanel: LinearLayout? = null
     private var channelListContainer: LinearLayout? = null
+
+    private var gameTitleText: TextView? = null
     private var channelNameText: TextView? = null
     private var channelButton: TextView? = null
 
@@ -217,10 +218,22 @@ class YoutubeWebViewActivity : AppCompatActivity() {
             elevation = dp(15).toFloat()
         }
 
+        // TÍTULO DO JOGO
+        gameTitleText = createText(
+            intent.getStringExtra("game_title").orEmpty(),
+            21f,
+            Color.WHITE,
+            true
+        ).apply {
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
+        }
+
+        // NOME DO CANAL
         channelNameText = createText(
             "",
             17f,
-            Color.WHITE,
+            Color.LTGRAY,
             true
         )
 
@@ -252,6 +265,14 @@ class YoutubeWebViewActivity : AppCompatActivity() {
                 openChannelPanel()
             }
         }
+
+        channelBottom?.addView(
+            gameTitleText,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(34)
+            )
+        )
 
         channelBottom?.addView(
             channelNameText,
@@ -440,6 +461,9 @@ class YoutubeWebViewActivity : AppCompatActivity() {
         channelControlsVisible = true
         channelPanelVisible = false
 
+        gameTitleText?.text =
+            intent.getStringExtra("game_title").orEmpty()
+
         channelNameText?.text =
             "Canal ${selectedChannelIndex + 1}"
 
@@ -543,6 +567,12 @@ class YoutubeWebViewActivity : AppCompatActivity() {
                     "Canal ${index + 1}"
                 )
 
+                // PRESERVA O TÍTULO DO JOGO
+                putExtra(
+                    "game_title",
+                    intent.getStringExtra("game_title").orEmpty()
+                )
+
                 addChannelExtras(this, index)
             }
 
@@ -555,27 +585,25 @@ class YoutubeWebViewActivity : AppCompatActivity() {
             channel.url.contains("youtube.com", true) ||
             channel.url.contains("youtu.be", true)
 
-        
-if (isYoutube) {
+        if (isYoutube) {
 
-    val youtubeIntent = Intent(
-        this,
-        YoutubeWebViewActivity::class.java
-    ).apply {
+            val youtubeIntent = Intent(
+                this,
+                YoutubeWebViewActivity::class.java
+            ).apply {
 
-        putExtra(
-            YoutubeWebViewActivity.EXTRA_URL,
-            channel.url
-        )
+                putExtra(
+                    YoutubeWebViewActivity.EXTRA_URL,
+                    channel.url
+                )
 
-        addChannelExtras(this, index)
-    }
+                addChannelExtras(this, index)
+            }
 
-    startActivity(youtubeIntent)
-    finish()
-    return
-}
-
+            startActivity(youtubeIntent)
+            finish()
+            return
+        }
 
         val webIntent = Intent(
             this,
@@ -631,6 +659,12 @@ if (isYoutube) {
         target.putExtra(
             "selected_channel_index",
             selectedIndex
+        )
+
+        // PRESERVA O TÍTULO DO JOGO EM TODAS AS TROCAS
+        target.putExtra(
+            "game_title",
+            intent.getStringExtra("game_title").orEmpty()
         )
     }
 
