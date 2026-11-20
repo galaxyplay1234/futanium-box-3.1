@@ -195,47 +195,48 @@ class WebViewActivity : AppCompatActivity() {
 
     private fun activateVirtualMouse(keyCode: Int) {
 
-        val cursor = virtualMouseView ?: return
+    val cursor = virtualMouseView ?: return
+    val root = findViewById<FrameLayout>(android.R.id.content)
 
-        if (!virtualMouseActive) {
+    if (!virtualMouseActive) {
 
-            virtualMouseActive = true
+        virtualMouseActive = true
 
-            val webLocation = IntArray(2)
-            val rootLocation = IntArray(2)
+        val webLocation = IntArray(2)
+        val rootLocation = IntArray(2)
 
-            web.getLocationOnScreen(webLocation)
+        web.getLocationOnScreen(webLocation)
+        root.getLocationOnScreen(rootLocation)
 
-            val root = findViewById<FrameLayout>(android.R.id.content)
-            root.getLocationOnScreen(rootLocation)
+        // Começa no centro da área do WebView.
+        mouseX =
+            webLocation[0] - rootLocation[0] + web.width / 2f
 
-            // Começa no centro da área do WebView.
-            mouseX =
-                webLocation[0] - rootLocation[0] + web.width / 2f
-
-            mouseY =
-                webLocation[1] - rootLocation[1] + web.height / 2f
-
-            cursor.visibility = View.VISIBLE
-        }
-
-        when (keyCode) {
-
-            KeyEvent.KEYCODE_DPAD_UP ->
-                mouseY -= mouseSpeed
-
-            KeyEvent.KEYCODE_DPAD_DOWN ->
-                mouseY += mouseSpeed
-
-            KeyEvent.KEYCODE_DPAD_LEFT ->
-                mouseX -= mouseSpeed
-
-            KeyEvent.KEYCODE_DPAD_RIGHT ->
-                mouseX += mouseSpeed
-        }
-
-        updateVirtualMousePosition()
+        mouseY =
+            webLocation[1] - rootLocation[1] + web.height / 2f
     }
+
+    // Garante que o cursor apareça em qualquer seta.
+    cursor.visibility = View.VISIBLE
+    cursor.bringToFront()
+
+    when (keyCode) {
+
+        KeyEvent.KEYCODE_DPAD_UP ->
+            mouseY -= mouseSpeed
+
+        KeyEvent.KEYCODE_DPAD_DOWN ->
+            mouseY += mouseSpeed
+
+        KeyEvent.KEYCODE_DPAD_LEFT ->
+            mouseX -= mouseSpeed
+
+        KeyEvent.KEYCODE_DPAD_RIGHT ->
+            mouseX += mouseSpeed
+    }
+
+    updateVirtualMousePosition()
+}
 
     private fun updateVirtualMousePosition() {
 
@@ -908,73 +909,114 @@ class WebViewActivity : AppCompatActivity() {
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
 
-        if (event.action != KeyEvent.ACTION_DOWN) {
-            return super.dispatchKeyEvent(event)
+    if (event.action != KeyEvent.ACTION_DOWN) {
+        return super.dispatchKeyEvent(event)
+    }
+
+    // QUALQUER SETA ATIVA O MOUSE IMEDIATAMENTE.
+    if (
+        event.keyCode == KeyEvent.KEYCODE_DPAD_UP ||
+        event.keyCode == KeyEvent.KEYCODE_DPAD_DOWN ||
+        event.keyCode == KeyEvent.KEYCODE_DPAD_LEFT ||
+        event.keyCode == KeyEvent.KEYCODE_DPAD_RIGHT
+    ) {
+
+        // Fecha os controles de canais para liberar o mouse.
+        if (channelPanelVisible || channelControlsVisible) {
+            hideChannelControls()
         }
 
-        // Menu de canais tem prioridade sobre o mouse.
+        activateVirtualMouse(event.keyCode)
 
-        if (channelPanelVisible || channelControlsVisible) {
+        return true
+    }
 
-            scheduleChannelAutoHide()
+    // MOUSE ATIVO: OK CLICA.
+    if (virtualMouseActive) {
 
-            when (event.keyCode) {
+        when (event.keyCode) {
 
-                KeyEvent.KEYCODE_BACK,
-                KeyEvent.KEYCODE_ESCAPE -> {
+            KeyEvent.KEYCODE_DPAD_CENTER,
+            KeyEvent.KEYCODE_ENTER,
+            KeyEvent.KEYCODE_NUMPAD_ENTER -> {
 
-                    if (channelPanelVisible) {
-                        closeChannelPanel()
-                        return true
-                    }
+                clickVirtualMouse()
+                return true
+            }
 
-                    if (channelControlsVisible) {
-                        hideChannelControls()
-                        return true
-                    }
+            KeyEvent.KEYCODE_BACK,
+            KeyEvent.KEYCODE_ESCAPE -> {
+
+                deactivateVirtualMouse()
+                return true
+            }
+        }
+
+        return super.dispatchKeyEvent(event)
+    }
+
+    // MENU DE CANAIS.
+    if (channelPanelVisible || channelControlsVisible) {
+
+        scheduleChannelAutoHide()
+
+        when (event.keyCode) {
+
+            KeyEvent.KEYCODE_BACK,
+            KeyEvent.KEYCODE_ESCAPE -> {
+
+                if (channelPanelVisible) {
+                    closeChannelPanel()
+                    return true
                 }
 
-                KeyEvent.KEYCODE_DPAD_UP -> {
-                    if (channelPanelVisible) {
-                        selectedChannelIndex =
-                            (selectedChannelIndex - 1).coerceAtLeast(0)
-
-                        updateChannelList()
-                        focusSelectedChannel()
-                        return true
-                    }
-                }
-
-                KeyEvent.KEYCODE_DPAD_DOWN -> {
-                    if (channelPanelVisible) {
-                        selectedChannelIndex =
-                            (selectedChannelIndex + 1)
-                                .coerceAtMost(tvChannels.lastIndex)
-
-                        updateChannelList()
-                        focusSelectedChannel()
-                        return true
-                    }
-                }
-
-                KeyEvent.KEYCODE_DPAD_CENTER,
-                KeyEvent.KEYCODE_ENTER,
-                KeyEvent.KEYCODE_NUMPAD_ENTER -> {
-
-                    if (channelPanelVisible) {
-                        selectWebChannel(selectedChannelIndex)
-                        return true
-                    }
-
-                    if (channelControlsVisible) {
-                        openChannelPanel()
-                        return true
-                    }
+                if (channelControlsVisible) {
+                    hideChannelControls()
+                    return true
                 }
             }
 
-            return super.dispatchKeyEvent(event)
+            KeyEvent.KEYCODE_DPAD_CENTER,
+            KeyEvent.KEYCODE_ENTER,
+            KeyEvent.KEYCODE_NUMPAD_ENTER -> {
+
+                if (channelPanelVisible) {
+                    selectWebChannel(selectedChannelIndex)
+                    return true
+                }
+
+                if (channelControlsVisible) {
+                    openChannelPanel()
+                    return true
+                }
+            }
         }
+
+        return super.dispatchKeyEvent(event)
+    }
+
+    // OK sem mouse: mostra os controles dos canais.
+    when (event.keyCode) {
+
+        KeyEvent.KEYCODE_DPAD_CENTER,
+        KeyEvent.KEYCODE_ENTER,
+        KeyEvent.KEYCODE_NUMPAD_ENTER -> {
+
+            if (tvChannels.isNotEmpty()) {
+                showChannelControls()
+                return true
+            }
+        }
+
+        KeyEvent.KEYCODE_BACK,
+        KeyEvent.KEYCODE_ESCAPE -> {
+            finish()
+            return true
+        }
+    }
+
+    return super.dispatchKeyEvent(event)
+}
 
         // Mouse ativo: setas movimentam e OK clica.
 
