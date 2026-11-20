@@ -254,6 +254,7 @@ class PlayerActivity : AppCompatActivity() {
 
         // -----------------------------------------------------
         // GRADIENTE INFERIOR
+        // Começa invisível e só aparece ao apertar OK.
         // -----------------------------------------------------
 
         channelGradient = View(this).apply {
@@ -265,6 +266,7 @@ class PlayerActivity : AppCompatActivity() {
                 )
             )
 
+            visibility = View.GONE
             isClickable = false
             isFocusable = false
         }
@@ -495,6 +497,10 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
+    // =========================================================
+    // MOSTRAR CONTROLES
+    // =========================================================
+
     private fun showChannelControls() {
         if (tvChannels.isEmpty()) return
 
@@ -503,11 +509,17 @@ class PlayerActivity : AppCompatActivity() {
         channelNameText?.text =
             tvChannels.getOrNull(selectedChannelIndex)?.name ?: "Canal"
 
+        channelGradient?.visibility = View.VISIBLE
         channelBottom?.visibility = View.VISIBLE
+
         channelButton?.requestFocus()
 
         controllerHandler.removeCallbacks(controllerAutoHide)
     }
+
+    // =========================================================
+    // ABRIR PAINEL
+    // =========================================================
 
     private fun openChannelPanel() {
         if (tvChannels.isEmpty()) return
@@ -515,12 +527,19 @@ class PlayerActivity : AppCompatActivity() {
         channelControlsVisible = true
         channelPanelVisible = true
 
+        // Esconde o gradiente junto com o rodapé.
+        channelGradient?.visibility = View.GONE
         channelBottom?.visibility = View.GONE
+
         channelPanel?.visibility = View.VISIBLE
 
         updateChannelList()
         focusSelectedChannel()
     }
+
+    // =========================================================
+    // FECHAR PAINEL
+    // =========================================================
 
     private fun closeChannelPanel() {
         channelPanelVisible = false
@@ -528,15 +547,24 @@ class PlayerActivity : AppCompatActivity() {
         channelPanel?.visibility = View.GONE
 
         if (channelControlsVisible) {
+            // Restaura o gradiente junto com o botão Canais.
+            channelGradient?.visibility = View.VISIBLE
             channelBottom?.visibility = View.VISIBLE
+
             channelButton?.requestFocus()
         }
     }
+
+    // =========================================================
+    // ESCONDER CONTROLES
+    // =========================================================
 
     private fun hideChannelControls() {
         channelControlsVisible = false
         channelPanelVisible = false
 
+        // Esconde tudo, inclusive o gradiente.
+        channelGradient?.visibility = View.GONE
         channelBottom?.visibility = View.GONE
         channelPanel?.visibility = View.GONE
 
@@ -554,7 +582,7 @@ class PlayerActivity : AppCompatActivity() {
 
         val channel = tvChannels[index]
 
-        // Canal que precisa passar pelo WebView para captura
+        // Canal que precisa passar pelo WebView para captura.
         if (channel.captureM3u8) {
             val webIntent = Intent(
                 this,
@@ -1546,7 +1574,6 @@ class PlayerActivity : AppCompatActivity() {
         return (v * resources.displayMetrics.density).toInt()
     }
 
-    // Constante para evitar depender de imports adicionais
     private object ViewGroupFocusability {
         const val AFTER_DESCENDANTS = 0x40000
     }
