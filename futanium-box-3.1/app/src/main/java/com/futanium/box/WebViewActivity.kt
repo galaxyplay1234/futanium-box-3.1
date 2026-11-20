@@ -642,39 +642,47 @@ class WebViewActivity : AppCompatActivity() {
                             }
 
                             val i = Intent(
-                                this@WebViewActivity,
-                                PlayerActivity::class.java
-                            ).apply {
+    this@WebViewActivity,
+    PlayerActivity::class.java
+).apply {
 
-                                putExtra(
-                                    PlayerActivity.EXTRA_URL,
-                                    url
-                                )
+    putExtra(PlayerActivity.EXTRA_URL, url)
+    putExtra(PlayerActivity.EXTRA_COOKIE, cookies)
+    putExtra(PlayerActivity.EXTRA_REFERER, referer)
+    putExtra(PlayerActivity.EXTRA_USER_AGENT, userAgent)
+    putExtra(PlayerActivity.EXTRA_ORIGIN, origin)
+    putExtra("manifest_method", method)
 
-                                putExtra(
-                                    PlayerActivity.EXTRA_COOKIE,
-                                    cookies
-                                )
+    // Repassar a lista de canais
+    intent.getStringArrayListExtra("tv_channel_names")?.let {
+        putStringArrayListExtra("tv_channel_names", ArrayList(it))
+    }
 
-                                putExtra(
-                                    PlayerActivity.EXTRA_REFERER,
-                                    referer
-                                )
+    intent.getStringArrayListExtra("tv_channel_urls")?.let {
+        putStringArrayListExtra("tv_channel_urls", ArrayList(it))
+    }
 
-                                putExtra(
-                                    PlayerActivity.EXTRA_USER_AGENT,
-                                    userAgent
-                                )
+    intent.getBooleanArrayExtra("tv_channel_capture")?.let {
+        putExtra("tv_channel_capture", it)
+    }
 
-                                // Origin original
-                                putExtra("origin", origin)
+    intent.getIntArrayExtra("tv_channel_orders")?.let {
+        putExtra("tv_channel_orders", it)
+    }
 
-                                // Método da requisição
-                                putExtra("manifest_method", method)
-                            }
+    putExtra(
+        "selected_channel_index",
+        intent.getIntExtra("selected_channel_index", 0)
+    )
 
-                            startActivity(i)
-                            finish()
+    putExtra(
+        PlayerActivity.EXTRA_TITLE,
+        intent.getStringExtra(PlayerActivity.EXTRA_TITLE).orEmpty()
+    )
+}
+
+startActivity(i)
+finish()
                         }
                     }
 
