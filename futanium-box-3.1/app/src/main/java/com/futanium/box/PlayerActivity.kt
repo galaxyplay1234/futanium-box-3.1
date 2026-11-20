@@ -16,6 +16,7 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
@@ -63,6 +64,7 @@ class PlayerActivity : AppCompatActivity() {
         private const val EXTRA_TV_CHANNEL_NAMES = "tv_channel_names"
         private const val EXTRA_TV_CHANNEL_URLS = "tv_channel_urls"
         private const val EXTRA_TV_CHANNEL_CAPTURE = "tv_channel_capture"
+        private const val EXTRA_TV_CHANNEL_ORDERS = "tv_channel_orders"
         private const val EXTRA_SELECTED_CHANNEL = "selected_channel_index"
     }
 
@@ -127,6 +129,7 @@ class PlayerActivity : AppCompatActivity() {
     private var channelPanelVisible = false
 
     private var channelRoot: FrameLayout? = null
+    private var channelGradient: View? = null
     private var channelBottom: LinearLayout? = null
     private var channelPanel: LinearLayout? = null
     private var channelListContainer: LinearLayout? = null
@@ -250,17 +253,40 @@ class PlayerActivity : AppCompatActivity() {
         channelRoot = playerView.parent as? FrameLayout ?: return
 
         // -----------------------------------------------------
-        // RODAPÉ
+        // GRADIENTE INFERIOR
+        // -----------------------------------------------------
+
+        channelGradient = View(this).apply {
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(
+                    Color.TRANSPARENT,
+                    Color.argb(245, 0, 0, 0)
+                )
+            )
+
+            isClickable = false
+            isFocusable = false
+        }
+
+        channelRoot?.addView(
+            channelGradient,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                dp(300),
+                Gravity.BOTTOM
+            )
+        )
+
+        // -----------------------------------------------------
+        // RODAPÉ DOS CANAIS
         // -----------------------------------------------------
 
         channelBottom = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(22), dp(12), dp(22), dp(12))
+            setPadding(0, dp(8), 0, dp(8))
 
-            background = createChannelBackground(
-                Color.rgb(20, 22, 27),
-                10
-            )
+            setBackgroundColor(Color.TRANSPARENT)
 
             visibility = View.GONE
             elevation = dp(15).toFloat()
@@ -268,19 +294,19 @@ class PlayerActivity : AppCompatActivity() {
 
         channelNameText = createChannelText(
             "",
-            16f,
+            17f,
             Color.WHITE,
             true
         )
 
         channelButton = createChannelText(
-            "▣   Canais",
-            14f,
+            "Canais",
+            16f,
             Color.WHITE,
             true
         ).apply {
             gravity = Gravity.CENTER
-            setPadding(dp(18), dp(9), dp(18), dp(9))
+            setPadding(dp(20), dp(10), dp(20), dp(10))
 
             background = createChannelBackground(
                 Color.rgb(25, 111, 220),
@@ -306,8 +332,8 @@ class PlayerActivity : AppCompatActivity() {
         channelBottom?.addView(
             channelButton,
             LinearLayout.LayoutParams(
-                dp(130),
-                dp(42)
+                dp(150),
+                dp(46)
             ).apply {
                 topMargin = dp(8)
             }
@@ -316,7 +342,7 @@ class PlayerActivity : AppCompatActivity() {
         channelRoot?.addView(
             channelBottom,
             FrameLayout.LayoutParams(
-                dp(230),
+                dp(300),
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 Gravity.BOTTOM or Gravity.START
             ).apply {
@@ -378,10 +404,12 @@ class PlayerActivity : AppCompatActivity() {
         val scroll = ScrollView(this).apply {
             isFillViewport = true
             overScrollMode = View.OVER_SCROLL_NEVER
+            descendantFocusability = ViewGroupFocusability.AFTER_DESCENDANTS
         }
 
         channelListContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
+            isFocusable = false
         }
 
         scroll.addView(channelListContainer)
@@ -437,16 +465,6 @@ class PlayerActivity : AppCompatActivity() {
                 setOnClickListener {
                     selectChannel(index)
                 }
-
-                setOnFocusChangeListener { view, hasFocus ->
-                    if (hasFocus) {
-                        selectedChannelIndex = index
-                        updateChannelList()
-                        channelListContainer
-                            ?.getChildAt(index)
-                            ?.requestFocus()
-                    }
-                }
             }
 
             container.addView(
@@ -459,6 +477,21 @@ class PlayerActivity : AppCompatActivity() {
                     bottomMargin = dp(5)
                 }
             )
+        }
+    }
+
+    private fun focusSelectedChannel() {
+        val container = channelListContainer ?: return
+
+        container.post {
+            val item = container.getChildAt(selectedChannelIndex)
+
+            item?.requestFocus()
+
+            item?.let {
+                val scroll = channelPanel?.getChildAt(2) as? ScrollView
+                scroll?.smoothScrollTo(0, it.top)
+            }
         }
     }
 
@@ -486,10 +519,7 @@ class PlayerActivity : AppCompatActivity() {
         channelPanel?.visibility = View.VISIBLE
 
         updateChannelList()
-
-        channelListContainer
-            ?.getChildAt(selectedChannelIndex)
-            ?.requestFocus()
+        focusSelectedChannel()
     }
 
     private fun closeChannelPanel() {
@@ -509,6 +539,8 @@ class PlayerActivity : AppCompatActivity() {
 
         channelBottom?.visibility = View.GONE
         channelPanel?.visibility = View.GONE
+
+        playerView.requestFocus()
     }
 
     // =========================================================
@@ -552,6 +584,10 @@ class PlayerActivity : AppCompatActivity() {
                     }
                 )
 
+                intent.getIntArrayExtra(EXTRA_TV_CHANNEL_ORDERS)?.let {
+                    putExtra(EXTRA_TV_CHANNEL_ORDERS, it)
+                }
+
                 putExtra(EXTRA_SELECTED_CHANNEL, index)
             }
 
@@ -568,6 +604,8 @@ class PlayerActivity : AppCompatActivity() {
 
         player?.release()
         player = null
+
+        currentSubtitle = null
 
         initPlayer(
             channel.url,
@@ -610,10 +648,7 @@ class PlayerActivity : AppCompatActivity() {
                         (selectedChannelIndex - 1).coerceAtLeast(0)
 
                     updateChannelList()
-
-                    channelListContainer
-                        ?.getChildAt(selectedChannelIndex)
-                        ?.requestFocus()
+                    focusSelectedChannel()
 
                     return true
                 }
@@ -626,10 +661,7 @@ class PlayerActivity : AppCompatActivity() {
                             .coerceAtMost(tvChannels.lastIndex)
 
                     updateChannelList()
-
-                    channelListContainer
-                        ?.getChildAt(selectedChannelIndex)
-                        ?.requestFocus()
+                    focusSelectedChannel()
 
                     return true
                 }
@@ -638,6 +670,7 @@ class PlayerActivity : AppCompatActivity() {
             KeyEvent.KEYCODE_DPAD_CENTER,
             KeyEvent.KEYCODE_ENTER,
             KeyEvent.KEYCODE_NUMPAD_ENTER -> {
+
                 if (channelPanelVisible) {
                     selectChannel(selectedChannelIndex)
                     return true
@@ -697,6 +730,9 @@ class PlayerActivity : AppCompatActivity() {
 
         playerView.setBackgroundColor(Color.BLACK)
         playerView.clipToPadding = false
+
+        playerView.isFocusable = true
+        playerView.isFocusableInTouchMode = true
 
         playerView.setControllerShowTimeoutMs(0)
         playerView.setControllerHideOnTouch(true)
@@ -781,7 +817,7 @@ class PlayerActivity : AppCompatActivity() {
         // BUFFERING
         // =====================================================
 
-        findViewById<android.widget.ProgressBar>(
+        findViewById<ProgressBar>(
             androidx.media3.ui.R.id.exo_buffering
         )?.let { pb ->
             val white =
@@ -1479,7 +1515,9 @@ class PlayerActivity : AppCompatActivity() {
         main.removeCallbacks(bufferingWatchdog)
         controllerHandler.removeCallbacks(controllerAutoHide)
 
-        playerView.player = null
+        if (::playerView.isInitialized) {
+            playerView.player = null
+        }
 
         player?.release()
         player = null
@@ -1507,5 +1545,9 @@ class PlayerActivity : AppCompatActivity() {
     private fun dp(v: Int): Int {
         return (v * resources.displayMetrics.density).toInt()
     }
-}
 
+    // Constante para evitar depender de imports adicionais
+    private object ViewGroupFocusability {
+        const val AFTER_DESCENDANTS = 0x40000
+    }
+}
