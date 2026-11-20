@@ -105,6 +105,7 @@ class WebViewActivity : AppCompatActivity() {
     private var channelListContainer: LinearLayout? = null
     private var channelNameText: TextView? = null
     private var channelButton: TextView? = null
+		private var gameTitleText: TextView? = null
 
     private val channelIdleHandler = Handler(Looper.getMainLooper())
     private val CHANNEL_IDLE_TIMEOUT = 5_000L
@@ -252,12 +253,24 @@ class WebViewActivity : AppCompatActivity() {
             elevation = dp(15).toFloat()
         }
 
-        channelNameText = createChannelText(
-            "",
-            17f,
-            Color.WHITE,
-            true
-        )
+        // Nome do jogo — linha superior
+gameTitleText = createChannelText(
+    intent.getStringExtra("game_title").orEmpty(),
+    21f,
+    Color.WHITE,
+    true
+).apply {
+    maxLines = 1
+    ellipsize = android.text.TextUtils.TruncateAt.END
+}
+
+// Nome do canal — linha inferior
+channelNameText = createChannelText(
+    "",
+    15f,
+    Color.LTGRAY,
+    false
+)
 
         channelButton = createChannelText(
             "Canais",
@@ -282,22 +295,30 @@ class WebViewActivity : AppCompatActivity() {
         }
 
         channelBottom?.addView(
-            channelNameText,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(32)
-            )
-        )
+    gameTitleText,
+    LinearLayout.LayoutParams(
+        LinearLayout.LayoutParams.MATCH_PARENT,
+        dp(34)
+    )
+)
 
-        channelBottom?.addView(
-            channelButton,
-            LinearLayout.LayoutParams(
-                dp(150),
-                dp(46)
-            ).apply {
-                topMargin = dp(8)
-            }
-        )
+channelBottom?.addView(
+    channelNameText,
+    LinearLayout.LayoutParams(
+        LinearLayout.LayoutParams.MATCH_PARENT,
+        dp(27)
+    )
+)
+
+channelBottom?.addView(
+    channelButton,
+    LinearLayout.LayoutParams(
+        dp(150),
+        dp(46)
+    ).apply {
+        topMargin = dp(8)
+    }
+)
 
         channelRoot.addView(
             channelBottom!!,
@@ -455,7 +476,10 @@ class WebViewActivity : AppCompatActivity() {
         channelControlsVisible = true
         channelPanelVisible = false
 
-        channelNameText?.text =
+        gameTitleText?.text =
+    intent.getStringExtra("game_title").orEmpty()
+
+channelNameText?.text =
     "Canal ${selectedChannelIndex + 1}"
 
 
@@ -540,19 +564,24 @@ class WebViewActivity : AppCompatActivity() {
             ).apply {
 
                 putExtra(
-                    PlayerActivity.EXTRA_URL,
-                    channel.url
-                )
+    PlayerActivity.EXTRA_URL,
+    channel.url
+)
 
-                putExtra(
-                    PlayerActivity.EXTRA_TITLE,
-                    channel.name
-                )
+putExtra(
+    PlayerActivity.EXTRA_TITLE,
+    channel.name
+)
 
-                putExtra(
-                    PlayerActivity.EXTRA_REFERER,
-                    lastMainUrl.orEmpty()
-                )
+putExtra(
+    "game_title",
+    intent.getStringExtra("game_title").orEmpty()
+)
+
+putExtra(
+    PlayerActivity.EXTRA_REFERER,
+    lastMainUrl.orEmpty()
+)
 
                 putExtra(
                     PlayerActivity.EXTRA_USER_AGENT,
@@ -621,6 +650,11 @@ if (isYoutube) {
             YoutubeWebViewActivity.EXTRA_URL,
             channel.url
         )
+
+				putExtra(
+    "game_title",
+    intent.getStringExtra("game_title").orEmpty()
+)
 
         putStringArrayListExtra(
             "tv_channel_names",
@@ -895,6 +929,14 @@ if (isYoutube) {
 
                 putExtra(PlayerActivity.EXTRA_URL, initialUrl)
 
+						
+
+
+								putExtra(
+    "game_title",
+    intent.getStringExtra("game_title").orEmpty()
+)
+
                 putExtra(
                     PlayerActivity.EXTRA_TITLE,
                     intent.getStringExtra(PlayerActivity.EXTRA_TITLE).orEmpty()
@@ -946,6 +988,12 @@ if (
         ).apply {
 
             putExtra("url", initialUrl)
+
+
+					putExtra(
+    "game_title",
+    intent.getStringExtra("game_title").orEmpty()
+)
 
             intent.getStringArrayListExtra("tv_channel_names")?.let {
                 putStringArrayListExtra(
@@ -1429,49 +1477,55 @@ if (
                                     ?: intent.getStringExtra(PlayerActivity.EXTRA_TITLE).orEmpty()
 
                             val i = Intent(
-                                this@WebViewActivity,
-                                PlayerActivity::class.java
-                            ).apply {
+    this@WebViewActivity,
+    PlayerActivity::class.java
+).apply {
 
-                                putExtra(PlayerActivity.EXTRA_URL, url)
-                                putExtra(PlayerActivity.EXTRA_COOKIE, cookies)
-                                putExtra(PlayerActivity.EXTRA_REFERER, referer)
-                                putExtra(PlayerActivity.EXTRA_USER_AGENT, userAgent)
-                                putExtra(PlayerActivity.EXTRA_ORIGIN, origin)
-                                putExtra("manifest_method", method)
+    putExtra(PlayerActivity.EXTRA_URL, url)
 
-                                intent.getStringArrayListExtra("tv_channel_names")?.let {
-                                    putStringArrayListExtra(
-                                        "tv_channel_names",
-                                        ArrayList(it)
-                                    )
-                                }
+    putExtra(
+        "game_title",
+        intent.getStringExtra("game_title").orEmpty()
+    )
 
-                                intent.getStringArrayListExtra("tv_channel_urls")?.let {
-                                    putStringArrayListExtra(
-                                        "tv_channel_urls",
-                                        ArrayList(it)
-                                    )
-                                }
+    putExtra(PlayerActivity.EXTRA_COOKIE, cookies)
+    putExtra(PlayerActivity.EXTRA_REFERER, referer)
+    putExtra(PlayerActivity.EXTRA_USER_AGENT, userAgent)
+    putExtra(PlayerActivity.EXTRA_ORIGIN, origin)
+    putExtra("manifest_method", method)
 
-                                intent.getBooleanArrayExtra("tv_channel_capture")?.let {
-                                    putExtra("tv_channel_capture", it)
-                                }
+    intent.getStringArrayListExtra("tv_channel_names")?.let {
+        putStringArrayListExtra(
+            "tv_channel_names",
+            ArrayList(it)
+        )
+    }
 
-                                intent.getIntArrayExtra("tv_channel_orders")?.let {
-                                    putExtra("tv_channel_orders", it)
-                                }
+    intent.getStringArrayListExtra("tv_channel_urls")?.let {
+        putStringArrayListExtra(
+            "tv_channel_urls",
+            ArrayList(it)
+        )
+    }
 
-                                putExtra(
-                                    "selected_channel_index",
-                                    selectedChannelIndex
-                                )
+    intent.getBooleanArrayExtra("tv_channel_capture")?.let {
+        putExtra("tv_channel_capture", it)
+    }
 
-                                putExtra(
-                                    PlayerActivity.EXTRA_TITLE,
-                                    channelName
-                                )
-                            }
+    intent.getIntArrayExtra("tv_channel_orders")?.let {
+        putExtra("tv_channel_orders", it)
+    }
+
+    putExtra(
+        "selected_channel_index",
+        selectedChannelIndex
+    )
+
+    putExtra(
+        PlayerActivity.EXTRA_TITLE,
+        channelName
+    )
+}
 
                             startActivity(i)
                             finish()
