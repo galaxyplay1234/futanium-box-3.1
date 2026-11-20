@@ -680,27 +680,7 @@ class PlayerActivity : AppCompatActivity() {
     finish()
 }
 
-        hideChannelControls()
-
-        main.removeCallbacks(bufferingWatchdog)
-
-        playerView.player = null
-
-        player?.release()
-        player = null
-
-        currentSubtitle = null
-
-        initPlayer(
-            channel.url,
-            channel.name,
-            currentReferer,
-            currentUserAgent,
-            currentCookie,
-            currentSubtitle,
-            currentOrigin
-        )
-    }
+        
 
     // =========================================================
     // CONTROLE REMOTO
