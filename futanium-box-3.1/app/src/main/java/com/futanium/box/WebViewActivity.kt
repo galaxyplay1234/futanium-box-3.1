@@ -250,17 +250,14 @@ class WebViewActivity : AppCompatActivity() {
         val root = findViewById<FrameLayout>(android.R.id.content)
         root.getLocationOnScreen(rootLocation)
 
-        val minX = webLocation[0] - rootLocation[0]
-        val minY = webLocation[1] - rootLocation[1]
+        val minX = (webLocation[0] - rootLocation[0]).toFloat()
+val minY = (webLocation[1] - rootLocation[1]).toFloat()
 
-        val maxX = minX + web.width
-        val maxY = minY + web.height
+val maxX = minX + web.width.toFloat()
+val maxY = minY + web.height.toFloat()
 
-        mouseX = mouseX.coerceIn(minX, maxX)
-        mouseY = mouseY.coerceIn(minY, maxY)
-
-        cursor.x = mouseX - cursor.width / 2f
-        cursor.y = mouseY - cursor.height / 2f
+mouseX = mouseX.coerceIn(minX, maxX)
+mouseY = mouseY.coerceIn(minY, maxY)
 
         cursor.invalidate()
     }
@@ -907,7 +904,8 @@ class WebViewActivity : AppCompatActivity() {
     // CONTROLE REMOTO
     // =====================================================
 
-    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+    
+override fun dispatchKeyEvent(event: KeyEvent): Boolean {
 
     if (event.action != KeyEvent.ACTION_DOWN) {
         return super.dispatchKeyEvent(event)
@@ -927,7 +925,6 @@ class WebViewActivity : AppCompatActivity() {
         }
 
         activateVirtualMouse(event.keyCode)
-
         return true
     }
 
@@ -939,14 +936,12 @@ class WebViewActivity : AppCompatActivity() {
             KeyEvent.KEYCODE_DPAD_CENTER,
             KeyEvent.KEYCODE_ENTER,
             KeyEvent.KEYCODE_NUMPAD_ENTER -> {
-
                 clickVirtualMouse()
                 return true
             }
 
             KeyEvent.KEYCODE_BACK,
             KeyEvent.KEYCODE_ESCAPE -> {
-
                 deactivateVirtualMouse()
                 return true
             }
@@ -995,7 +990,7 @@ class WebViewActivity : AppCompatActivity() {
         return super.dispatchKeyEvent(event)
     }
 
-    // OK sem mouse: mostra os controles dos canais.
+    // OK SEM MOUSE: MOSTRA OS CONTROLES DOS CANAIS.
     when (event.keyCode) {
 
         KeyEvent.KEYCODE_DPAD_CENTER,
@@ -1018,72 +1013,6 @@ class WebViewActivity : AppCompatActivity() {
     return super.dispatchKeyEvent(event)
 }
 
-        // Mouse ativo: setas movimentam e OK clica.
-
-        if (virtualMouseActive) {
-
-            when (event.keyCode) {
-
-                KeyEvent.KEYCODE_DPAD_UP,
-                KeyEvent.KEYCODE_DPAD_DOWN,
-                KeyEvent.KEYCODE_DPAD_LEFT,
-                KeyEvent.KEYCODE_DPAD_RIGHT -> {
-
-                    activateVirtualMouse(event.keyCode)
-                    return true
-                }
-
-                KeyEvent.KEYCODE_DPAD_CENTER,
-                KeyEvent.KEYCODE_ENTER,
-                KeyEvent.KEYCODE_NUMPAD_ENTER -> {
-
-                    clickVirtualMouse()
-                    return true
-                }
-
-                KeyEvent.KEYCODE_BACK,
-                KeyEvent.KEYCODE_ESCAPE -> {
-
-                    deactivateVirtualMouse()
-                    return true
-                }
-            }
-
-            return super.dispatchKeyEvent(event)
-        }
-
-        // Mouse desativado: qualquer seta ativa o cursor.
-
-        when (event.keyCode) {
-
-            KeyEvent.KEYCODE_DPAD_UP,
-            KeyEvent.KEYCODE_DPAD_DOWN,
-            KeyEvent.KEYCODE_DPAD_LEFT,
-            KeyEvent.KEYCODE_DPAD_RIGHT -> {
-
-                activateVirtualMouse(event.keyCode)
-                return true
-            }
-
-            KeyEvent.KEYCODE_DPAD_CENTER,
-            KeyEvent.KEYCODE_ENTER,
-            KeyEvent.KEYCODE_NUMPAD_ENTER -> {
-
-                if (tvChannels.isNotEmpty()) {
-                    showChannelControls()
-                    return true
-                }
-            }
-
-            KeyEvent.KEYCODE_BACK,
-            KeyEvent.KEYCODE_ESCAPE -> {
-                finish()
-                return true
-            }
-        }
-
-        return super.dispatchKeyEvent(event)
-    }
 
     // =====================================================
     // UTILITÁRIO DE CABEÇALHOS
