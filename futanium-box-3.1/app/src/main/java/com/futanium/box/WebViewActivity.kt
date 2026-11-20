@@ -233,9 +233,8 @@ private fun activateVirtualMouse(keyCode: Int) {
 
 private fun moveVirtualMouse(keyCode: Int) {
 
-    // Ao pressionar uma seta, libera a atração anterior.
+    // Cancela respostas antigas da atração.
     mouseMoveToken++
-    snappedElement = false
 
     when (keyCode) {
         KeyEvent.KEYCODE_DPAD_UP -> mouseY -= mouseSpeed
@@ -243,6 +242,15 @@ private fun moveVirtualMouse(keyCode: Int) {
         KeyEvent.KEYCODE_DPAD_LEFT -> mouseX -= mouseSpeed
         KeyEvent.KEYCODE_DPAD_RIGHT -> mouseX += mouseSpeed
     }
+
+    virtualMouseView?.visibility = View.VISIBLE
+    virtualMouseView?.bringToFront()
+
+    updateVirtualMousePosition()
+
+    // Procura outro botão, sem prender no anterior.
+    snapVirtualMouseToElement()
+}
 
     virtualMouseView?.visibility = View.VISIBLE
     virtualMouseView?.bringToFront()
@@ -284,6 +292,7 @@ private fun updateVirtualMousePosition() {
     cursor.invalidate()
 }
 
+
 private fun snapVirtualMouseToElement() {
 
     if (!virtualMouseActive || !web.isAttachedToWindow) return
@@ -294,10 +303,10 @@ private fun snapVirtualMouseToElement() {
     val rootLocation = IntArray(2)
 
     web.getLocationOnScreen(webLocation)
+
     findViewById<FrameLayout>(android.R.id.content)
         .getLocationOnScreen(rootLocation)
 
-    // Converte a posição do cursor para coordenadas CSS do site.
     val localX =
         mouseX - (webLocation[0] - rootLocation[0])
 
@@ -311,9 +320,50 @@ private fun snapVirtualMouseToElement() {
 
     val js = """
         (function() {
+
             const x = $cssX;
             const y = $cssY;
             const radius = 45;
+
+            const previous = window.__futaniumLastSnapElement;
+
+            let skipPrevious = false;
+
+            // Remove o destaque anterior.
+            if (previous) {
+
+                const old = previous.__futaniumOldStyle;
+
+                if (old) {
+                    previous.style.setProperty(
+                        'outline',
+                        old.outline,
+                        old.outlinePriority
+                    );
+
+                    previous.style.setProperty(
+                        'outline-offset',
+                        old.offset,
+                        old.offsetPriority
+                    );
+
+                    delete previous.__futaniumOldStyle;
+                }
+
+                const r = previous.getBoundingClientRect();
+
+                // Enquanto estiver perto do botão anterior,
+                // não permite que ele atraia o cursor novamente.
+                skipPrevious =
+                    x >= r.left - radius &&
+                    x <= r.right + radius &&
+                    y >= r.top - radius &&
+                    y <= r.bottom + radius;
+
+                if (!skipPrevious) {
+                    window.__futaniumLastSnapElement = null;
+                }
+            }
 
             const selectors = [
                 'button',
@@ -337,9 +387,14 @@ private fun snapVirtualMouseToElement() {
             );
 
             let best = null;
+            let bestElement = null;
             let bestDistance = radius;
 
             elements.forEach(function(el) {
+
+                if (skipPrevious && el === previous) {
+                    return;
+                }
 
                 const rect = el.getBoundingClientRect();
                 const style = getComputedStyle(el);
@@ -369,13 +424,42 @@ private fun snapVirtualMouseToElement() {
                 const distance = Math.sqrt(dx * dx + dy * dy);
 
                 if (distance < bestDistance) {
+
                     bestDistance = distance;
+                    bestElement = el;
+
                     best = {
                         x: rect.left + rect.width / 2,
                         y: rect.top + rect.height / 2
                     };
                 }
             });
+
+            if (bestElement) {
+
+                // Guarda o estilo original para restaurar depois.
+                bestElement.__futaniumOldStyle = {
+                    outline: bestElement.style.getPropertyValue('outline'),
+                    outlinePriority: bestElement.style.getPropertyPriority('outline'),
+                    offset: bestElement.style.getPropertyValue('outline-offset'),
+                    offsetPriority: bestElement.style.getPropertyPriority('outline-offset')
+                };
+
+                // Borda azul de seleção.
+                bestElement.style.setProperty(
+                    'outline',
+                    '3px solid #1685FF',
+                    'important'
+                );
+
+                bestElement.style.setProperty(
+                    'outline-offset',
+                    '3px',
+                    'important'
+                );
+
+                window.__futaniumLastSnapElement = bestElement;
+            }
 
             return best;
         })();
@@ -413,18 +497,21 @@ private fun snapVirtualMouseToElement() {
                 currentWebLocation[1] - currentRootLocation[1]
 
             mouseX =
-                currentLeft + point.getDouble("x").toFloat() * web.scale
+                currentLeft +
+                point.getDouble("x").toFloat() * web.scale
 
             mouseY =
-                currentTop + point.getDouble("y").toFloat() * web.scale
+                currentTop +
+                point.getDouble("y").toFloat() * web.scale
 
             updateVirtualMousePosition()
 
         } catch (_: Exception) {
-            // Se não encontrar um botão válido, mantém o cursor livre.
+            // Mantém o cursor livre se não encontrar um botão.
         }
     }
 }
+
 
 
 
@@ -477,8 +564,27 @@ private fun clickVirtualMouse() {
 }
 
 private fun deactivateVirtualMouse() {
+
     virtualMouseActive = false
     mouseMoveToken++
+
+    web.evaluateJavascript("""
+        (function() {
+            const el = window.__futaniumLastSnapElement;
+
+            if (el && el.__futaniumOldStyle) {
+                const old = el.__futaniumOldStyle;
+
+                el.style.setProperty('outline', old.outline, old.outlinePriority);
+                el.style.setProperty('outline-offset', old.offset, old.offsetPriority);
+
+                delete el.__futaniumOldStyle;
+            }
+
+            window.__futaniumLastSnapElement = null;
+        })();
+    """.trimIndent(), null)
+
     virtualMouseView?.visibility = View.GONE
 }
 
