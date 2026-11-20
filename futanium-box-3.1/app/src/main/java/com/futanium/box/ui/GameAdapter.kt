@@ -1,3 +1,4 @@
+
 package com.futanium.box.ui
 
 import android.content.Intent
@@ -46,6 +47,107 @@ class GameAdapter(
     private val buttonText = Color.parseColor("#333333")
 
     private var pendingInitialFocus = false
+
+    // =====================================================
+    // MODELO DOS CANAIS DA TV
+    // =====================================================
+
+    private data class TvChannel(
+        val name: String,
+        val url: String,
+        val captureM3u8: Boolean,
+        val tvOrder: Int,
+        val originalIndex: Int
+    )
+
+    companion object {
+        const val EXTRA_TV_CHANNEL_NAMES = "tv_channel_names"
+        const val EXTRA_TV_CHANNEL_URLS = "tv_channel_urls"
+        const val EXTRA_TV_CHANNEL_CAPTURE = "tv_channel_capture"
+        const val EXTRA_TV_CHANNEL_ORDERS = "tv_channel_orders"
+    }
+
+    private fun readBoolean(value: Any?): Boolean {
+        return when (value) {
+            is Boolean -> value
+            is Number -> value.toInt() != 0
+            else -> value?.toString()?.equals("true", true) == true
+        }
+    }
+
+    private fun readTvOrder(anyBtn: Any): Int {
+        return when (anyBtn) {
+            is ButtonInfo -> anyBtn.tvOrder
+            is Map<*, *> ->
+                anyBtn["tvOrder"]?.toString()?.toIntOrNull() ?: 0
+            is JSONObject ->
+                anyBtn.optInt("tvOrder", 0)
+            else -> 0
+        }
+    }
+
+    private fun getTvChannels(buttons: List<Any>): List<TvChannel> {
+
+        return buttons.mapIndexedNotNull { index, button ->
+
+            if (!isTvSelected(button)) {
+                return@mapIndexedNotNull null
+            }
+
+            val (name, url, capture) =
+                extractTitleAndLink(button, index)
+
+            if (url.isBlank() || url == "#") {
+                return@mapIndexedNotNull null
+            }
+
+            TvChannel(
+                name = name,
+                url = url,
+                captureM3u8 = capture,
+                tvOrder = readTvOrder(button),
+                originalIndex = index
+            )
+
+        }.sortedWith(
+            compareBy<TvChannel> {
+                if (it.tvOrder > 0) 0 else 1
+            }.thenBy {
+                if (it.tvOrder > 0) it.tvOrder else Int.MAX_VALUE
+            }.thenBy {
+                it.originalIndex
+            }
+        )
+    }
+
+    private fun addTvChannelsToIntent(
+        intent: Intent,
+        channels: List<TvChannel>
+    ) {
+        intent.putStringArrayListExtra(
+            EXTRA_TV_CHANNEL_NAMES,
+            ArrayList(channels.map { it.name })
+        )
+
+        intent.putStringArrayListExtra(
+            EXTRA_TV_CHANNEL_URLS,
+            ArrayList(channels.map { it.url })
+        )
+
+        intent.putExtra(
+            EXTRA_TV_CHANNEL_CAPTURE,
+            channels.map { it.captureM3u8 }.toBooleanArray()
+        )
+
+        intent.putExtra(
+            EXTRA_TV_CHANNEL_ORDERS,
+            channels.map { it.tvOrder }.toIntArray()
+        )
+    }
+
+    // =====================================================
+    // ATUALIZAÇÃO DA LISTA
+    // =====================================================
 
     fun submit(newItems: List<Game>) {
 
@@ -101,34 +203,21 @@ class GameAdapter(
         notifyDataSetChanged()
     }
 
+    // =====================================================
+    // VIEW HOLDER
+    // =====================================================
+
     inner class VH(v: View) : RecyclerView.ViewHolder(v) {
 
-        val imgChamp: ImageView =
-            v.findViewById(R.id.imgChamp)
-
-        val tvChamp: TextView =
-            v.findViewById(R.id.tvChamp)
-
-        val tvHome: TextView =
-            v.findViewById(R.id.tvHomeName)
-
-        val ivHome: ImageView =
-            v.findViewById(R.id.imgHome)
-
-        val tvTime: TextView =
-            v.findViewById(R.id.tvTime)
-
-        val ivAway: ImageView =
-            v.findViewById(R.id.imgAway)
-
-        val tvAway: TextView =
-            v.findViewById(R.id.tvAwayName)
-
-        val gameStatus: TextView =
-            v.findViewById(R.id.gameStatus)
-
-        val btnContainer: ViewGroup =
-            v.findViewById(R.id.btnContainer)
+        val imgChamp: ImageView = v.findViewById(R.id.imgChamp)
+        val tvChamp: TextView = v.findViewById(R.id.tvChamp)
+        val tvHome: TextView = v.findViewById(R.id.tvHomeName)
+        val ivHome: ImageView = v.findViewById(R.id.imgHome)
+        val tvTime: TextView = v.findViewById(R.id.tvTime)
+        val ivAway: ImageView = v.findViewById(R.id.imgAway)
+        val tvAway: TextView = v.findViewById(R.id.tvAwayName)
+        val gameStatus: TextView = v.findViewById(R.id.gameStatus)
+        val btnContainer: ViewGroup = v.findViewById(R.id.btnContainer)
     }
 
     override fun onCreateViewHolder(
@@ -189,6 +278,10 @@ class GameAdapter(
         return items.toList()
     }
 
+    // =====================================================
+    // BIND
+    // =====================================================
+
     override fun onBindViewHolder(
         h: VH,
         position: Int
@@ -220,11 +313,9 @@ class GameAdapter(
         fetchAdsConfig()
 
         val g = items[position]
-
         val isAviso = g.homeLogo == "Aviso"
 
-        val d =
-            h.itemView.resources.displayMetrics.density
+        val d = h.itemView.resources.displayMetrics.density
 
         // =====================================================
         // AVISO
@@ -239,8 +330,7 @@ class GameAdapter(
             h.tvTime.visibility = View.GONE
             h.gameStatus.visibility = View.GONE
 
-            val iconValue =
-                g.championshipImageUrl.orEmpty()
+            val iconValue = g.championshipImageUrl.orEmpty()
 
             h.imgChamp.visibility = View.VISIBLE
 
@@ -250,8 +340,7 @@ class GameAdapter(
                     crossfade(true)
                 }
 
-                h.tvChamp.text =
-                    g.championship.orEmpty()
+                h.tvChamp.text = g.championship.orEmpty()
 
             } else {
 
@@ -310,7 +399,6 @@ class GameAdapter(
                         setAllCaps(false)
                         setTextColor(buttonText)
                         textSize = 14f
-
                         includeFontPadding = false
 
                         minHeight = 0
@@ -333,15 +421,11 @@ class GameAdapter(
                         isFocusableInTouchMode = isTv
 
                         if (isTv) {
-
                             setBackground(
                                 createNoticeButtonBackground(false, d)
                             )
-
                             backgroundTintList = null
-
                         } else {
-
                             background =
                                 androidx.appcompat.content.res.AppCompatResources.getDrawable(
                                     ctx,
@@ -352,19 +436,13 @@ class GameAdapter(
                         if (isTv) {
 
                             setOnFocusChangeListener { button, hasFocus ->
-
                                 button.background =
-                                    createNoticeButtonBackground(
-                                        hasFocus,
-                                        d
-                                    )
+                                    createNoticeButtonBackground(hasFocus, d)
                             }
 
                             setOnKeyListener { button, keyCode, event ->
 
-                                if (
-                                    event.action != KeyEvent.ACTION_DOWN
-                                ) {
+                                if (event.action != KeyEvent.ACTION_DOWN) {
                                     return@setOnKeyListener false
                                 }
 
@@ -386,11 +464,7 @@ class GameAdapter(
                                 android.view.HapticFeedbackConstants.VIRTUAL_KEY
                             )
 
-                            openAvisoLink(
-                                it,
-                                title,
-                                link
-                            )
+                            openAvisoLink(it, title, link)
                         }
                     }
 
@@ -398,7 +472,6 @@ class GameAdapter(
                         ViewGroup.LayoutParams.WRAP_CONTENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT
                     ).apply {
-
                         marginEnd = (8 * d).toInt()
                         topMargin = (4 * d).toInt()
                     }
@@ -407,7 +480,6 @@ class GameAdapter(
                 }
 
                 if (isTv) {
-
                     h.btnContainer.descendantFocusability =
                         ViewGroup.FOCUS_AFTER_DESCENDANTS
 
@@ -440,8 +512,7 @@ class GameAdapter(
         h.tvChamp.maxLines = 1
         h.tvChamp.ellipsize = TextUtils.TruncateAt.END
 
-        val champName =
-            g.championship.orEmpty()
+        val champName = g.championship.orEmpty()
 
         h.tvChamp.text = champName
 
@@ -453,8 +524,7 @@ class GameAdapter(
             Color.parseColor("#888B96")
         )
 
-        val champLogo =
-            g.championshipImageUrl
+        val champLogo = g.championshipImageUrl
 
         h.imgChamp.dispose()
 
@@ -475,11 +545,8 @@ class GameAdapter(
             }
         }
 
-        h.tvHome.text =
-            g.homeName.orEmpty()
-
-        h.tvAway.text =
-            g.awayName.orEmpty()
+        h.tvHome.text = g.homeName.orEmpty()
+        h.tvAway.text = g.awayName.orEmpty()
 
         if (isTv) {
 
@@ -513,7 +580,6 @@ class GameAdapter(
 
         (h.gameStatus.getTag(R.id.tag_blink_anim)
             as? android.animation.ObjectAnimator)?.let {
-
             it.cancel()
             h.gameStatus.setTag(R.id.tag_blink_anim, null)
         }
@@ -539,8 +605,7 @@ class GameAdapter(
 
                 } else {
 
-                    h.gameStatus.text =
-                        "• ${g.liveMinute}"
+                    h.gameStatus.text = "• ${g.liveMinute}"
 
                     h.gameStatus.setTextColor(
                         Color.parseColor("#FF3B30")
@@ -555,24 +620,16 @@ class GameAdapter(
                             1f,
                             0.3f
                         ).apply {
-
                             duration = 500
-
                             repeatMode =
                                 android.animation.ValueAnimator.REVERSE
-
                             repeatCount =
                                 android.animation.ValueAnimator.INFINITE
-
                             interpolator =
                                 android.view.animation.LinearInterpolator()
                         }
 
-                    h.gameStatus.setTag(
-                        R.id.tag_blink_anim,
-                        anim
-                    )
-
+                    h.gameStatus.setTag(R.id.tag_blink_anim, anim)
                     anim.start()
                 }
             }
@@ -594,24 +651,16 @@ class GameAdapter(
                         1f,
                         0.3f
                     ).apply {
-
                         duration = 500
-
                         repeatMode =
                             android.animation.ValueAnimator.REVERSE
-
                         repeatCount =
                             android.animation.ValueAnimator.INFINITE
-
                         interpolator =
                             android.view.animation.LinearInterpolator()
                     }
 
-                h.gameStatus.setTag(
-                    R.id.tag_blink_anim,
-                    anim
-                )
-
+                h.gameStatus.setTag(R.id.tag_blink_anim, anim)
                 anim.start()
             }
 
@@ -628,7 +677,6 @@ class GameAdapter(
             }
 
             else -> {
-
                 h.gameStatus.visibility = View.GONE
                 h.gameStatus.alpha = 1f
             }
@@ -638,8 +686,7 @@ class GameAdapter(
             (g.buttons as? List<*>)?.filterNotNull()
                 ?: emptyList()
 
-        val hasButtons =
-            btns.isNotEmpty()
+        val hasButtons = btns.isNotEmpty()
 
         val isExpanded =
             position == expandedPos && hasButtons
@@ -721,7 +768,6 @@ class GameAdapter(
                             .scaleY(0.98f)
                             .setDuration(90)
                             .withEndAction {
-
                                 v.animate()
                                     .scaleX(1f)
                                     .scaleY(1f)
@@ -731,14 +777,12 @@ class GameAdapter(
                             .start()
 
                         v.postDelayed({
-
                             openLink(
                                 h.itemView,
                                 title,
                                 link,
                                 captureM3u8
                             )
-
                         }, 130)
                     }
                 }
@@ -753,7 +797,6 @@ class GameAdapter(
                             ViewGroup.LayoutParams.WRAP_CONTENT,
                             ViewGroup.LayoutParams.WRAP_CONTENT
                         ).apply {
-
                             rightMargin = (8 * d).toInt()
                             topMargin = (6 * d).toInt()
                         }
@@ -764,7 +807,6 @@ class GameAdapter(
                             ViewGroup.LayoutParams.WRAP_CONTENT,
                             ViewGroup.LayoutParams.WRAP_CONTENT
                         ).apply {
-
                             marginEnd = (8 * d).toInt()
                             topMargin = (6 * d).toInt()
                         }
@@ -776,7 +818,7 @@ class GameAdapter(
 
         // =====================================================
         // CLIQUE NO CARD
-        // TV: ABRE O PRIMEIRO CANAL MARCADO
+        // TV: ABRE O PRIMEIRO CANAL MARCADO E ENVIA A LISTA
         // CELULAR: EXPANDE OU RECOLHE OS CANAIS
         // =====================================================
 
@@ -790,11 +832,9 @@ class GameAdapter(
 
             if (isTv) {
 
-                val selectedIndex = btns.indexOfFirst {
-                    isTvSelected(it)
-                }
+                val tvChannels = getTvChannels(btns)
 
-                if (selectedIndex == -1) {
+                if (tvChannels.isEmpty()) {
 
                     Toast.makeText(
                         h.itemView.context,
@@ -805,16 +845,14 @@ class GameAdapter(
                     return@setOnClickListener
                 }
 
-                val selectedButton = btns[selectedIndex]
-
-                val (title, link, captureM3u8) =
-                    extractTitleAndLink(selectedButton, selectedIndex)
+                val firstChannel = tvChannels.first()
 
                 openLink(
                     h.itemView,
-                    title,
-                    link,
-                    captureM3u8
+                    firstChannel.name,
+                    firstChannel.url,
+                    firstChannel.captureM3u8,
+                    tvChannels
                 )
 
                 return@setOnClickListener
@@ -852,31 +890,20 @@ class GameAdapter(
         val drawable = GradientDrawable().apply {
 
             shape = GradientDrawable.RECTANGLE
-
             cornerRadius = 10f * density
-
             setColor(buttonGray)
 
             setStroke(
-                if (focused) {
-                    (2 * density).toInt()
-                } else {
-                    (1 * density).toInt()
-                },
-                if (focused) {
-                    focusBlue
-                } else {
-                    Color.parseColor("#D3D6DA")
-                }
+                if (focused) (2 * density).toInt()
+                else (1 * density).toInt(),
+                if (focused) focusBlue
+                else Color.parseColor("#D3D6DA")
             )
         }
 
         val mask = GradientDrawable().apply {
-
             shape = GradientDrawable.RECTANGLE
-
             cornerRadius = 10f * density
-
             setColor(Color.WHITE)
         }
 
@@ -927,11 +954,9 @@ class GameAdapter(
                 )
 
                 val json = url.readText(Charsets.UTF_8)
-
                 val obj = JSONObject(json)
 
-                val ativo =
-                    obj.optString("ativo", "sim")
+                val ativo = obj.optString("ativo", "sim")
 
                 monetagEnabledRemote =
                     ativo.equals("sim", ignoreCase = true)
@@ -973,8 +998,7 @@ class GameAdapter(
 
             if (link.startsWith("f:", ignoreCase = true)) {
 
-                val real =
-                    link.removePrefix("f:")
+                val real = link.removePrefix("f:")
 
                 val intent = Intent(
                     Intent.ACTION_VIEW,
@@ -1009,7 +1033,7 @@ class GameAdapter(
     }
 
     // =====================================================
-    // EXTRAIR NOME E LINK
+    // EXTRAIR NOME, LINK E CAPTURE M3U8
     // =====================================================
 
     private fun extractTitleAndLink(
@@ -1020,70 +1044,40 @@ class GameAdapter(
         var rawName: String? = null
         var rawUrl: String? = null
         var captureM3u8 = false
-        var tvOrder = 0
 
         when (anyBtn) {
 
             is ButtonInfo -> {
-
-    rawName = anyBtn.name
-    rawUrl = anyBtn.url
-    captureM3u8 = anyBtn.captureM3u8
-    tvOrder = anyBtn.tvOrder
-}
+                rawName = anyBtn.name
+                rawUrl = anyBtn.url
+                captureM3u8 = anyBtn.captureM3u8
+            }
 
             is Map<*, *> -> {
+                rawName = anyBtn["name"]?.toString()
+                rawUrl = anyBtn["url"]?.toString()
+                captureM3u8 = readBoolean(anyBtn["captureM3u8"])
+            }
 
-    rawName =
-        anyBtn["name"]?.toString()
+            is JSONObject -> {
+                rawName = anyBtn.optString("name", null)
+                rawUrl = anyBtn.optString("url", null)
+                captureM3u8 = anyBtn.optBoolean("captureM3u8", false)
+            }
 
-    rawUrl =
-        anyBtn["url"]?.toString()
-
-    captureM3u8 =
-        anyBtn["captureM3u8"]
-            ?.toString()
-            ?.toBoolean() ?: false
-
-    tvOrder =
-        anyBtn["tvOrder"]
-            ?.toString()
-            ?.toIntOrNull() ?: 0
-}
-
-is JSONObject -> {
-
-    rawName =
-        anyBtn.optString("name", null)
-
-    rawUrl =
-        anyBtn.optString("url", null)
-
-    captureM3u8 =
-        anyBtn.optBoolean("captureM3u8", false)
-
-    tvOrder =
-        anyBtn.optInt("tvOrder", 0)
-}
-
-else -> {
-    rawName = anyBtn.toString()
-}
+            else -> {
+                rawName = anyBtn.toString()
+            }
         }
 
-        var title =
-            rawName?.trim().orEmpty()
-
-        var link =
-            rawUrl?.trim().orEmpty()
+        var title = rawName?.trim().orEmpty()
+        var link = rawUrl?.trim().orEmpty()
 
         Regex("""\s+(go:\S+)\s*$""")
             .find(title)?.let { m ->
 
                 link = m.groupValues[1]
-
-                title =
-                    title.removeRange(m.range).trim()
+                title = title.removeRange(m.range).trim()
             }
 
         if (title.isBlank()) {
@@ -1096,11 +1090,7 @@ else -> {
             } ?: "#"
         }
 
-        return Triple(
-            title,
-            link,
-            captureM3u8
-        )
+        return Triple(title, link, captureM3u8)
     }
 
     // =====================================================
@@ -1111,17 +1101,13 @@ else -> {
 
         return when (anyBtn) {
 
-            is ButtonInfo -> {
-                anyBtn.tv
-            }
+            is ButtonInfo -> anyBtn.tv
 
-            is Map<*, *> -> {
-                anyBtn["tv"]?.toString()?.equals("true", true) == true
-            }
+            is Map<*, *> ->
+                readBoolean(anyBtn["tv"])
 
-            is JSONObject -> {
+            is JSONObject ->
                 anyBtn.optBoolean("tv", false)
-            }
 
             else -> false
         }
@@ -1137,17 +1123,16 @@ else -> {
         view: View,
         title: String?,
         link: String,
-        captureM3u8: Boolean
+        captureM3u8: Boolean,
+        tvChannels: List<TvChannel>? = null
     ) {
 
         val ctx = view.context
-
         val u = link.trim()
 
         try {
 
-            val now =
-                System.currentTimeMillis()
+            val now = System.currentTimeMillis()
 
             if (now - lastClickTime < 3000) {
 
@@ -1191,6 +1176,10 @@ else -> {
                         title ?: ""
                     )
 
+                    if (!tvChannels.isNullOrEmpty()) {
+                        addTvChannelsToIntent(it, tvChannels)
+                    }
+
                     MainActivity.navigatingInsideApp = true
 
                     ctx.startActivity(it)
@@ -1211,6 +1200,10 @@ else -> {
                         "captureM3u8",
                         captureM3u8
                     )
+
+                    if (!tvChannels.isNullOrEmpty()) {
+                        addTvChannelsToIntent(it, tvChannels)
+                    }
 
                     MainActivity.navigatingInsideApp = true
 
@@ -1301,6 +1294,10 @@ else -> {
         }
     }
 }
+
+// =====================================================
+// MODELO COMPATÍVEL COM OS FORMATOS DE BOTÃO
+// =====================================================
 
 data class ButtonInfo(
     val name: String?,
