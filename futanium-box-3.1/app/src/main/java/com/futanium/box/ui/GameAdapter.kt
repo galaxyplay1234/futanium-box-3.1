@@ -1020,45 +1020,55 @@ class GameAdapter(
         var rawName: String? = null
         var rawUrl: String? = null
         var captureM3u8 = false
+        var tvOrder = 0
 
         when (anyBtn) {
 
             is ButtonInfo -> {
 
-                rawName = anyBtn.name
-                rawUrl = anyBtn.url
-                captureM3u8 = anyBtn.captureM3u8
-            }
+    rawName = anyBtn.name
+    rawUrl = anyBtn.url
+    captureM3u8 = anyBtn.captureM3u8
+    tvOrder = anyBtn.tvOrder
+}
 
             is Map<*, *> -> {
 
-                rawName =
-                    anyBtn["name"]?.toString()
+    rawName =
+        anyBtn["name"]?.toString()
 
-                rawUrl =
-                    anyBtn["url"]?.toString()
+    rawUrl =
+        anyBtn["url"]?.toString()
 
-                captureM3u8 =
-                    anyBtn["captureM3u8"]
-                        ?.toString()
-                        ?.toBoolean() ?: false
-            }
+    captureM3u8 =
+        anyBtn["captureM3u8"]
+            ?.toString()
+            ?.toBoolean() ?: false
 
-            is JSONObject -> {
+    tvOrder =
+        anyBtn["tvOrder"]
+            ?.toString()
+            ?.toIntOrNull() ?: 0
+}
 
-                rawName =
-                    anyBtn.optString("name", null)
+is JSONObject -> {
 
-                rawUrl =
-                    anyBtn.optString("url", null)
+    rawName =
+        anyBtn.optString("name", null)
 
-                captureM3u8 =
-                    anyBtn.optBoolean("captureM3u8", false)
-            }
+    rawUrl =
+        anyBtn.optString("url", null)
 
-            else -> {
-                rawName = anyBtn.toString()
-            }
+    captureM3u8 =
+        anyBtn.optBoolean("captureM3u8", false)
+
+    tvOrder =
+        anyBtn.optInt("tvOrder", 0)
+}
+
+else -> {
+    rawName = anyBtn.toString()
+}
         }
 
         var title =
