@@ -94,6 +94,7 @@ class WebViewActivity : AppCompatActivity() {
 
     private var mouseX = 0f
     private var mouseY = 0f
+    private var mouseMoveToken = 
 
     // Velocidade do cursor. Aumente para deixar mais rápido.
     private val mouseSpeed = 48f
@@ -194,6 +195,7 @@ class WebViewActivity : AppCompatActivity() {
     }
 
     
+
 private fun activateVirtualMouse(keyCode: Int) {
 
     val cursor = virtualMouseView ?: return
@@ -201,31 +203,28 @@ private fun activateVirtualMouse(keyCode: Int) {
 
     if (!virtualMouseActive) {
 
-        virtualMouseActive = true
-
-        // Aguarda o layout estar pronto antes de posicionar.
-        root.post {
-
-            if (!virtualMouseActive) return@post
-
-            val webLocation = IntArray(2)
-            val rootLocation = IntArray(2)
-
-            web.getLocationOnScreen(webLocation)
-            root.getLocationOnScreen(rootLocation)
-
-            mouseX =
-                (webLocation[0] - rootLocation[0]) +
-                web.width / 2f
-
-            mouseY =
-                (webLocation[1] - rootLocation[1]) +
-                web.height / 2f
-
-            moveVirtualMouse(keyCode)
+        if (web.width <= 0 || web.height <= 0) {
+            root.post {
+                if (!virtualMouseActive) {
+                    activateVirtualMouse(keyCode)
+                }
+            }
+            return
         }
 
-        return
+        virtualMouseActive = true
+
+        val webLocation = IntArray(2)
+        val rootLocation = IntArray(2)
+
+        web.getLocationOnScreen(webLocation)
+        root.getLocationOnScreen(rootLocation)
+
+        mouseX =
+            webLocation[0] - rootLocation[0] + web.width / 2f
+
+        mouseY =
+            webLocation[1] - rootLocation[1] + web.height / 2f
     }
 
     moveVirtualMouse(keyCode)
@@ -252,10 +251,9 @@ private fun moveVirtualMouse(keyCode: Int) {
     virtualMouseView?.bringToFront()
 
     updateVirtualMousePosition()
+    snapVirtualMouseToElement()
 }
 
-
-    
 private fun updateVirtualMousePosition() {
 
     val cursor = virtualMouseView ?: return
@@ -278,67 +276,215 @@ private fun updateVirtualMousePosition() {
     val maxX = minX + web.width.toFloat()
     val maxY = minY + web.height.toFloat()
 
-    mouseX = mouseX.coerceIn(minX, maxX)
-    mouseY = mouseY.coerceIn(minY, maxY)
+    val half = mouseDiameter / 2f
 
-    cursor.x = mouseX - cursor.width / 2f
-    cursor.y = mouseY - cursor.height / 2f
+    mouseX = mouseX.coerceIn(minX + half, maxX - half)
+    mouseY = mouseY.coerceIn(minY + half, maxY - half)
+
+    cursor.x = mouseX - half
+    cursor.y = mouseY - half
 
     cursor.invalidate()
 }
 
+private fun snapVirtualMouseToElement() {
 
-    private fun clickVirtualMouse() {
+    if (!virtualMouseActive || !web.isAttachedToWindow) return
 
-        val cursor = virtualMouseView ?: return
+    val token = ++mouseMoveToken
 
-        val webLocation = IntArray(2)
-        web.getLocationOnScreen(webLocation)
+    val webLocation = IntArray(2)
+    val rootLocation = IntArray(2)
 
-        val localX = mouseX - webLocation[0]
-        val localY = mouseY - webLocation[1]
+    web.getLocationOnScreen(webLocation)
+    findViewById<FrameLayout>(android.R.id.content)
+        .getLocationOnScreen(rootLocation)
 
-        val downTime = SystemClock.uptimeMillis()
+    // Converte a posição do cursor para coordenadas CSS do site.
+    val localX =
+        mouseX - (webLocation[0] - rootLocation[0])
 
-        val down = MotionEvent.obtain(
-            downTime,
-            downTime,
-            MotionEvent.ACTION_DOWN,
-            localX,
-            localY,
-            0
-        )
+    val localY =
+        mouseY - (webLocation[1] - rootLocation[1])
 
-        val up = MotionEvent.obtain(
-            downTime,
-            downTime + 70,
-            MotionEvent.ACTION_UP,
-            localX,
-            localY,
-            0
-        )
+    val scale = web.scale
 
-        down.source = android.view.InputDevice.SOURCE_TOUCHSCREEN
-        up.source = android.view.InputDevice.SOURCE_TOUCHSCREEN
+    val cssX = localX / scale
+    val cssY = localY / scale
 
-        web.dispatchTouchEvent(down)
-        web.dispatchTouchEvent(up)
+    val js = """
+        (function() {
+            const x = $cssX;
+            const y = $cssY;
+            const radius = 75;
 
-        down.recycle()
-        up.recycle()
+            const selectors = [
+                'button',
+                'a[href]',
+                'input',
+                'select',
+                'textarea',
+                '[role="button"]',
+                '[role="link"]',
+                '[onclick]',
+                '[tabindex]',
+                '[aria-label]',
+                '.vjs-control',
+                '.jw-icon',
+                '.plyr__control',
+                '.shaka-controls-button'
+            ];
 
-        // Depois do clique, desativa e esconde o cursor.
-        virtualMouseActive = false
-        cursor.visibility = View.GONE
+            const elements = document.querySelectorAll(
+                selectors.join(',')
+            );
 
-        web.requestFocus()
+            let best = null;
+            let bestDistance = radius;
+
+            elements.forEach(function(el) {
+
+                const rect = el.getBoundingClientRect();
+                const style = getComputedStyle(el);
+
+                if (
+                    rect.width <= 0 ||
+                    rect.height <= 0 ||
+                    style.display === 'none' ||
+                    style.visibility === 'hidden' ||
+                    style.pointerEvents === 'none'
+                ) {
+                    return;
+                }
+
+                const dx = Math.max(
+                    rect.left - x,
+                    0,
+                    x - rect.right
+                );
+
+                const dy = Math.max(
+                    rect.top - y,
+                    0,
+                    y - rect.bottom
+                );
+
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < bestDistance) {
+                    bestDistance = distance;
+                    best = {
+                        x: rect.left + rect.width / 2,
+                        y: rect.top + rect.height / 2
+                    };
+                }
+            });
+
+            return best;
+        })();
+    """.trimIndent()
+
+    web.evaluateJavascript(js) { result ->
+
+        if (
+            result == null ||
+            result == "null" ||
+            token != mouseMoveToken ||
+            !virtualMouseActive
+        ) {
+            return@evaluateJavascript
+        }
+
+        try {
+
+            val point = org.json.JSONObject(result)
+
+            val root = findViewById<FrameLayout>(
+                android.R.id.content
+            )
+
+            val currentWebLocation = IntArray(2)
+            val currentRootLocation = IntArray(2)
+
+            web.getLocationOnScreen(currentWebLocation)
+            root.getLocationOnScreen(currentRootLocation)
+
+            val currentLeft =
+                currentWebLocation[0] - currentRootLocation[0]
+
+            val currentTop =
+                currentWebLocation[1] - currentRootLocation[1]
+
+            mouseX =
+                currentLeft + point.getDouble("x").toFloat() * web.scale
+
+            mouseY =
+                currentTop + point.getDouble("y").toFloat() * web.scale
+
+            updateVirtualMousePosition()
+
+        } catch (_: Exception) {
+            // Se não encontrar um botão válido, mantém o cursor livre.
+        }
     }
+}
 
-    private fun deactivateVirtualMouse() {
 
-        virtualMouseActive = false
-        virtualMouseView?.visibility = View.GONE
-    }
+
+private fun clickVirtualMouse() {
+
+    val cursor = virtualMouseView ?: return
+
+    val webLocation = IntArray(2)
+    val rootLocation = IntArray(2)
+
+    web.getLocationOnScreen(webLocation)
+
+    findViewById<FrameLayout>(android.R.id.content)
+        .getLocationOnScreen(rootLocation)
+
+    val webLeft = webLocation[0] - rootLocation[0]
+    val webTop = webLocation[1] - rootLocation[1]
+
+    val localX = mouseX - webLeft
+    val localY = mouseY - webTop
+
+    val downTime = SystemClock.uptimeMillis()
+
+    val down = MotionEvent.obtain(
+        downTime, downTime,
+        MotionEvent.ACTION_DOWN,
+        localX, localY, 0
+    )
+
+    val up = MotionEvent.obtain(
+        downTime, downTime + 70,
+        MotionEvent.ACTION_UP,
+        localX, localY, 0
+    )
+
+    down.source = android.view.InputDevice.SOURCE_TOUCHSCREEN
+    up.source = android.view.InputDevice.SOURCE_TOUCHSCREEN
+
+    web.dispatchTouchEvent(down)
+    web.dispatchTouchEvent(up)
+
+    down.recycle()
+    up.recycle()
+
+    virtualMouseActive = false
+    mouseMoveToken++
+
+    cursor.visibility = View.GONE
+    web.requestFocus()
+}
+
+private fun deactivateVirtualMouse() {
+    virtualMouseActive = false
+    mouseMoveToken++
+    virtualMouseView?.visibility = View.GONE
+}
+
 
     // =====================================================
     // CONTROLES DOS CANAIS
