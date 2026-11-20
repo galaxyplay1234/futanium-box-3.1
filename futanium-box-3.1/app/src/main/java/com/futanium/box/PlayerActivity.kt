@@ -1021,19 +1021,17 @@ class PlayerActivity : AppCompatActivity() {
     // =========================================================
 
     private fun isSupported(u: String): Boolean {
-        val path = Uri.parse(u).path?.lowercase().orEmpty()
+    val url = u.lowercase()
 
-        return path.endsWith(".m3u8") ||
-            path.endsWith(".mpd") ||
-            path.endsWith(".ts") ||
-            path.endsWith(".txt")
-    }
+    return url.contains(".m3u8") ||
+        url.contains(".mpd") ||
+        url.contains(".ts") ||
+        url.contains(".txt")
+}
 
     private fun isMpd(u: String): Boolean {
-        return Uri.parse(u).path
-            ?.lowercase()
-            ?.endsWith(".mpd") == true
-    }
+    return u.contains(".mpd", ignoreCase = true)
+}
 
     private fun hideStatusBar() {
         insets.hide(WindowInsetsCompat.Type.statusBars())
@@ -1475,30 +1473,28 @@ class PlayerActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
 
-            val path = Uri.parse(url).path?.lowercase().orEmpty()
+            val normalizedUrl = url.lowercase()
 
-            val itemBuilder = MediaItem.Builder()
-                .setUri(Uri.parse(url))
+val itemBuilder = MediaItem.Builder()
+    .setUri(Uri.parse(url))
 
-            when {
+when {
 
-                path.endsWith(".mpd") -> {
-                    itemBuilder.setMimeType(MimeTypes.APPLICATION_MPD)
-                }
+    normalizedUrl.contains(".mpd") -> {
+        itemBuilder.setMimeType(MimeTypes.APPLICATION_MPD)
+    }
 
-                path.endsWith(".m3u8") || path.endsWith(".txt") -> {
-                    itemBuilder.setMimeType(MimeTypes.APPLICATION_M3U8)
+    normalizedUrl.contains(".m3u8") ||
+    normalizedUrl.contains(".txt") -> {
 
-                    Log.i(
-                        TAG,
-                        if (path.endsWith(".txt")) {
-                            "Arquivo TXT tratado diretamente como HLS/M3U8"
-                        } else {
-                            "M3U8 tradicional identificado"
-                        }
-                    )
-                }
-            }
+        itemBuilder.setMimeType(MimeTypes.APPLICATION_M3U8)
+
+        Log.i(
+            TAG,
+            "Playlist HLS/M3U8 identificada na URL"
+        )
+    }
+}
 
             if (!title.isNullOrBlank()) {
                 itemBuilder.setMediaMetadata(
