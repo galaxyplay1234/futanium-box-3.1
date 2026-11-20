@@ -635,55 +635,50 @@ class PlayerActivity : AppCompatActivity() {
     // =========================================================
 
     private fun selectChannel(index: Int) {
-        if (index !in tvChannels.indices) return
+    if (index !in tvChannels.indices) return
 
-        cancelChannelAutoHide()
+    cancelChannelAutoHide()
 
-        selectedChannelIndex = index
+    selectedChannelIndex = index
 
-        val channel = tvChannels[index]
+    val channel = tvChannels[index]
 
-        // Canal que precisa passar pelo WebView para captura.
-        if (channel.captureM3u8) {
-            val webIntent = Intent(
-                this,
-                WebViewActivity::class.java
-            ).apply {
-                putExtra(
-                    WebViewActivity.EXTRA_URL,
-                    channel.url
-                )
+    val webIntent = Intent(
+        this,
+        WebViewActivity::class.java
+    ).apply {
 
-                putExtra(EXTRA_TITLE, channel.name)
+        putExtra(WebViewActivity.EXTRA_URL, channel.url)
+        putExtra(EXTRA_TITLE, channel.name)
+        putExtra("captureM3u8", channel.captureM3u8)
 
-                putStringArrayListExtra(
-                    EXTRA_TV_CHANNEL_NAMES,
-                    ArrayList(tvChannels.map { it.name })
-                )
+        putStringArrayListExtra(
+            EXTRA_TV_CHANNEL_NAMES,
+            ArrayList(tvChannels.map { it.name })
+        )
 
-                putStringArrayListExtra(
-                    EXTRA_TV_CHANNEL_URLS,
-                    ArrayList(tvChannels.map { it.url })
-                )
+        putStringArrayListExtra(
+            EXTRA_TV_CHANNEL_URLS,
+            ArrayList(tvChannels.map { it.url })
+        )
 
-                putExtra(
-                    EXTRA_TV_CHANNEL_CAPTURE,
-                    BooleanArray(tvChannels.size) {
-                        tvChannels[it].captureM3u8
-                    }
-                )
-
-                intent.getIntArrayExtra(EXTRA_TV_CHANNEL_ORDERS)?.let {
-                    putExtra(EXTRA_TV_CHANNEL_ORDERS, it)
-                }
-
-                putExtra(EXTRA_SELECTED_CHANNEL, index)
+        putExtra(
+            EXTRA_TV_CHANNEL_CAPTURE,
+            BooleanArray(tvChannels.size) {
+                tvChannels[it].captureM3u8
             }
+        )
 
-            startActivity(webIntent)
-            finish()
-            return
+        intent.getIntArrayExtra(EXTRA_TV_CHANNEL_ORDERS)?.let {
+            putExtra(EXTRA_TV_CHANNEL_ORDERS, it)
         }
+
+        putExtra(EXTRA_SELECTED_CHANNEL, index)
+    }
+
+    startActivity(webIntent)
+    finish()
+}
 
         hideChannelControls()
 
