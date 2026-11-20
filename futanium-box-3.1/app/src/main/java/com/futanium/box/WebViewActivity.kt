@@ -882,23 +882,53 @@ class WebViewActivity : AppCompatActivity() {
             return
         }
 
-        if (
-            initialUrl.contains("youtube.com", true) ||
-            initialUrl.contains("youtu.be", true)
-        ) {
+        
+if (
+    initialUrl.contains("youtube.com", true) ||
+    initialUrl.contains("youtu.be", true)
+) {
 
-            startActivity(
-                Intent(
-                    this,
-                    YoutubeWebViewActivity::class.java
-                ).apply {
-                    putExtra("url", initialUrl)
-                }
+    startActivity(
+        Intent(
+            this,
+            YoutubeWebViewActivity::class.java
+        ).apply {
+
+            putExtra("url", initialUrl)
+
+            intent.getStringArrayListExtra("tv_channel_names")?.let {
+                putStringArrayListExtra(
+                    "tv_channel_names",
+                    ArrayList(it)
+                )
+            }
+
+            intent.getStringArrayListExtra("tv_channel_urls")?.let {
+                putStringArrayListExtra(
+                    "tv_channel_urls",
+                    ArrayList(it)
+                )
+            }
+
+            intent.getBooleanArrayExtra("tv_channel_capture")?.let {
+                putExtra("tv_channel_capture", it)
+            }
+
+            intent.getIntArrayExtra("tv_channel_orders")?.let {
+                putExtra("tv_channel_orders", it)
+            }
+
+            putExtra(
+                "selected_channel_index",
+                intent.getIntExtra("selected_channel_index", 0)
             )
-
-            finish()
-            return
         }
+    )
+
+    finish()
+    return
+}
+
 
         val initHost = runCatching {
             Uri.parse(initialUrl)
