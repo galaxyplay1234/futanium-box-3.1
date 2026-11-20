@@ -14,5 +14,6 @@
         app:controller_layout_id="@layout/exo_player_controller_minimal"
         app:show_buffering="when_playing"
         app:resize_mode="fit"
-        app:surface_type="surface_view" />
+        app:surface_type="texture_view" />
+
 </FrameLayout>
