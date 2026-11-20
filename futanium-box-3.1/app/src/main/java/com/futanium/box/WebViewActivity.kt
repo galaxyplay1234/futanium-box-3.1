@@ -193,7 +193,8 @@ class WebViewActivity : AppCompatActivity() {
         )
     }
 
-    private fun activateVirtualMouse(keyCode: Int) {
+    
+private fun activateVirtualMouse(keyCode: Int) {
 
     val cursor = virtualMouseView ?: return
     val root = findViewById<FrameLayout>(android.R.id.content)
@@ -202,23 +203,35 @@ class WebViewActivity : AppCompatActivity() {
 
         virtualMouseActive = true
 
-        val webLocation = IntArray(2)
-        val rootLocation = IntArray(2)
+        // Aguarda o layout estar pronto antes de posicionar.
+        root.post {
 
-        web.getLocationOnScreen(webLocation)
-        root.getLocationOnScreen(rootLocation)
+            if (!virtualMouseActive) return@post
 
-        // Começa no centro da área do WebView.
-        mouseX =
-            webLocation[0] - rootLocation[0] + web.width / 2f
+            val webLocation = IntArray(2)
+            val rootLocation = IntArray(2)
 
-        mouseY =
-            webLocation[1] - rootLocation[1] + web.height / 2f
+            web.getLocationOnScreen(webLocation)
+            root.getLocationOnScreen(rootLocation)
+
+            mouseX =
+                (webLocation[0] - rootLocation[0]) +
+                web.width / 2f
+
+            mouseY =
+                (webLocation[1] - rootLocation[1]) +
+                web.height / 2f
+
+            moveVirtualMouse(keyCode)
+        }
+
+        return
     }
 
-    // Garante que o cursor apareça em qualquer seta.
-    cursor.visibility = View.VISIBLE
-    cursor.bringToFront()
+    moveVirtualMouse(keyCode)
+}
+
+private fun moveVirtualMouse(keyCode: Int) {
 
     when (keyCode) {
 
@@ -235,32 +248,45 @@ class WebViewActivity : AppCompatActivity() {
             mouseX += mouseSpeed
     }
 
+    virtualMouseView?.visibility = View.VISIBLE
+    virtualMouseView?.bringToFront()
+
     updateVirtualMousePosition()
 }
 
-    private fun updateVirtualMousePosition() {
 
-        val cursor = virtualMouseView ?: return
+    
+private fun updateVirtualMousePosition() {
 
-        val webLocation = IntArray(2)
-        val rootLocation = IntArray(2)
+    val cursor = virtualMouseView ?: return
+    val root = findViewById<FrameLayout>(android.R.id.content)
 
-        web.getLocationOnScreen(webLocation)
+    if (web.width <= 0 || web.height <= 0) return
 
-        val root = findViewById<FrameLayout>(android.R.id.content)
-        root.getLocationOnScreen(rootLocation)
+    val webLocation = IntArray(2)
+    val rootLocation = IntArray(2)
 
-        val minX = (webLocation[0] - rootLocation[0]).toFloat()
-val minY = (webLocation[1] - rootLocation[1]).toFloat()
+    web.getLocationOnScreen(webLocation)
+    root.getLocationOnScreen(rootLocation)
 
-val maxX = minX + web.width.toFloat()
-val maxY = minY + web.height.toFloat()
+    val minX =
+        (webLocation[0] - rootLocation[0]).toFloat()
 
-mouseX = mouseX.coerceIn(minX, maxX)
-mouseY = mouseY.coerceIn(minY, maxY)
+    val minY =
+        (webLocation[1] - rootLocation[1]).toFloat()
 
-        cursor.invalidate()
-    }
+    val maxX = minX + web.width.toFloat()
+    val maxY = minY + web.height.toFloat()
+
+    mouseX = mouseX.coerceIn(minX, maxX)
+    mouseY = mouseY.coerceIn(minY, maxY)
+
+    cursor.x = mouseX - cursor.width / 2f
+    cursor.y = mouseY - cursor.height / 2f
+
+    cursor.invalidate()
+}
+
 
     private fun clickVirtualMouse() {
 
