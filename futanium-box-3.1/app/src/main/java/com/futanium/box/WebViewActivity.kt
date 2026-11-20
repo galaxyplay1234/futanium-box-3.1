@@ -601,6 +601,57 @@ class WebViewActivity : AppCompatActivity() {
             return
         }
 
+      // =================================================
+// YOUTUBE: ABRIR NA WEBVIEW EXCLUSIVA
+// =================================================
+
+val isYoutube =
+    channel.url.contains("youtube.com", true) ||
+    channel.url.contains("youtu.be", true) ||
+    channel.url.contains("youtube-nocookie.com", true)
+
+if (isYoutube) {
+
+    val youtubeIntent = Intent(
+        this,
+        YoutubeWebViewActivity::class.java
+    ).apply {
+
+        putExtra(
+            YoutubeWebViewActivity.EXTRA_URL,
+            channel.url
+        )
+
+        putStringArrayListExtra(
+            "tv_channel_names",
+            ArrayList(tvChannels.map { it.name })
+        )
+
+        putStringArrayListExtra(
+            "tv_channel_urls",
+            ArrayList(tvChannels.map { it.url })
+        )
+
+        putExtra(
+            "tv_channel_capture",
+            BooleanArray(tvChannels.size) {
+                tvChannels[it].captureM3u8
+            }
+        )
+
+        intent.getIntArrayExtra("tv_channel_orders")?.let {
+            putExtra("tv_channel_orders", it)
+        }
+
+        putExtra("selected_channel_index", index)
+    }
+
+    startActivity(youtubeIntent)
+    finish()
+    return
+}
+
+
         // Página web: mantém o comportamento original.
         intent.putExtra("selected_channel_index", index)
 
