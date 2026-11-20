@@ -219,12 +219,7 @@ class WebViewActivity : AppCompatActivity() {
     private fun setupChannelInterface() {
         if (tvChannels.isEmpty()) return
 
-        // Usa o container principal da Activity para os overlays.
         channelRoot = findViewById(android.R.id.content)
-
-        // -----------------------------------------------------
-        // GRADIENTE INFERIOR
-        // -----------------------------------------------------
 
         channelGradient = View(this).apply {
             background = GradientDrawable(
@@ -241,17 +236,13 @@ class WebViewActivity : AppCompatActivity() {
         }
 
         channelRoot.addView(
-            channelGradient,
+            channelGradient!!,
             FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 dp(300),
                 Gravity.BOTTOM
             )
         )
-
-        // -----------------------------------------------------
-        // RODAPÉ DOS CANAIS
-        // -----------------------------------------------------
 
         channelBottom = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -309,7 +300,7 @@ class WebViewActivity : AppCompatActivity() {
         )
 
         channelRoot.addView(
-            channelBottom,
+            channelBottom!!,
             FrameLayout.LayoutParams(
                 dp(300),
                 FrameLayout.LayoutParams.WRAP_CONTENT,
@@ -319,10 +310,6 @@ class WebViewActivity : AppCompatActivity() {
                 bottomMargin = dp(35)
             }
         )
-
-        // -----------------------------------------------------
-        // PAINEL LATERAL
-        // -----------------------------------------------------
 
         channelPanel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -392,7 +379,7 @@ class WebViewActivity : AppCompatActivity() {
         )
 
         channelRoot.addView(
-            channelPanel,
+            channelPanel!!,
             FrameLayout.LayoutParams(
                 dp(330),
                 FrameLayout.LayoutParams.MATCH_PARENT,
@@ -539,15 +526,85 @@ class WebViewActivity : AppCompatActivity() {
 
         val channel = tvChannels[index]
 
-        // Preserva o índice para a próxima troca de Activity.
+        // M3U8 ou MPD direto sempre abre no player nativo.
+        if (isDirectNativeManifest(channel.url)) {
+
+            val cookies = CookieManager.getInstance()
+                .getCookie(channel.url)
+                .orEmpty()
+
+            val nativeIntent = Intent(
+                this,
+                PlayerActivity::class.java
+            ).apply {
+
+                putExtra(
+                    PlayerActivity.EXTRA_URL,
+                    channel.url
+                )
+
+                putExtra(
+                    PlayerActivity.EXTRA_TITLE,
+                    channel.name
+                )
+
+                putExtra(
+                    PlayerActivity.EXTRA_REFERER,
+                    lastMainUrl.orEmpty()
+                )
+
+                putExtra(
+                    PlayerActivity.EXTRA_USER_AGENT,
+                    webUserAgent
+                )
+
+                putExtra(
+                    PlayerActivity.EXTRA_COOKIE,
+                    cookies
+                )
+
+                putExtra(
+                    PlayerActivity.EXTRA_ORIGIN,
+                    ""
+                )
+
+                putStringArrayListExtra(
+                    "tv_channel_names",
+                    ArrayList(tvChannels.map { it.name })
+                )
+
+                putStringArrayListExtra(
+                    "tv_channel_urls",
+                    ArrayList(tvChannels.map { it.url })
+                )
+
+                putExtra(
+                    "tv_channel_capture",
+                    BooleanArray(tvChannels.size) {
+                        tvChannels[it].captureM3u8
+                    }
+                )
+
+                intent.getIntArrayExtra("tv_channel_orders")?.let {
+                    putExtra("tv_channel_orders", it)
+                }
+
+                putExtra(
+                    "selected_channel_index",
+                    index
+                )
+            }
+
+            startActivity(nativeIntent)
+            finish()
+            return
+        }
+
+        // Página web: mantém o comportamento original.
         intent.putExtra("selected_channel_index", index)
 
-        // Mantém a configuração original:
-        // TRUE = procura manifesto e abre Player nativo.
-        // FALSE = abre a página WebView normalmente.
         captureM3u8 = channel.captureM3u8
 
-        // Permite uma nova captura para o canal selecionado.
         playerOpened = false
 
         val host = runCatching {
@@ -768,6 +825,61 @@ class WebViewActivity : AppCompatActivity() {
         captureM3u8 =
             intent.getBooleanExtra("captureM3u8", false)
 
+        // Se a Activity receber um manifesto direto,
+        // encaminha imediatamente para o player nativo.
+        if (isDirectNativeManifest(initialUrl)) {
+
+            val names =
+                intent.getStringArrayListExtra("tv_channel_names")
+
+            val urls =
+                intent.getStringArrayListExtra("tv_channel_urls")
+
+            val nativeIntent = Intent(
+                this,
+                PlayerActivity::class.java
+            ).apply {
+
+                putExtra(PlayerActivity.EXTRA_URL, initialUrl)
+
+                putExtra(
+                    PlayerActivity.EXTRA_TITLE,
+                    intent.getStringExtra(PlayerActivity.EXTRA_TITLE).orEmpty()
+                )
+
+                names?.let {
+                    putStringArrayListExtra(
+                        "tv_channel_names",
+                        ArrayList(it)
+                    )
+                }
+
+                urls?.let {
+                    putStringArrayListExtra(
+                        "tv_channel_urls",
+                        ArrayList(it)
+                    )
+                }
+
+                intent.getBooleanArrayExtra("tv_channel_capture")?.let {
+                    putExtra("tv_channel_capture", it)
+                }
+
+                intent.getIntArrayExtra("tv_channel_orders")?.let {
+                    putExtra("tv_channel_orders", it)
+                }
+
+                putExtra(
+                    "selected_channel_index",
+                    intent.getIntExtra("selected_channel_index", 0)
+                )
+            }
+
+            startActivity(nativeIntent)
+            finish()
+            return
+        }
+
         if (
             initialUrl.contains("youtube.com", true) ||
             initialUrl.contains("youtu.be", true)
@@ -808,7 +920,6 @@ class WebViewActivity : AppCompatActivity() {
 
         web = findViewById(R.id.web)
 
-        // Lê a mesma lista recebida do PlayerActivity.
         readTvChannels()
 
         web.setBackgroundColor(Color.BLACK)
@@ -913,10 +1024,6 @@ class WebViewActivity : AppCompatActivity() {
         }
 
         webUserAgent = web.settings.userAgentString.orEmpty()
-
-        // =================================================
-        // INTERFACE DO MENU
-        // =================================================
 
         setupChannelInterface()
 
@@ -1188,7 +1295,7 @@ class WebViewActivity : AppCompatActivity() {
                     request.url.host?.lowercase(Locale.ROOT)
                         ?: return null
 
-                // Captura somente quando captureM3u8 = true.
+                // Captura de manifestos em páginas web.
                 if (
                     captureM3u8 &&
                     isStreamManifestUrl(url)
@@ -1250,7 +1357,6 @@ class WebViewActivity : AppCompatActivity() {
                                 putExtra(PlayerActivity.EXTRA_ORIGIN, origin)
                                 putExtra("manifest_method", method)
 
-                                // Repassa a lista completa sem alterar a ordem.
                                 intent.getStringArrayListExtra("tv_channel_names")?.let {
                                     putStringArrayListExtra(
                                         "tv_channel_names",
@@ -1293,7 +1399,7 @@ class WebViewActivity : AppCompatActivity() {
                 }
 
                 // =================================================
-                // RESTANTE DO BLOQUEADOR ORIGINAL
+                // BLOQUEADOR ORIGINAL
                 // =================================================
 
                 if (!blockReady.get()) return null
@@ -1588,8 +1694,7 @@ class WebViewActivity : AppCompatActivity() {
     // IDENTIFICAÇÃO DE MANIFESTOS
     // =====================================================
 
-    private fun isStreamManifestUrl(url: String): Boolean {
-
+    private fun isDirectNativeManifest(url: String): Boolean {
         val path = Uri.parse(url)
             .path
             ?.lowercase(Locale.ROOT)
@@ -1597,6 +1702,10 @@ class WebViewActivity : AppCompatActivity() {
 
         return path.endsWith(".m3u8") ||
             path.endsWith(".mpd")
+    }
+
+    private fun isStreamManifestUrl(url: String): Boolean {
+        return isDirectNativeManifest(url)
     }
 
     private fun isMediaUrl(u: String): Boolean {
