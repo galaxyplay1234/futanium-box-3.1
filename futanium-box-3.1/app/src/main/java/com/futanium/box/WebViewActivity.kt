@@ -95,6 +95,7 @@ class WebViewActivity : AppCompatActivity() {
     private var mouseX = 0f
 private var mouseY = 0f
 private var mouseMoveToken = 0
+private var snappedElement = false
 
     // Velocidade do cursor. Aumente para deixar mais rápido.
     private val mouseSpeed = 48f
@@ -232,19 +233,15 @@ private fun activateVirtualMouse(keyCode: Int) {
 
 private fun moveVirtualMouse(keyCode: Int) {
 
+    // Ao pressionar uma seta, libera a atração anterior.
+    mouseMoveToken++
+    snappedElement = false
+
     when (keyCode) {
-
-        KeyEvent.KEYCODE_DPAD_UP ->
-            mouseY -= mouseSpeed
-
-        KeyEvent.KEYCODE_DPAD_DOWN ->
-            mouseY += mouseSpeed
-
-        KeyEvent.KEYCODE_DPAD_LEFT ->
-            mouseX -= mouseSpeed
-
-        KeyEvent.KEYCODE_DPAD_RIGHT ->
-            mouseX += mouseSpeed
+        KeyEvent.KEYCODE_DPAD_UP -> mouseY -= mouseSpeed
+        KeyEvent.KEYCODE_DPAD_DOWN -> mouseY += mouseSpeed
+        KeyEvent.KEYCODE_DPAD_LEFT -> mouseX -= mouseSpeed
+        KeyEvent.KEYCODE_DPAD_RIGHT -> mouseX += mouseSpeed
     }
 
     virtualMouseView?.visibility = View.VISIBLE
@@ -316,7 +313,7 @@ private fun snapVirtualMouseToElement() {
         (function() {
             const x = $cssX;
             const y = $cssY;
-            const radius = 75;
+            const radius = 45;
 
             const selectors = [
                 'button',
