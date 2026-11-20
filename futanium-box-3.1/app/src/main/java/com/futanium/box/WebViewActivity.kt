@@ -93,8 +93,8 @@ class WebViewActivity : AppCompatActivity() {
     private var virtualMouseView: View? = null
 
     private var mouseX = 0f
-    private var mouseY = 0f
-    private var mouseMoveToken = 
+private var mouseY = 0f
+private var mouseMoveToken = 0
 
     // Velocidade do cursor. Aumente para deixar mais rápido.
     private val mouseSpeed = 48f
