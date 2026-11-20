@@ -491,7 +491,7 @@ class PlayerActivity : AppCompatActivity() {
         tvChannels.forEachIndexed { index, channel ->
 
             val item = TextView(this).apply {
-                text = channel.name
+                text = "Canal ${index + 1}"
                 textSize = 15f
                 setTextColor(Color.WHITE)
 
@@ -554,7 +554,8 @@ class PlayerActivity : AppCompatActivity() {
         channelPanelVisible = false
 
         channelNameText?.text =
-            tvChannels.getOrNull(selectedChannelIndex)?.name ?: "Canal"
+    "Canal ${selectedChannelIndex + 1}"
+
 
         channelGradient?.visibility = View.VISIBLE
         channelBottom?.visibility = View.VISIBLE
