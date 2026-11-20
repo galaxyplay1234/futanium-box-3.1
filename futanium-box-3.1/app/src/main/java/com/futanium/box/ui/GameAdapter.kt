@@ -1296,5 +1296,6 @@ data class ButtonInfo(
     val name: String?,
     val url: String?,
     val captureM3u8: Boolean = false,
-    val tv: Boolean = false
+    val tv: Boolean = false,
+    val tvOrder: Int = 0
 )
