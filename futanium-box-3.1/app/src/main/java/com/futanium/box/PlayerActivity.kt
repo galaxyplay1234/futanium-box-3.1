@@ -643,15 +643,25 @@ class PlayerActivity : AppCompatActivity() {
 
     val channel = tvChannels[index]
 
-    val webIntent = Intent(
-        this,
-        WebViewActivity::class.java
-    ).apply {
+    // Se já for um link direto de mídia, abre no player nativo.
+    // Se for uma página web, mantém o fluxo pelo WebView.
+    val directNative = isSupported(channel.url)
 
-        putExtra(WebViewActivity.EXTRA_URL, channel.url)
+    val destination = if (directNative) {
+        PlayerActivity::class.java
+    } else {
+        WebViewActivity::class.java
+    }
+
+    val nextIntent = Intent(this, destination).apply {
+
+        putExtra(EXTRA_URL, channel.url)
         putExtra(EXTRA_TITLE, channel.name)
+
+        // O WebView precisa saber se deve capturar o M3U8.
         putExtra("captureM3u8", channel.captureM3u8)
 
+        // Preserva os dados dos canais para o próximo menu.
         putStringArrayListExtra(
             EXTRA_TV_CHANNEL_NAMES,
             ArrayList(tvChannels.map { it.name })
@@ -674,9 +684,18 @@ class PlayerActivity : AppCompatActivity() {
         }
 
         putExtra(EXTRA_SELECTED_CHANNEL, index)
+
+        // Preserva cabeçalhos quando o destino for o player nativo.
+        if (directNative) {
+            putExtra(EXTRA_REFERER, currentReferer)
+            putExtra(EXTRA_USER_AGENT, currentUserAgent)
+            putExtra(EXTRA_COOKIE, currentCookie)
+            putExtra(EXTRA_ORIGIN, currentOrigin)
+            putExtra(EXTRA_SUBTITLE, currentSubtitle)
+        }
     }
 
-    startActivity(webIntent)
+    startActivity(nextIntent)
     finish()
 }
 
