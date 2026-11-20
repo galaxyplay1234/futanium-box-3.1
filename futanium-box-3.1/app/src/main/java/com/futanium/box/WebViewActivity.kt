@@ -3,7 +3,9 @@ package com.futanium.box
 
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.drawable.GradientDrawable
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
@@ -11,8 +13,10 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.view.Gravity
 import android.view.KeyEvent
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
@@ -82,6 +86,21 @@ class WebViewActivity : AppCompatActivity() {
     private var isWebviewActive = false
 
     // =====================================================
+    // MOUSE VIRTUAL FUTANIUM
+    // =====================================================
+
+    private var virtualMouseActive = false
+    private var virtualMouseView: View? = null
+
+    private var mouseX = 0f
+    private var mouseY = 0f
+
+    // Velocidade do cursor. Aumente para deixar mais rápido.
+    private val mouseSpeed = 48f
+
+    private val mouseDiameter by lazy { dp(28) }
+
+    // =====================================================
     // MENU DE CANAIS SINCRONIZADO
     // =====================================================
 
@@ -105,7 +124,7 @@ class WebViewActivity : AppCompatActivity() {
     private var channelListContainer: LinearLayout? = null
     private var channelNameText: TextView? = null
     private var channelButton: TextView? = null
-		private var gameTitleText: TextView? = null
+    private var gameTitleText: TextView? = null
 
     private val channelIdleHandler = Handler(Looper.getMainLooper())
     private val CHANNEL_IDLE_TIMEOUT = 5_000L
@@ -125,6 +144,181 @@ class WebViewActivity : AppCompatActivity() {
     private fun dp(value: Int): Int {
         return (value * resources.displayMetrics.density).toInt()
     }
+
+    // =====================================================
+    // MOUSE VIRTUAL
+    // =====================================================
+
+    private fun setupVirtualMouse() {
+
+        val root = findViewById<FrameLayout>(android.R.id.content)
+
+        val cursor = object : View(this) {
+
+            private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.WHITE
+                style = Paint.Style.STROKE
+                strokeWidth = dp(3).toFloat()
+            }
+
+            override fun onDraw(canvas: Canvas) {
+                super.onDraw(canvas)
+
+                val radius = width / 2f - dp(3)
+
+                // Bolinha transparente, somente com borda branca.
+                // Não existe ponto branco no centro.
+                canvas.drawCircle(
+                    width / 2f,
+                    height / 2f,
+                    radius,
+                    paint
+                )
+            }
+        }
+
+        cursor.visibility = View.GONE
+        cursor.isClickable = false
+        cursor.isFocusable = false
+        cursor.elevation = dp(40).toFloat()
+
+        virtualMouseView = cursor
+
+        root.addView(
+            cursor,
+            FrameLayout.LayoutParams(
+                mouseDiameter,
+                mouseDiameter
+            )
+        )
+    }
+
+    private fun activateVirtualMouse(keyCode: Int) {
+
+        val cursor = virtualMouseView ?: return
+
+        if (!virtualMouseActive) {
+
+            virtualMouseActive = true
+
+            val webLocation = IntArray(2)
+            val rootLocation = IntArray(2)
+
+            web.getLocationOnScreen(webLocation)
+
+            val root = findViewById<FrameLayout>(android.R.id.content)
+            root.getLocationOnScreen(rootLocation)
+
+            // Começa no centro da área do WebView.
+            mouseX =
+                webLocation[0] - rootLocation[0] + web.width / 2f
+
+            mouseY =
+                webLocation[1] - rootLocation[1] + web.height / 2f
+
+            cursor.visibility = View.VISIBLE
+        }
+
+        when (keyCode) {
+
+            KeyEvent.KEYCODE_DPAD_UP ->
+                mouseY -= mouseSpeed
+
+            KeyEvent.KEYCODE_DPAD_DOWN ->
+                mouseY += mouseSpeed
+
+            KeyEvent.KEYCODE_DPAD_LEFT ->
+                mouseX -= mouseSpeed
+
+            KeyEvent.KEYCODE_DPAD_RIGHT ->
+                mouseX += mouseSpeed
+        }
+
+        updateVirtualMousePosition()
+    }
+
+    private fun updateVirtualMousePosition() {
+
+        val cursor = virtualMouseView ?: return
+
+        val webLocation = IntArray(2)
+        val rootLocation = IntArray(2)
+
+        web.getLocationOnScreen(webLocation)
+
+        val root = findViewById<FrameLayout>(android.R.id.content)
+        root.getLocationOnScreen(rootLocation)
+
+        val minX = webLocation[0] - rootLocation[0]
+        val minY = webLocation[1] - rootLocation[1]
+
+        val maxX = minX + web.width
+        val maxY = minY + web.height
+
+        mouseX = mouseX.coerceIn(minX, maxX)
+        mouseY = mouseY.coerceIn(minY, maxY)
+
+        cursor.x = mouseX - cursor.width / 2f
+        cursor.y = mouseY - cursor.height / 2f
+
+        cursor.invalidate()
+    }
+
+    private fun clickVirtualMouse() {
+
+        val cursor = virtualMouseView ?: return
+
+        val webLocation = IntArray(2)
+        web.getLocationOnScreen(webLocation)
+
+        val localX = mouseX - webLocation[0]
+        val localY = mouseY - webLocation[1]
+
+        val downTime = SystemClock.uptimeMillis()
+
+        val down = MotionEvent.obtain(
+            downTime,
+            downTime,
+            MotionEvent.ACTION_DOWN,
+            localX,
+            localY,
+            0
+        )
+
+        val up = MotionEvent.obtain(
+            downTime,
+            downTime + 70,
+            MotionEvent.ACTION_UP,
+            localX,
+            localY,
+            0
+        )
+
+        down.source = android.view.InputDevice.SOURCE_TOUCHSCREEN
+        up.source = android.view.InputDevice.SOURCE_TOUCHSCREEN
+
+        web.dispatchTouchEvent(down)
+        web.dispatchTouchEvent(up)
+
+        down.recycle()
+        up.recycle()
+
+        // Depois do clique, desativa e esconde o cursor.
+        virtualMouseActive = false
+        cursor.visibility = View.GONE
+
+        web.requestFocus()
+    }
+
+    private fun deactivateVirtualMouse() {
+
+        virtualMouseActive = false
+        virtualMouseView?.visibility = View.GONE
+    }
+
+    // =====================================================
+    // CONTROLES DOS CANAIS
+    // =====================================================
 
     private fun scheduleChannelAutoHide() {
         channelIdleHandler.removeCallbacks(channelControlsAutoHide)
@@ -253,24 +447,22 @@ class WebViewActivity : AppCompatActivity() {
             elevation = dp(15).toFloat()
         }
 
-        // Nome do jogo — linha superior
-gameTitleText = createChannelText(
-    intent.getStringExtra("game_title").orEmpty(),
-    21f,
-    Color.WHITE,
-    true
-).apply {
-    maxLines = 1
-    ellipsize = android.text.TextUtils.TruncateAt.END
-}
+        gameTitleText = createChannelText(
+            intent.getStringExtra("game_title").orEmpty(),
+            21f,
+            Color.WHITE,
+            true
+        ).apply {
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
+        }
 
-// Nome do canal — linha inferior
-channelNameText = createChannelText(
-    "",
-    15f,
-    Color.LTGRAY,
-    false
-)
+        channelNameText = createChannelText(
+            "",
+            15f,
+            Color.LTGRAY,
+            false
+        )
 
         channelButton = createChannelText(
             "Canais",
@@ -295,30 +487,30 @@ channelNameText = createChannelText(
         }
 
         channelBottom?.addView(
-    gameTitleText,
-    LinearLayout.LayoutParams(
-        LinearLayout.LayoutParams.MATCH_PARENT,
-        dp(34)
-    )
-)
+            gameTitleText,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(34)
+            )
+        )
 
-channelBottom?.addView(
-    channelNameText,
-    LinearLayout.LayoutParams(
-        LinearLayout.LayoutParams.MATCH_PARENT,
-        dp(27)
-    )
-)
+        channelBottom?.addView(
+            channelNameText,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(27)
+            )
+        )
 
-channelBottom?.addView(
-    channelButton,
-    LinearLayout.LayoutParams(
-        dp(150),
-        dp(46)
-    ).apply {
-        topMargin = dp(8)
-    }
-)
+        channelBottom?.addView(
+            channelButton,
+            LinearLayout.LayoutParams(
+                dp(150),
+                dp(46)
+            ).apply {
+                topMargin = dp(8)
+            }
+        )
 
         channelRoot.addView(
             channelBottom!!,
@@ -477,11 +669,10 @@ channelBottom?.addView(
         channelPanelVisible = false
 
         gameTitleText?.text =
-    intent.getStringExtra("game_title").orEmpty()
+            intent.getStringExtra("game_title").orEmpty()
 
-channelNameText?.text =
-    "Canal ${selectedChannelIndex + 1}"
-
+        channelNameText?.text =
+            "Canal ${selectedChannelIndex + 1}"
 
         channelGradient?.visibility = View.VISIBLE
         channelBottom?.visibility = View.VISIBLE
@@ -551,7 +742,6 @@ channelNameText?.text =
 
         val channel = tvChannels[index]
 
-        // M3U8 ou MPD direto sempre abre no player nativo.
         if (isDirectNativeManifest(channel.url)) {
 
             val cookies = CookieManager.getInstance()
@@ -563,25 +753,18 @@ channelNameText?.text =
                 PlayerActivity::class.java
             ).apply {
 
+                putExtra(PlayerActivity.EXTRA_URL, channel.url)
+                putExtra(PlayerActivity.EXTRA_TITLE, channel.name)
+
                 putExtra(
-    PlayerActivity.EXTRA_URL,
-    channel.url
-)
+                    "game_title",
+                    intent.getStringExtra("game_title").orEmpty()
+                )
 
-putExtra(
-    PlayerActivity.EXTRA_TITLE,
-    channel.name
-)
-
-putExtra(
-    "game_title",
-    intent.getStringExtra("game_title").orEmpty()
-)
-
-putExtra(
-    PlayerActivity.EXTRA_REFERER,
-    lastMainUrl.orEmpty()
-)
+                putExtra(
+                    PlayerActivity.EXTRA_REFERER,
+                    lastMainUrl.orEmpty()
+                )
 
                 putExtra(
                     PlayerActivity.EXTRA_USER_AGENT,
@@ -619,10 +802,7 @@ putExtra(
                     putExtra("tv_channel_orders", it)
                 }
 
-                putExtra(
-                    "selected_channel_index",
-                    index
-                )
+                putExtra("selected_channel_index", index)
             }
 
             startActivity(nativeIntent)
@@ -630,67 +810,64 @@ putExtra(
             return
         }
 
-      // =================================================
-// YOUTUBE: ABRIR NA WEBVIEW EXCLUSIVA
-// =================================================
+        // YOUTUBE: ABRIR NA WEBVIEW EXCLUSIVA
 
-val isYoutube =
-    channel.url.contains("youtube.com", true) ||
-    channel.url.contains("youtu.be", true) ||
-    channel.url.contains("youtube-nocookie.com", true)
+        val isYoutube =
+            channel.url.contains("youtube.com", true) ||
+                channel.url.contains("youtu.be", true) ||
+                channel.url.contains("youtube-nocookie.com", true)
 
-if (isYoutube) {
+        if (isYoutube) {
 
-    val youtubeIntent = Intent(
-        this,
-        YoutubeWebViewActivity::class.java
-    ).apply {
+            val youtubeIntent = Intent(
+                this,
+                YoutubeWebViewActivity::class.java
+            ).apply {
 
-        putExtra(
-            YoutubeWebViewActivity.EXTRA_URL,
-            channel.url
-        )
+                putExtra(
+                    YoutubeWebViewActivity.EXTRA_URL,
+                    channel.url
+                )
 
-				putExtra(
-    "game_title",
-    intent.getStringExtra("game_title").orEmpty()
-)
+                putExtra(
+                    "game_title",
+                    intent.getStringExtra("game_title").orEmpty()
+                )
 
-        putStringArrayListExtra(
-            "tv_channel_names",
-            ArrayList(tvChannels.map { it.name })
-        )
+                putStringArrayListExtra(
+                    "tv_channel_names",
+                    ArrayList(tvChannels.map { it.name })
+                )
 
-        putStringArrayListExtra(
-            "tv_channel_urls",
-            ArrayList(tvChannels.map { it.url })
-        )
+                putStringArrayListExtra(
+                    "tv_channel_urls",
+                    ArrayList(tvChannels.map { it.url })
+                )
 
-        putExtra(
-            "tv_channel_capture",
-            BooleanArray(tvChannels.size) {
-                tvChannels[it].captureM3u8
+                putExtra(
+                    "tv_channel_capture",
+                    BooleanArray(tvChannels.size) {
+                        tvChannels[it].captureM3u8
+                    }
+                )
+
+                intent.getIntArrayExtra("tv_channel_orders")?.let {
+                    putExtra("tv_channel_orders", it)
+                }
+
+                putExtra("selected_channel_index", index)
             }
-        )
 
-        intent.getIntArrayExtra("tv_channel_orders")?.let {
-            putExtra("tv_channel_orders", it)
+            startActivity(youtubeIntent)
+            finish()
+            return
         }
 
-        putExtra("selected_channel_index", index)
-    }
-
-    startActivity(youtubeIntent)
-    finish()
-    return
-}
-
-
         // Página web: mantém o comportamento original.
+
         intent.putExtra("selected_channel_index", index)
 
         captureM3u8 = channel.captureM3u8
-
         playerOpened = false
 
         val host = runCatching {
@@ -711,8 +888,9 @@ if (isYoutube) {
                 channel.url.contains("youtube-nocookie.com/embed", true)
 
         channelNameText?.text =
-    "Canal ${selectedChannelIndex + 1}"
+            "Canal ${selectedChannelIndex + 1}"
 
+        deactivateVirtualMouse()
         hideChannelControls()
 
         blackShield.visibility = View.GONE
@@ -729,72 +907,136 @@ if (isYoutube) {
     // =====================================================
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+
         if (event.action != KeyEvent.ACTION_DOWN) {
             return super.dispatchKeyEvent(event)
         }
 
+        // Menu de canais tem prioridade sobre o mouse.
+
         if (channelPanelVisible || channelControlsVisible) {
+
             scheduleChannelAutoHide()
+
+            when (event.keyCode) {
+
+                KeyEvent.KEYCODE_BACK,
+                KeyEvent.KEYCODE_ESCAPE -> {
+
+                    if (channelPanelVisible) {
+                        closeChannelPanel()
+                        return true
+                    }
+
+                    if (channelControlsVisible) {
+                        hideChannelControls()
+                        return true
+                    }
+                }
+
+                KeyEvent.KEYCODE_DPAD_UP -> {
+                    if (channelPanelVisible) {
+                        selectedChannelIndex =
+                            (selectedChannelIndex - 1).coerceAtLeast(0)
+
+                        updateChannelList()
+                        focusSelectedChannel()
+                        return true
+                    }
+                }
+
+                KeyEvent.KEYCODE_DPAD_DOWN -> {
+                    if (channelPanelVisible) {
+                        selectedChannelIndex =
+                            (selectedChannelIndex + 1)
+                                .coerceAtMost(tvChannels.lastIndex)
+
+                        updateChannelList()
+                        focusSelectedChannel()
+                        return true
+                    }
+                }
+
+                KeyEvent.KEYCODE_DPAD_CENTER,
+                KeyEvent.KEYCODE_ENTER,
+                KeyEvent.KEYCODE_NUMPAD_ENTER -> {
+
+                    if (channelPanelVisible) {
+                        selectWebChannel(selectedChannelIndex)
+                        return true
+                    }
+
+                    if (channelControlsVisible) {
+                        openChannelPanel()
+                        return true
+                    }
+                }
+            }
+
+            return super.dispatchKeyEvent(event)
         }
+
+        // Mouse ativo: setas movimentam e OK clica.
+
+        if (virtualMouseActive) {
+
+            when (event.keyCode) {
+
+                KeyEvent.KEYCODE_DPAD_UP,
+                KeyEvent.KEYCODE_DPAD_DOWN,
+                KeyEvent.KEYCODE_DPAD_LEFT,
+                KeyEvent.KEYCODE_DPAD_RIGHT -> {
+
+                    activateVirtualMouse(event.keyCode)
+                    return true
+                }
+
+                KeyEvent.KEYCODE_DPAD_CENTER,
+                KeyEvent.KEYCODE_ENTER,
+                KeyEvent.KEYCODE_NUMPAD_ENTER -> {
+
+                    clickVirtualMouse()
+                    return true
+                }
+
+                KeyEvent.KEYCODE_BACK,
+                KeyEvent.KEYCODE_ESCAPE -> {
+
+                    deactivateVirtualMouse()
+                    return true
+                }
+            }
+
+            return super.dispatchKeyEvent(event)
+        }
+
+        // Mouse desativado: qualquer seta ativa o cursor.
 
         when (event.keyCode) {
 
-            KeyEvent.KEYCODE_BACK,
-            KeyEvent.KEYCODE_ESCAPE -> {
-                if (channelPanelVisible) {
-                    closeChannelPanel()
-                    return true
-                }
+            KeyEvent.KEYCODE_DPAD_UP,
+            KeyEvent.KEYCODE_DPAD_DOWN,
+            KeyEvent.KEYCODE_DPAD_LEFT,
+            KeyEvent.KEYCODE_DPAD_RIGHT -> {
 
-                if (channelControlsVisible) {
-                    hideChannelControls()
-                    return true
-                }
-            }
-
-            KeyEvent.KEYCODE_DPAD_UP -> {
-                if (channelPanelVisible) {
-                    selectedChannelIndex =
-                        (selectedChannelIndex - 1).coerceAtLeast(0)
-
-                    updateChannelList()
-                    focusSelectedChannel()
-
-                    return true
-                }
-            }
-
-            KeyEvent.KEYCODE_DPAD_DOWN -> {
-                if (channelPanelVisible) {
-                    selectedChannelIndex =
-                        (selectedChannelIndex + 1)
-                            .coerceAtMost(tvChannels.lastIndex)
-
-                    updateChannelList()
-                    focusSelectedChannel()
-
-                    return true
-                }
+                activateVirtualMouse(event.keyCode)
+                return true
             }
 
             KeyEvent.KEYCODE_DPAD_CENTER,
             KeyEvent.KEYCODE_ENTER,
             KeyEvent.KEYCODE_NUMPAD_ENTER -> {
 
-                if (channelPanelVisible) {
-                    selectWebChannel(selectedChannelIndex)
-                    return true
-                }
-
-                if (channelControlsVisible) {
-                    openChannelPanel()
-                    return true
-                }
-
                 if (tvChannels.isNotEmpty()) {
                     showChannelControls()
                     return true
                 }
+            }
+
+            KeyEvent.KEYCODE_BACK,
+            KeyEvent.KEYCODE_ESCAPE -> {
+                finish()
+                return true
             }
         }
 
@@ -912,8 +1154,8 @@ if (isYoutube) {
         captureM3u8 =
             intent.getBooleanExtra("captureM3u8", false)
 
-        // Se a Activity receber um manifesto direto,
-        // encaminha imediatamente para o player nativo.
+        // Manifesto direto: encaminha para o player nativo.
+
         if (isDirectNativeManifest(initialUrl)) {
 
             val names =
@@ -929,13 +1171,10 @@ if (isYoutube) {
 
                 putExtra(PlayerActivity.EXTRA_URL, initialUrl)
 
-						
-
-
-								putExtra(
-    "game_title",
-    intent.getStringExtra("game_title").orEmpty()
-)
+                putExtra(
+                    "game_title",
+                    intent.getStringExtra("game_title").orEmpty()
+                )
 
                 putExtra(
                     PlayerActivity.EXTRA_TITLE,
@@ -975,59 +1214,58 @@ if (isYoutube) {
             return
         }
 
-        
-if (
-    initialUrl.contains("youtube.com", true) ||
-    initialUrl.contains("youtu.be", true)
-) {
+        // Links do YouTube vão para a Activity exclusiva.
 
-    startActivity(
-        Intent(
-            this,
-            YoutubeWebViewActivity::class.java
-        ).apply {
+        if (
+            initialUrl.contains("youtube.com", true) ||
+            initialUrl.contains("youtu.be", true)
+        ) {
 
-            putExtra("url", initialUrl)
+            startActivity(
+                Intent(
+                    this,
+                    YoutubeWebViewActivity::class.java
+                ).apply {
 
+                    putExtra("url", initialUrl)
 
-					putExtra(
-    "game_title",
-    intent.getStringExtra("game_title").orEmpty()
-)
+                    putExtra(
+                        "game_title",
+                        intent.getStringExtra("game_title").orEmpty()
+                    )
 
-            intent.getStringArrayListExtra("tv_channel_names")?.let {
-                putStringArrayListExtra(
-                    "tv_channel_names",
-                    ArrayList(it)
-                )
-            }
+                    intent.getStringArrayListExtra("tv_channel_names")?.let {
+                        putStringArrayListExtra(
+                            "tv_channel_names",
+                            ArrayList(it)
+                        )
+                    }
 
-            intent.getStringArrayListExtra("tv_channel_urls")?.let {
-                putStringArrayListExtra(
-                    "tv_channel_urls",
-                    ArrayList(it)
-                )
-            }
+                    intent.getStringArrayListExtra("tv_channel_urls")?.let {
+                        putStringArrayListExtra(
+                            "tv_channel_urls",
+                            ArrayList(it)
+                        )
+                    }
 
-            intent.getBooleanArrayExtra("tv_channel_capture")?.let {
-                putExtra("tv_channel_capture", it)
-            }
+                    intent.getBooleanArrayExtra("tv_channel_capture")?.let {
+                        putExtra("tv_channel_capture", it)
+                    }
 
-            intent.getIntArrayExtra("tv_channel_orders")?.let {
-                putExtra("tv_channel_orders", it)
-            }
+                    intent.getIntArrayExtra("tv_channel_orders")?.let {
+                        putExtra("tv_channel_orders", it)
+                    }
 
-            putExtra(
-                "selected_channel_index",
-                intent.getIntExtra("selected_channel_index", 0)
+                    putExtra(
+                        "selected_channel_index",
+                        intent.getIntExtra("selected_channel_index", 0)
+                    )
+                }
             )
+
+            finish()
+            return
         }
-    )
-
-    finish()
-    return
-}
-
 
         val initHost = runCatching {
             Uri.parse(initialUrl)
@@ -1061,9 +1299,7 @@ if (
         web.setOnLongClickListener { true }
         web.isHapticFeedbackEnabled = false
 
-        // =================================================
         // INSETS
-        // =================================================
 
         val contentRoot =
             findViewById<ViewGroup>(android.R.id.content)
@@ -1106,9 +1342,7 @@ if (
         ViewCompat.requestApplyInsets(contentRoot)
         ViewCompat.requestApplyInsets(web)
 
-        // =================================================
         // BLACK SHIELD
-        // =================================================
 
         blackShield = View(this).apply {
 
@@ -1124,9 +1358,7 @@ if (
 
         (contentRoot as ViewGroup).addView(blackShield)
 
-        // =================================================
         // WEBVIEW SETTINGS
-        // =================================================
 
         with(web.settings) {
 
@@ -1158,9 +1390,10 @@ if (
 
         setupChannelInterface()
 
-        // =================================================
+        // Mouse fica por cima do WebView e dos controles.
+        setupVirtualMouse()
+
         // WEBVIEW CLIENT
-        // =================================================
 
         web.webViewClient = object : WebViewClient() {
 
@@ -1300,30 +1533,30 @@ if (
             }
 
             override fun onPageFinished(
-    view: WebView,
-    url: String
-) {
+                view: WebView,
+                url: String
+            ) {
 
-    super.onPageFinished(view, url)
+                super.onPageFinished(view, url)
 
-    webLoader.visibility = View.GONE
+                webLoader.visibility = View.GONE
 
-    if (!isYoutubeMode) {
+                if (!isYoutubeMode) {
 
-        if (blockReady.get()) {
-            injectAdShieldJS()
-        } else {
-            injectCoreShieldJS(emptyList())
-        }
+                    if (blockReady.get()) {
+                        injectAdShieldJS()
+                    } else {
+                        injectCoreShieldJS(emptyList())
+                    }
 
-        // Tenta iniciar automaticamente o vídeo
-        view.postDelayed({
-            if (!isFinishing && !isDestroyed) {
-                injectAutoPlayJS()
+                    // Mantém a tentativa de autoplay original.
+                    view.postDelayed({
+                        if (!isFinishing && !isDestroyed) {
+                            injectAutoPlayJS()
+                        }
+                    }, 1000)
+                }
             }
-        }, 1000)
-    }
-}
 
             override fun onReceivedHttpError(
                 view: WebView?,
@@ -1416,9 +1649,7 @@ if (
                 handler?.proceed()
             }
 
-            // =================================================
             // CAPTURA AUTOMÁTICA MPD / M3U8
-            // =================================================
 
             override fun shouldInterceptRequest(
                 view: WebView,
@@ -1433,7 +1664,6 @@ if (
                     request.url.host?.lowercase(Locale.ROOT)
                         ?: return null
 
-                // Captura de manifestos em páginas web.
                 if (
                     captureM3u8 &&
                     isStreamManifestUrl(url)
@@ -1484,55 +1714,55 @@ if (
                                     ?: intent.getStringExtra(PlayerActivity.EXTRA_TITLE).orEmpty()
 
                             val i = Intent(
-    this@WebViewActivity,
-    PlayerActivity::class.java
-).apply {
+                                this@WebViewActivity,
+                                PlayerActivity::class.java
+                            ).apply {
 
-    putExtra(PlayerActivity.EXTRA_URL, url)
+                                putExtra(PlayerActivity.EXTRA_URL, url)
 
-    putExtra(
-        "game_title",
-        intent.getStringExtra("game_title").orEmpty()
-    )
+                                putExtra(
+                                    "game_title",
+                                    intent.getStringExtra("game_title").orEmpty()
+                                )
 
-    putExtra(PlayerActivity.EXTRA_COOKIE, cookies)
-    putExtra(PlayerActivity.EXTRA_REFERER, referer)
-    putExtra(PlayerActivity.EXTRA_USER_AGENT, userAgent)
-    putExtra(PlayerActivity.EXTRA_ORIGIN, origin)
-    putExtra("manifest_method", method)
+                                putExtra(PlayerActivity.EXTRA_COOKIE, cookies)
+                                putExtra(PlayerActivity.EXTRA_REFERER, referer)
+                                putExtra(PlayerActivity.EXTRA_USER_AGENT, userAgent)
+                                putExtra(PlayerActivity.EXTRA_ORIGIN, origin)
+                                putExtra("manifest_method", method)
 
-    intent.getStringArrayListExtra("tv_channel_names")?.let {
-        putStringArrayListExtra(
-            "tv_channel_names",
-            ArrayList(it)
-        )
-    }
+                                intent.getStringArrayListExtra("tv_channel_names")?.let {
+                                    putStringArrayListExtra(
+                                        "tv_channel_names",
+                                        ArrayList(it)
+                                    )
+                                }
 
-    intent.getStringArrayListExtra("tv_channel_urls")?.let {
-        putStringArrayListExtra(
-            "tv_channel_urls",
-            ArrayList(it)
-        )
-    }
+                                intent.getStringArrayListExtra("tv_channel_urls")?.let {
+                                    putStringArrayListExtra(
+                                        "tv_channel_urls",
+                                        ArrayList(it)
+                                    )
+                                }
 
-    intent.getBooleanArrayExtra("tv_channel_capture")?.let {
-        putExtra("tv_channel_capture", it)
-    }
+                                intent.getBooleanArrayExtra("tv_channel_capture")?.let {
+                                    putExtra("tv_channel_capture", it)
+                                }
 
-    intent.getIntArrayExtra("tv_channel_orders")?.let {
-        putExtra("tv_channel_orders", it)
-    }
+                                intent.getIntArrayExtra("tv_channel_orders")?.let {
+                                    putExtra("tv_channel_orders", it)
+                                }
 
-    putExtra(
-        "selected_channel_index",
-        selectedChannelIndex
-    )
+                                putExtra(
+                                    "selected_channel_index",
+                                    selectedChannelIndex
+                                )
 
-    putExtra(
-        PlayerActivity.EXTRA_TITLE,
-        channelName
-    )
-}
+                                putExtra(
+                                    PlayerActivity.EXTRA_TITLE,
+                                    channelName
+                                )
+                            }
 
                             startActivity(i)
                             finish()
@@ -1542,9 +1772,7 @@ if (
                     return null
                 }
 
-                // =================================================
                 // BLOQUEADOR ORIGINAL
-                // =================================================
 
                 if (!blockReady.get()) return null
 
@@ -1627,6 +1855,11 @@ if (
     @Deprecated("Deprecated in Android")
     override fun onBackPressed() {
 
+        if (virtualMouseActive) {
+            deactivateVirtualMouse()
+            return
+        }
+
         if (channelPanelVisible) {
             closeChannelPanel()
             return
@@ -1643,6 +1876,7 @@ if (
     override fun onDestroy() {
 
         cancelChannelAutoHide()
+        deactivateVirtualMouse()
 
         window.clearFlags(
             WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
@@ -1655,6 +1889,7 @@ if (
 
         super.onPause()
 
+        deactivateVirtualMouse()
         setWebviewStatus(false)
     }
 
@@ -2022,63 +2257,65 @@ if (
         web.evaluateJavascript(js, null)
     }
 
+    // =====================================================
+    // AUTOPLAY ORIGINAL
+    // =====================================================
 
-private fun injectAutoPlayJS() {
+    private fun injectAutoPlayJS() {
 
-    val js = """
-        (function() {
-            if (window.__futaniumAutoPlayStarted) return;
-            window.__futaniumAutoPlayStarted = true;
+        val js = """
+            (function() {
+                if (window.__futaniumAutoPlayStarted) return;
+                window.__futaniumAutoPlayStarted = true;
 
-            function tryPlay() {
-                const videos = document.querySelectorAll('video');
+                function tryPlay() {
+                    const videos = document.querySelectorAll('video');
 
-                videos.forEach(function(video) {
-                    video.setAttribute('autoplay', '');
-                    video.setAttribute('playsinline', '');
+                    videos.forEach(function(video) {
+                        video.setAttribute('autoplay', '');
+                        video.setAttribute('playsinline', '');
 
-                    if (video.paused) {
-                        const result = video.play();
+                        if (video.paused) {
+                            const result = video.play();
 
-                        if (result && result.catch) {
-                            result.catch(function(error) {});
+                            if (result && result.catch) {
+                                result.catch(function(error) {});
+                            }
                         }
-                    }
-                });
-            }
-
-            tryPlay();
-
-            document.addEventListener('loadedmetadata', tryPlay, true);
-            document.addEventListener('canplay', tryPlay, true);
-
-            const observer = new MutationObserver(function() {
-                tryPlay();
-            });
-
-            observer.observe(document.documentElement, {
-                childList: true,
-                subtree: true
-            });
-
-            let attempts = 0;
-
-            const timer = setInterval(function() {
-                tryPlay();
-                attempts++;
-
-                if (attempts >= 20) {
-                    clearInterval(timer);
-                    observer.disconnect();
+                    });
                 }
-            }, 1000);
 
-        })();
-    """.trimIndent()
+                tryPlay();
 
-    web.evaluateJavascript(js, null)
-}
+                document.addEventListener('loadedmetadata', tryPlay, true);
+                document.addEventListener('canplay', tryPlay, true);
 
+                const observer = new MutationObserver(function() {
+                    tryPlay();
+                });
+
+                observer.observe(document.documentElement, {
+                    childList: true,
+                    subtree: true
+                });
+
+                let attempts = 0;
+
+                const timer = setInterval(function() {
+                    tryPlay();
+                    attempts++;
+
+                    if (attempts >= 20) {
+                        clearInterval(timer);
+                        observer.disconnect();
+                    }
+                }, 1000);
+
+            })();
+        """.trimIndent()
+
+        web.evaluateJavascript(js, null)
+    }
 
     // =====================================================
     // UTILIDADES
