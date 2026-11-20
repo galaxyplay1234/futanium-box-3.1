@@ -1,4 +1,3 @@
-
 package com.futanium.box
 
 import android.content.Intent
@@ -133,6 +132,8 @@ class PlayerActivity : AppCompatActivity() {
     private var channelBottom: LinearLayout? = null
     private var channelPanel: LinearLayout? = null
     private var channelListContainer: LinearLayout? = null
+
+    private var gameTitleText: TextView? = null
     private var channelNameText: TextView? = null
     private var channelButton: TextView? = null
 
@@ -340,10 +341,22 @@ class PlayerActivity : AppCompatActivity() {
             elevation = dp(15).toFloat()
         }
 
+        // TÍTULO DO JOGO
+        gameTitleText = createChannelText(
+            intent.getStringExtra("game_title").orEmpty(),
+            21f,
+            Color.WHITE,
+            true
+        ).apply {
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
+        }
+
+        // NOME DO CANAL
         channelNameText = createChannelText(
             "",
             17f,
-            Color.WHITE,
+            Color.LTGRAY,
             true
         )
 
@@ -368,6 +381,14 @@ class PlayerActivity : AppCompatActivity() {
                 openChannelPanel()
             }
         }
+
+        channelBottom?.addView(
+            gameTitleText,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(34)
+            )
+        )
 
         channelBottom?.addView(
             channelNameText,
@@ -553,9 +574,11 @@ class PlayerActivity : AppCompatActivity() {
         channelControlsVisible = true
         channelPanelVisible = false
 
-        channelNameText?.text =
-    "Canal ${selectedChannelIndex + 1}"
+        gameTitleText?.text =
+            intent.getStringExtra("game_title").orEmpty()
 
+        channelNameText?.text =
+            "Canal ${selectedChannelIndex + 1}"
 
         channelGradient?.visibility = View.VISIBLE
         channelBottom?.visibility = View.VISIBLE
@@ -636,71 +659,75 @@ class PlayerActivity : AppCompatActivity() {
     // =========================================================
 
     private fun selectChannel(index: Int) {
-    if (index !in tvChannels.indices) return
+        if (index !in tvChannels.indices) return
 
-    cancelChannelAutoHide()
+        cancelChannelAutoHide()
 
-    selectedChannelIndex = index
+        selectedChannelIndex = index
 
-    val channel = tvChannels[index]
+        val channel = tvChannels[index]
 
-    // Se já for um link direto de mídia, abre no player nativo.
-    // Se for uma página web, mantém o fluxo pelo WebView.
-    val directNative = isSupported(channel.url)
+        // Se já for um link direto de mídia, abre no player nativo.
+        // Se for uma página web, mantém o fluxo pelo WebView.
+        val directNative = isSupported(channel.url)
 
-    val destination = if (directNative) {
-        PlayerActivity::class.java
-    } else {
-        WebViewActivity::class.java
-    }
+        val destination = if (directNative) {
+            PlayerActivity::class.java
+        } else {
+            WebViewActivity::class.java
+        }
 
-    val nextIntent = Intent(this, destination).apply {
+        val nextIntent = Intent(this, destination).apply {
 
-        putExtra(EXTRA_URL, channel.url)
-        putExtra(EXTRA_TITLE, channel.name)
+            putExtra(EXTRA_URL, channel.url)
+            putExtra(EXTRA_TITLE, channel.name)
 
-        // O WebView precisa saber se deve capturar o M3U8.
-        putExtra("captureM3u8", channel.captureM3u8)
+            // PRESERVA O TÍTULO DO JOGO
+            putExtra(
+                "game_title",
+                intent.getStringExtra("game_title").orEmpty()
+            )
 
-        // Preserva os dados dos canais para o próximo menu.
-        putStringArrayListExtra(
-            EXTRA_TV_CHANNEL_NAMES,
-            ArrayList(tvChannels.map { it.name })
-        )
+            // O WebView precisa saber se deve capturar o M3U8.
+            putExtra("captureM3u8", channel.captureM3u8)
 
-        putStringArrayListExtra(
-            EXTRA_TV_CHANNEL_URLS,
-            ArrayList(tvChannels.map { it.url })
-        )
+            // Preserva os dados dos canais para o próximo menu.
+            putStringArrayListExtra(
+                EXTRA_TV_CHANNEL_NAMES,
+                ArrayList(tvChannels.map { it.name })
+            )
 
-        putExtra(
-            EXTRA_TV_CHANNEL_CAPTURE,
-            BooleanArray(tvChannels.size) {
-                tvChannels[it].captureM3u8
+            putStringArrayListExtra(
+                EXTRA_TV_CHANNEL_URLS,
+                ArrayList(tvChannels.map { it.url })
+            )
+
+            putExtra(
+                EXTRA_TV_CHANNEL_CAPTURE,
+                BooleanArray(tvChannels.size) {
+                    tvChannels[it].captureM3u8
+                }
+            )
+
+            intent.getIntArrayExtra(EXTRA_TV_CHANNEL_ORDERS)?.let {
+                putExtra(EXTRA_TV_CHANNEL_ORDERS, it)
             }
-        )
 
-        intent.getIntArrayExtra(EXTRA_TV_CHANNEL_ORDERS)?.let {
-            putExtra(EXTRA_TV_CHANNEL_ORDERS, it)
+            putExtra(EXTRA_SELECTED_CHANNEL, index)
+
+            // Preserva cabeçalhos quando o destino for o player nativo.
+            if (directNative) {
+                putExtra(EXTRA_REFERER, currentReferer)
+                putExtra(EXTRA_USER_AGENT, currentUserAgent)
+                putExtra(EXTRA_COOKIE, currentCookie)
+                putExtra(EXTRA_ORIGIN, currentOrigin)
+                putExtra(EXTRA_SUBTITLE, currentSubtitle)
+            }
         }
 
-        putExtra(EXTRA_SELECTED_CHANNEL, index)
-
-        // Preserva cabeçalhos quando o destino for o player nativo.
-        if (directNative) {
-            putExtra(EXTRA_REFERER, currentReferer)
-            putExtra(EXTRA_USER_AGENT, currentUserAgent)
-            putExtra(EXTRA_COOKIE, currentCookie)
-            putExtra(EXTRA_ORIGIN, currentOrigin)
-            putExtra(EXTRA_SUBTITLE, currentSubtitle)
-        }
+        startActivity(nextIntent)
+        finish()
     }
-
-    startActivity(nextIntent)
-    finish()
-}
-
-        
 
     // =========================================================
     // CONTROLE REMOTO
@@ -949,6 +976,28 @@ class PlayerActivity : AppCompatActivity() {
             startActivity(
                 Intent(this, WebViewActivity::class.java).apply {
                     putExtra(WebViewActivity.EXTRA_URL, url)
+
+                    // PRESERVA O TÍTULO DO JOGO NO WEBVIEW
+                    putExtra(
+                        "game_title",
+                        intent.getStringExtra("game_title").orEmpty()
+                    )
+
+                    putStringArrayListExtra(
+                        EXTRA_TV_CHANNEL_NAMES,
+                        intent.getStringArrayListExtra(EXTRA_TV_CHANNEL_NAMES)
+                    )
+
+                    putStringArrayListExtra(
+                        EXTRA_TV_CHANNEL_URLS,
+                        intent.getStringArrayListExtra(EXTRA_TV_CHANNEL_URLS)
+                    )
+
+                    intent.getBooleanArrayExtra(EXTRA_TV_CHANNEL_CAPTURE)?.let {
+                        putExtra(EXTRA_TV_CHANNEL_CAPTURE, it)
+                    }
+
+                    putExtra(EXTRA_SELECTED_CHANNEL, selectedChannelIndex)
                 }
             )
 
