@@ -848,12 +848,13 @@ class GameAdapter(
                 val firstChannel = tvChannels.first()
 
                 openLink(
-                    h.itemView,
-                    firstChannel.name,
-                    firstChannel.url,
-                    firstChannel.captureM3u8,
-                    tvChannels
-                )
+    h.itemView,
+    firstChannel.name,
+    firstChannel.url,
+    firstChannel.captureM3u8,
+    tvChannels,
+    "${g.homeName} x ${g.awayName}"
+)
 
                 return@setOnClickListener
             }
@@ -1120,12 +1121,13 @@ class GameAdapter(
     private var lastClickTime = 0L
 
     private fun openLink(
-        view: View,
-        title: String?,
-        link: String,
-        captureM3u8: Boolean,
-        tvChannels: List<TvChannel>? = null
-    ) {
+    view: View,
+    title: String?,
+    link: String,
+    captureM3u8: Boolean,
+    tvChannels: List<TvChannel>? = null,
+    gameTitle: String? = null
+) {
 
         val ctx = view.context
         val u = link.trim()
@@ -1176,6 +1178,8 @@ class GameAdapter(
                         title ?: ""
                     )
 
+                     it.putExtra("game_title", gameTitle ?: "")
+
                     if (!tvChannels.isNullOrEmpty()) {
                         addTvChannelsToIntent(it, tvChannels)
                     }
@@ -1200,6 +1204,8 @@ class GameAdapter(
                         "captureM3u8",
                         captureM3u8
                     )
+
+								    it.putExtra("game_title", gameTitle ?: "")
 
                     if (!tvChannels.isNullOrEmpty()) {
                         addTvChannelsToIntent(it, tvChannels)
