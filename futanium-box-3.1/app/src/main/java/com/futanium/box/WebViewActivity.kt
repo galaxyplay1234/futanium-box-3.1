@@ -1198,44 +1198,68 @@ private fun deactivateVirtualMouse() {
 
     
 
+
 override fun dispatchKeyEvent(event: KeyEvent): Boolean {
 
     if (event.action == KeyEvent.ACTION_DOWN) {
 
         when (event.keyCode) {
 
+            // SETAS DO CONTROLE
             KeyEvent.KEYCODE_DPAD_UP,
             KeyEvent.KEYCODE_DPAD_DOWN,
             KeyEvent.KEYCODE_DPAD_LEFT,
             KeyEvent.KEYCODE_DPAD_RIGHT -> {
 
-                // Permite navegar normalmente pela lista de canais.
-                if (channelPanelVisible && !virtualMouseActive) {
+                // Dentro do menu, deixa o Android navegar pelos canais.
+                if (channelPanelVisible) {
                     return super.dispatchKeyEvent(event)
                 }
 
-                if (channelControlsVisible) {
-                    hideChannelControls()
+                // Se os controles de canais estiverem visíveis,
+                // mantém a navegação normal.
+                if (channelControlsVisible && !virtualMouseActive) {
+                    return super.dispatchKeyEvent(event)
                 }
 
+                // Fora do menu, ativa o mouse virtual.
                 activateVirtualMouse(event.keyCode)
                 return true
             }
 
+            // BOTÃO OK / ENTER
             KeyEvent.KEYCODE_DPAD_CENTER,
             KeyEvent.KEYCODE_ENTER -> {
 
+                // Mouse virtual ativo: executa o clique.
                 if (virtualMouseActive) {
                     clickVirtualMouse()
                     return true
                 }
+
+                // Se existem canais, abre diretamente o menu.
+                if (tvChannels.isNotEmpty()) {
+                    openChannelPanel()
+                    return true
+                }
             }
 
+            // BOTÃO VOLTAR
             KeyEvent.KEYCODE_BACK,
             KeyEvent.KEYCODE_ESCAPE -> {
 
                 if (virtualMouseActive) {
                     deactivateVirtualMouse()
+                    return true
+                }
+
+                if (channelPanelVisible) {
+                    closeChannelPanel()
+                    return true
+                }
+
+                if (channelControlsVisible) {
+                    hideChannelControls()
                     return true
                 }
             }
@@ -1244,6 +1268,7 @@ override fun dispatchKeyEvent(event: KeyEvent): Boolean {
 
     return super.dispatchKeyEvent(event)
 }
+
 
 
 
