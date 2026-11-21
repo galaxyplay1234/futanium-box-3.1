@@ -572,22 +572,35 @@ private fun deactivateVirtualMouse() {
     virtualMouseActive = false
     mouseMoveToken++
 
-    web.evaluateJavascript("""
-        (function() {
-            const el = window.__futaniumLastSnapElement;
+    // Só executa JavaScript se a WebView já foi inicializada.
+    if (::web.isInitialized) {
 
-            if (el && el.__futaniumOldStyle) {
-                const old = el.__futaniumOldStyle;
+        web.evaluateJavascript("""
+            (function() {
+                const el = window.__futaniumLastSnapElement;
 
-                el.style.setProperty('outline', old.outline, old.outlinePriority);
-                el.style.setProperty('outline-offset', old.offset, old.offsetPriority);
+                if (el && el.__futaniumOldStyle) {
+                    const old = el.__futaniumOldStyle;
 
-                delete el.__futaniumOldStyle;
-            }
+                    el.style.setProperty(
+                        'outline',
+                        old.outline,
+                        old.outlinePriority
+                    );
 
-            window.__futaniumLastSnapElement = null;
-        })();
-    """.trimIndent(), null)
+                    el.style.setProperty(
+                        'outline-offset',
+                        old.offset,
+                        old.offsetPriority
+                    );
+
+                    delete el.__futaniumOldStyle;
+                }
+
+                window.__futaniumLastSnapElement = null;
+            })();
+        """.trimIndent(), null)
+    }
 
     virtualMouseView?.visibility = View.GONE
 }
@@ -2066,15 +2079,16 @@ override fun dispatchKeyEvent(event: KeyEvent): Boolean {
 
     override fun onDestroy() {
 
-        cancelChannelAutoHide()
-        deactivateVirtualMouse()
+    cancelChannelAutoHide()
 
-        window.clearFlags(
-            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-        )
+    deactivateVirtualMouse()
 
-        super.onDestroy()
-    }
+    window.clearFlags(
+        WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+    )
+
+    super.onDestroy()
+}
 
     override fun onPause() {
 
