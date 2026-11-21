@@ -1,16 +1,22 @@
+
 package com.futanium.box
 
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.net.http.SslError
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.view.Gravity
+import android.view.InputDevice
 import android.view.KeyEvent
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -37,6 +43,10 @@ class YoutubeWebViewActivity : AppCompatActivity() {
 
     private lateinit var web: WebView
     private lateinit var root: FrameLayout
+    private lateinit var contentRoot: FrameLayout
+
+    private var customView: View? = null
+    private var customViewCallback: WebChromeClient.CustomViewCallback? = null
 
     private data class TvChannel(
         val name: String,
@@ -74,6 +84,21 @@ class YoutubeWebViewActivity : AppCompatActivity() {
         }
     }
 
+    // =====================================================
+    // MOUSE VIRTUAL FUTANIUM
+    // =====================================================
+
+    private var virtualMouseActive = false
+    private var virtualMouseView: View? = null
+
+    private var mouseX = 0f
+    private var mouseY = 0f
+    private var mouseMoveToken = 0
+    private var mousePositionInitialized = false
+
+    private val mouseSpeed = 48f
+    private val mouseDiameter by lazy { dp(28) }
+
     private fun dp(value: Int): Int =
         (value * resources.displayMetrics.density).toInt()
 
@@ -107,6 +132,10 @@ class YoutubeWebViewActivity : AppCompatActivity() {
             }
         }
     }
+
+    // =====================================================
+    // LEITURA DOS CANAIS
+    // =====================================================
 
     private fun readTvChannels() {
 
@@ -152,6 +181,10 @@ class YoutubeWebViewActivity : AppCompatActivity() {
         )
     }
 
+    // =====================================================
+    // AUTO HIDE DO MENU
+    // =====================================================
+
     private fun scheduleAutoHide() {
 
         channelHandler.removeCallbacks(controlsAutoHide)
@@ -177,6 +210,445 @@ class YoutubeWebViewActivity : AppCompatActivity() {
     private fun cancelAutoHide() {
         channelHandler.removeCallbacks(controlsAutoHide)
         channelHandler.removeCallbacks(panelAutoHide)
+    }
+
+    // =====================================================
+    // MOUSE VIRTUAL
+    // =====================================================
+
+    private fun setupVirtualMouse() {
+
+        val cursor = object : View(this) {
+
+            private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.WHITE
+                style = Paint.Style.STROKE
+                strokeWidth = dp(3).toFloat()
+            }
+
+            override fun onDraw(canvas: Canvas) {
+                super.onDraw(canvas)
+
+                val radius = width / 2f - dp(3)
+
+                canvas.drawCircle(
+                    width / 2f,
+                    height / 2f,
+                    radius,
+                    paint
+                )
+            }
+        }
+
+        cursor.visibility = View.GONE
+        cursor.isClickable = false
+        cursor.isFocusable = false
+        cursor.elevation = dp(100).toFloat()
+
+        virtualMouseView = cursor
+
+        // O cursor fica no contentRoot para aparecer
+        // também por cima do vídeo em tela cheia.
+        contentRoot.addView(
+            cursor,
+            FrameLayout.LayoutParams(
+                mouseDiameter,
+                mouseDiameter
+            )
+        )
+
+        contentRoot.post {
+            if (!mousePositionInitialized) {
+                initializeMousePosition()
+            }
+        }
+    }
+
+    private fun initializeMousePosition() {
+
+        if (mousePositionInitialized) return
+
+        val location = IntArray(2)
+        val contentLocation = IntArray(2)
+
+        web.getLocationOnScreen(location)
+        contentRoot.getLocationOnScreen(contentLocation)
+
+        mouseX =
+            location[0] - contentLocation[0] + web.width / 2f
+
+        mouseY =
+            location[1] - contentLocation[1] + web.height / 2f
+
+        mousePositionInitialized = true
+    }
+
+    private fun activateVirtualMouse(keyCode: Int) {
+
+        val cursor = virtualMouseView ?: return
+
+        if (!virtualMouseActive) {
+
+            if (web.width <= 0 || web.height <= 0) {
+                contentRoot.post {
+                    if (!virtualMouseActive) {
+                        activateVirtualMouse(keyCode)
+                    }
+                }
+                return
+            }
+
+            virtualMouseActive = true
+
+            if (!mousePositionInitialized) {
+                initializeMousePosition()
+            }
+        }
+
+        cursor.visibility = View.VISIBLE
+        cursor.bringToFront()
+
+        moveVirtualMouse(keyCode)
+    }
+
+    private fun moveVirtualMouse(keyCode: Int) {
+
+        mouseMoveToken++
+
+        when (keyCode) {
+            KeyEvent.KEYCODE_DPAD_UP -> mouseY -= mouseSpeed
+            KeyEvent.KEYCODE_DPAD_DOWN -> mouseY += mouseSpeed
+            KeyEvent.KEYCODE_DPAD_LEFT -> mouseX -= mouseSpeed
+            KeyEvent.KEYCODE_DPAD_RIGHT -> mouseX += mouseSpeed
+        }
+
+        updateVirtualMousePosition()
+
+        // No vídeo em tela cheia não existe a WebView
+        // visível para fazer a atração por JavaScript.
+        if (customView == null) {
+            snapVirtualMouseToElement()
+        }
+    }
+
+    private fun updateVirtualMousePosition() {
+
+        val cursor = virtualMouseView ?: return
+
+        val contentLocation = IntArray(2)
+        contentRoot.getLocationOnScreen(contentLocation)
+
+        val half = mouseDiameter / 2f
+
+        val minX = 0f
+        val minY = 0f
+        val maxX = contentRoot.width.toFloat()
+        val maxY = contentRoot.height.toFloat()
+
+        mouseX = mouseX.coerceIn(minX + half, maxX - half)
+        mouseY = mouseY.coerceIn(minY + half, maxY - half)
+
+        cursor.x = mouseX - half
+        cursor.y = mouseY - half
+
+        cursor.bringToFront()
+        cursor.invalidate()
+    }
+
+    private fun snapVirtualMouseToElement() {
+
+        if (!virtualMouseActive || !web.isAttachedToWindow) return
+
+        val token = ++mouseMoveToken
+
+        val webLocation = IntArray(2)
+        val contentLocation = IntArray(2)
+
+        web.getLocationOnScreen(webLocation)
+        contentRoot.getLocationOnScreen(contentLocation)
+
+        val localX =
+            mouseX - (webLocation[0] - contentLocation[0])
+
+        val localY =
+            mouseY - (webLocation[1] - contentLocation[1])
+
+        val cssX = localX / web.scale
+        val cssY = localY / web.scale
+
+        val js = """
+            (function() {
+
+                const x = $cssX;
+                const y = $cssY;
+                const radius = 45;
+
+                const previous = window.__futaniumLastSnapElement;
+
+                let skipPrevious = false;
+
+                if (previous) {
+
+                    const old = previous.__futaniumOldStyle;
+
+                    if (old) {
+                        previous.style.setProperty(
+                            'outline',
+                            old.outline,
+                            old.outlinePriority
+                        );
+
+                        previous.style.setProperty(
+                            'outline-offset',
+                            old.offset,
+                            old.offsetPriority
+                        );
+
+                        delete previous.__futaniumOldStyle;
+                    }
+
+                    const r = previous.getBoundingClientRect();
+
+                    skipPrevious =
+                        x >= r.left - radius &&
+                        x <= r.right + radius &&
+                        y >= r.top - radius &&
+                        y <= r.bottom + radius;
+
+                    if (!skipPrevious) {
+                        window.__futaniumLastSnapElement = null;
+                    }
+                }
+
+                const selectors = [
+                    'button',
+                    'a[href]',
+                    'input',
+                    'select',
+                    'textarea',
+                    '[role="button"]',
+                    '[role="link"]',
+                    '[onclick]',
+                    '[tabindex]',
+                    '[aria-label]',
+                    '.ytp-button',
+                    '.ytp-menuitem',
+                    '.ytp-progress-bar',
+                    '.ytp-volume-panel',
+                    '.ytp-settings-button',
+                    '.ytp-fullscreen-button',
+                    '.ytp-play-button'
+                ];
+
+                const elements = document.querySelectorAll(
+                    selectors.join(',')
+                );
+
+                let best = null;
+                let bestElement = null;
+                let bestDistance = radius;
+
+                elements.forEach(function(el) {
+
+                    if (skipPrevious && el === previous) {
+                        return;
+                    }
+
+                    const rect = el.getBoundingClientRect();
+                    const style = getComputedStyle(el);
+
+                    if (
+                        rect.width <= 0 ||
+                        rect.height <= 0 ||
+                        style.display === 'none' ||
+                        style.visibility === 'hidden' ||
+                        style.pointerEvents === 'none'
+                    ) {
+                        return;
+                    }
+
+                    const dx = Math.max(
+                        rect.left - x,
+                        0,
+                        x - rect.right
+                    );
+
+                    const dy = Math.max(
+                        rect.top - y,
+                        0,
+                        y - rect.bottom
+                    );
+
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < bestDistance) {
+
+                        bestDistance = distance;
+                        bestElement = el;
+
+                        best = {
+                            x: rect.left + rect.width / 2,
+                            y: rect.top + rect.height / 2
+                        };
+                    }
+                });
+
+                if (bestElement) {
+
+                    bestElement.__futaniumOldStyle = {
+                        outline: bestElement.style.getPropertyValue('outline'),
+                        outlinePriority: bestElement.style.getPropertyPriority('outline'),
+                        offset: bestElement.style.getPropertyValue('outline-offset'),
+                        offsetPriority: bestElement.style.getPropertyPriority('outline-offset')
+                    };
+
+                    bestElement.style.setProperty(
+                        'outline',
+                        '3px solid #1685FF',
+                        'important'
+                    );
+
+                    bestElement.style.setProperty(
+                        'outline-offset',
+                        '3px',
+                        'important'
+                    );
+
+                    window.__futaniumLastSnapElement = bestElement;
+                }
+
+                return best;
+            })();
+        """.trimIndent()
+
+        web.evaluateJavascript(js) { result ->
+
+            if (
+                result == null ||
+                result == "null" ||
+                token != mouseMoveToken ||
+                !virtualMouseActive ||
+                customView != null
+            ) {
+                return@evaluateJavascript
+            }
+
+            try {
+
+                val point = org.json.JSONObject(result)
+
+                val currentWebLocation = IntArray(2)
+                val currentContentLocation = IntArray(2)
+
+                web.getLocationOnScreen(currentWebLocation)
+                contentRoot.getLocationOnScreen(currentContentLocation)
+
+                val webLeft =
+                    currentWebLocation[0] - currentContentLocation[0]
+
+                val webTop =
+                    currentWebLocation[1] - currentContentLocation[1]
+
+                mouseX =
+                    webLeft +
+                    point.getDouble("x").toFloat() * web.scale
+
+                mouseY =
+                    webTop +
+                    point.getDouble("y").toFloat() * web.scale
+
+                updateVirtualMousePosition()
+
+            } catch (_: Exception) {
+                // Mantém o cursor livre.
+            }
+        }
+    }
+
+    private fun clickVirtualMouse() {
+
+        val target = customView ?: web
+
+        val targetLocation = IntArray(2)
+        val contentLocation = IntArray(2)
+
+        target.getLocationOnScreen(targetLocation)
+        contentRoot.getLocationOnScreen(contentLocation)
+
+        val localX =
+            mouseX -
+            (targetLocation[0] - contentLocation[0])
+
+        val localY =
+            mouseY -
+            (targetLocation[1] - contentLocation[1])
+
+        val downTime = SystemClock.uptimeMillis()
+
+        val down = MotionEvent.obtain(
+            downTime,
+            downTime,
+            MotionEvent.ACTION_DOWN,
+            localX,
+            localY,
+            0
+        )
+
+        val up = MotionEvent.obtain(
+            downTime,
+            downTime + 70,
+            MotionEvent.ACTION_UP,
+            localX,
+            localY,
+            0
+        )
+
+        down.source = InputDevice.SOURCE_TOUCHSCREEN
+        up.source = InputDevice.SOURCE_TOUCHSCREEN
+
+        target.dispatchTouchEvent(down)
+        target.dispatchTouchEvent(up)
+
+        down.recycle()
+        up.recycle()
+    }
+
+    private fun deactivateVirtualMouse() {
+
+        virtualMouseActive = false
+        mouseMoveToken++
+
+        if (::web.isInitialized) {
+            web.evaluateJavascript("""
+                (function() {
+
+                    const el = window.__futaniumLastSnapElement;
+
+                    if (el && el.__futaniumOldStyle) {
+
+                        const old = el.__futaniumOldStyle;
+
+                        el.style.setProperty(
+                            'outline',
+                            old.outline,
+                            old.outlinePriority
+                        );
+
+                        el.style.setProperty(
+                            'outline-offset',
+                            old.offset,
+                            old.offsetPriority
+                        );
+
+                        delete el.__futaniumOldStyle;
+                    }
+
+                    window.__futaniumLastSnapElement = null;
+                })();
+            """.trimIndent(), null)
+        }
+
+        virtualMouseView?.visibility = View.GONE
     }
 
     // =====================================================
@@ -218,7 +690,6 @@ class YoutubeWebViewActivity : AppCompatActivity() {
             elevation = dp(15).toFloat()
         }
 
-        // TÍTULO DO JOGO
         gameTitleText = createText(
             intent.getStringExtra("game_title").orEmpty(),
             21f,
@@ -229,7 +700,6 @@ class YoutubeWebViewActivity : AppCompatActivity() {
             ellipsize = android.text.TextUtils.TruncateAt.END
         }
 
-        // NOME DO CANAL
         channelNameText = createText(
             "",
             17f,
@@ -536,6 +1006,7 @@ class YoutubeWebViewActivity : AppCompatActivity() {
         if (index !in tvChannels.indices) return
 
         cancelAutoHide()
+        deactivateVirtualMouse()
 
         selectedChannelIndex = index
 
@@ -567,7 +1038,6 @@ class YoutubeWebViewActivity : AppCompatActivity() {
                     "Canal ${index + 1}"
                 )
 
-                // PRESERVA O TÍTULO DO JOGO
                 putExtra(
                     "game_title",
                     intent.getStringExtra("game_title").orEmpty()
@@ -661,7 +1131,6 @@ class YoutubeWebViewActivity : AppCompatActivity() {
             selectedIndex
         )
 
-        // PRESERVA O TÍTULO DO JOGO EM TODAS AS TROCAS
         target.putExtra(
             "game_title",
             intent.getStringExtra("game_title").orEmpty()
@@ -687,6 +1156,11 @@ class YoutubeWebViewActivity : AppCompatActivity() {
             KeyEvent.KEYCODE_BACK,
             KeyEvent.KEYCODE_ESCAPE -> {
 
+                if (virtualMouseActive) {
+                    deactivateVirtualMouse()
+                    return true
+                }
+
                 if (channelPanelVisible) {
                     closeChannelPanel()
                     return true
@@ -696,41 +1170,60 @@ class YoutubeWebViewActivity : AppCompatActivity() {
                     hideChannelControls()
                     return true
                 }
-            }
 
-            KeyEvent.KEYCODE_DPAD_UP -> {
-
-                if (channelPanelVisible) {
-
-                    selectedChannelIndex =
-                        (selectedChannelIndex - 1)
-                            .coerceAtLeast(0)
-
-                    updateChannelList()
-                    focusSelectedChannel()
-
-                    return true
+                if (customView != null) {
+                    (web.webChromeClient as? WebChromeClient)
+                    return super.dispatchKeyEvent(event)
                 }
             }
 
+            KeyEvent.KEYCODE_DPAD_UP,
             KeyEvent.KEYCODE_DPAD_DOWN -> {
 
                 if (channelPanelVisible) {
 
-                    selectedChannelIndex =
-                        (selectedChannelIndex + 1)
-                            .coerceAtMost(tvChannels.lastIndex)
+                    if (event.keyCode == KeyEvent.KEYCODE_DPAD_UP) {
+                        selectedChannelIndex =
+                            (selectedChannelIndex - 1).coerceAtLeast(0)
+                    } else {
+                        selectedChannelIndex =
+                            (selectedChannelIndex + 1)
+                                .coerceAtMost(tvChannels.lastIndex)
+                    }
 
                     updateChannelList()
                     focusSelectedChannel()
 
                     return true
                 }
+
+                if (channelControlsVisible) {
+                    return super.dispatchKeyEvent(event)
+                }
+
+                activateVirtualMouse(event.keyCode)
+                return true
+            }
+
+            KeyEvent.KEYCODE_DPAD_LEFT,
+            KeyEvent.KEYCODE_DPAD_RIGHT -> {
+
+                if (channelPanelVisible || channelControlsVisible) {
+                    return super.dispatchKeyEvent(event)
+                }
+
+                activateVirtualMouse(event.keyCode)
+                return true
             }
 
             KeyEvent.KEYCODE_DPAD_CENTER,
             KeyEvent.KEYCODE_ENTER,
             KeyEvent.KEYCODE_NUMPAD_ENTER -> {
+
+                if (virtualMouseActive) {
+                    clickVirtualMouse()
+                    return true
+                }
 
                 if (channelPanelVisible) {
                     selectChannel(selectedChannelIndex)
@@ -772,6 +1265,8 @@ class YoutubeWebViewActivity : AppCompatActivity() {
         hideSystemBars()
 
         readTvChannels()
+
+        contentRoot = findViewById(android.R.id.content)
 
         root = FrameLayout(this).apply {
             setBackgroundColor(Color.BLACK)
@@ -838,9 +1333,6 @@ class YoutubeWebViewActivity : AppCompatActivity() {
 
         web.webChromeClient = object : WebChromeClient() {
 
-            private var customView: View? = null
-            private var callback: CustomViewCallback? = null
-
             override fun onShowCustomView(
                 view: View?,
                 callback: CustomViewCallback?
@@ -848,33 +1340,50 @@ class YoutubeWebViewActivity : AppCompatActivity() {
 
                 if (view == null) return
 
-                this.customView = view
-                this.callback = callback
+                if (customView != null) {
+                    callback?.onCustomViewHidden()
+                    return
+                }
 
-                addContentView(
+                customView = view
+                customViewCallback = callback
+
+                (view.parent as? ViewGroup)?.removeView(view)
+
+                contentRoot.addView(
                     view,
-                    ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT
+                    FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        FrameLayout.LayoutParams.MATCH_PARENT
                     )
                 )
+
+                virtualMouseView?.bringToFront()
 
                 hideSystemBars()
             }
 
             override fun onHideCustomView() {
 
-                (customView?.parent as? ViewGroup)
-                    ?.removeView(customView)
+                val view = customView
+
+                if (view != null) {
+                    (view.parent as? ViewGroup)?.removeView(view)
+                }
 
                 customView = null
 
-                callback?.onCustomViewHidden()
-                callback = null
+                customViewCallback?.onCustomViewHidden()
+                customViewCallback = null
+
+                virtualMouseView?.bringToFront()
+
+                hideSystemBars()
             }
         }
 
         setupChannelInterface()
+        setupVirtualMouse()
 
         val url = intent.getStringExtra(EXTRA_URL).orEmpty()
 
@@ -882,6 +1391,10 @@ class YoutubeWebViewActivity : AppCompatActivity() {
             web.loadUrl(url)
         }
     }
+
+    // =====================================================
+    // BARRAS DO SISTEMA
+    // =====================================================
 
     private fun hideSystemBars() {
 
@@ -912,8 +1425,17 @@ class YoutubeWebViewActivity : AppCompatActivity() {
         }
     }
 
+    // =====================================================
+    // VOLTAR
+    // =====================================================
+
     @Deprecated("Deprecated in Android")
     override fun onBackPressed() {
+
+        if (virtualMouseActive) {
+            deactivateVirtualMouse()
+            return
+        }
 
         if (channelPanelVisible) {
             closeChannelPanel()
@@ -925,6 +1447,11 @@ class YoutubeWebViewActivity : AppCompatActivity() {
             return
         }
 
+        if (customView != null) {
+            super.onBackPressed()
+            return
+        }
+
         if (web.canGoBack()) {
             web.goBack()
         } else {
@@ -932,9 +1459,21 @@ class YoutubeWebViewActivity : AppCompatActivity() {
         }
     }
 
+    // =====================================================
+    // DESTRUIÇÃO
+    // =====================================================
+
     override fun onDestroy() {
 
         cancelAutoHide()
+        deactivateVirtualMouse()
+
+        customView?.let {
+            (it.parent as? ViewGroup)?.removeView(it)
+        }
+
+        customView = null
+        customViewCallback = null
 
         web.stopLoading()
         web.destroy()
