@@ -96,6 +96,7 @@ class WebViewActivity : AppCompatActivity() {
 private var mouseY = 0f
 private var mouseMoveToken = 0
 private var snappedElement = false
+private var mousePositionInitialized = false
 
     // Velocidade do cursor. Aumente para deixar mais rápido.
     private val mouseSpeed = 48f
@@ -215,17 +216,24 @@ private fun activateVirtualMouse(keyCode: Int) {
 
         virtualMouseActive = true
 
-        val webLocation = IntArray(2)
-        val rootLocation = IntArray(2)
+        // Só posiciona no centro na primeira utilização.
+        // Nas próximas vezes mantém a última posição.
+        if (!mousePositionInitialized) {
 
-        web.getLocationOnScreen(webLocation)
-        root.getLocationOnScreen(rootLocation)
+            val webLocation = IntArray(2)
+            val rootLocation = IntArray(2)
 
-        mouseX =
-            webLocation[0] - rootLocation[0] + web.width / 2f
+            web.getLocationOnScreen(webLocation)
+            root.getLocationOnScreen(rootLocation)
 
-        mouseY =
-            webLocation[1] - rootLocation[1] + web.height / 2f
+            mouseX =
+                webLocation[0] - rootLocation[0] + web.width / 2f
+
+            mouseY =
+                webLocation[1] - rootLocation[1] + web.height / 2f
+
+            mousePositionInitialized = true
+        }
     }
 
     moveVirtualMouse(keyCode)
@@ -278,6 +286,7 @@ private fun updateVirtualMousePosition() {
 
     val half = mouseDiameter / 2f
 
+    // Mantém o cursor completamente dentro do WebView.
     mouseX = mouseX.coerceIn(minX + half, maxX - half)
     mouseY = mouseY.coerceIn(minY + half, maxY - half)
 
@@ -1181,13 +1190,15 @@ override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         return super.dispatchKeyEvent(event)
     }
 
-    // QUALQUER SETA ATIVA O MOUSE IMEDIATAMENTE.
-    if (
+    // AS SETAS DO MENU DE CANAIS NÃO ATIVAM O MOUSE.
+if (!channelPanelVisible && !channelControlsVisible &&
+    (
         event.keyCode == KeyEvent.KEYCODE_DPAD_UP ||
         event.keyCode == KeyEvent.KEYCODE_DPAD_DOWN ||
         event.keyCode == KeyEvent.KEYCODE_DPAD_LEFT ||
         event.keyCode == KeyEvent.KEYCODE_DPAD_RIGHT
-    ) {
+    )
+) {
 
         // Fecha os controles de canais para liberar o mouse.
         if (channelPanelVisible || channelControlsVisible) {
