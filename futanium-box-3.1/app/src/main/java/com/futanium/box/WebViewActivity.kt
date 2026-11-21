@@ -252,12 +252,7 @@ private fun moveVirtualMouse(keyCode: Int) {
     snapVirtualMouseToElement()
 }
 
-    virtualMouseView?.visibility = View.VISIBLE
-    virtualMouseView?.bringToFront()
-
-    updateVirtualMousePosition()
-    snapVirtualMouseToElement()
-}
+    
 
 private fun updateVirtualMousePosition() {
 
