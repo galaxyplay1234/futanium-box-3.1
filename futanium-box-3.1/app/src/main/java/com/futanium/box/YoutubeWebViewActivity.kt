@@ -1217,7 +1217,6 @@ private fun updateVirtualMousePosition() {
             KeyEvent.KEYCODE_ESCAPE -> {
 
                 if (virtualMouseActive) {
-    clickVirtualMouse()
     deactivateVirtualMouse()
     return true
 }
@@ -1282,9 +1281,10 @@ private fun updateVirtualMousePosition() {
             KeyEvent.KEYCODE_NUMPAD_ENTER -> {
 
                 if (virtualMouseActive) {
-                    clickVirtualMouse()
-                    return true
-                }
+    clickVirtualMouse()
+    deactivateVirtualMouse()
+    return true
+}
 
                 if (channelPanelVisible) {
                     selectChannel(selectedChannelIndex)
