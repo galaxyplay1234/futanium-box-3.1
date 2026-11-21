@@ -376,47 +376,44 @@ class YoutubeWebViewActivity : AppCompatActivity() {
         }
     }
 
-    private fun updateVirtualMousePosition() {
+    
+private fun updateVirtualMousePosition() {
 
     val cursor = virtualMouseView ?: return
 
-    if (contentRoot.width <= 0 || contentRoot.height <= 0) return
+    if (contentRoot.width <= 0 || web.width <= 0 || web.height <= 0) return
 
     val half = mouseDiameter / 2f
 
-    val maxX = contentRoot.width.toFloat()
+    val webLocation = IntArray(2)
+    val contentLocation = IntArray(2)
 
-    val maxY = contentRoot.height.toFloat()
+    web.getLocationOnScreen(webLocation)
+    contentRoot.getLocationOnScreen(contentLocation)
 
-    mouseX = mouseX.coerceIn(
+    val webLeft =
+        webLocation[0] - contentLocation[0]
 
-        half,
+    val webTop =
+        webLocation[1] - contentLocation[1]
 
-        maxX - half
+    val minX = webLeft + half
+    val minY = webTop + half
 
-    )
+    val maxX = webLeft + web.width - half
+    val maxY = webTop + web.height - half
 
-    mouseY = mouseY.coerceIn(
-
-        half,
-
-        maxY - half
-
-    )
+    mouseX = mouseX.coerceIn(minX, maxX)
+    mouseY = mouseY.coerceIn(minY, maxY)
 
     cursor.x = mouseX - half
-
     cursor.y = mouseY - half
 
     cursor.visibility = View.VISIBLE
-
     cursor.bringToFront()
-
     cursor.invalidate()
-
-    contentRoot.invalidate()
-
 }
+
 
     private fun snapVirtualMouseToElement() {
 
@@ -1220,9 +1217,10 @@ class YoutubeWebViewActivity : AppCompatActivity() {
             KeyEvent.KEYCODE_ESCAPE -> {
 
                 if (virtualMouseActive) {
-                    deactivateVirtualMouse()
-                    return true
-                }
+    clickVirtualMouse()
+    deactivateVirtualMouse()
+    return true
+}
 
                 if (channelPanelVisible) {
                     closeChannelPanel()
