@@ -1199,75 +1199,136 @@ private fun deactivateVirtualMouse() {
     
 
 
+
 override fun dispatchKeyEvent(event: KeyEvent): Boolean {
 
-    if (event.action == KeyEvent.ACTION_DOWN) {
+    if (event.action != KeyEvent.ACTION_DOWN) {
+        return super.dispatchKeyEvent(event)
+    }
 
-        when (event.keyCode) {
+    if (channelPanelVisible || channelControlsVisible) {
+        scheduleChannelAutoHide()
+    }
 
-            // SETAS DO CONTROLE
-            KeyEvent.KEYCODE_DPAD_UP,
-            KeyEvent.KEYCODE_DPAD_DOWN,
-            KeyEvent.KEYCODE_DPAD_LEFT,
-            KeyEvent.KEYCODE_DPAD_RIGHT -> {
+    when (event.keyCode) {
 
-                // Dentro do menu, deixa o Android navegar pelos canais.
-                if (channelPanelVisible) {
-                    return super.dispatchKeyEvent(event)
-                }
+        // VOLTAR
+        KeyEvent.KEYCODE_BACK,
+        KeyEvent.KEYCODE_ESCAPE -> {
 
-                // Se os controles de canais estiverem visíveis,
-                // mantém a navegação normal.
-                if (channelControlsVisible && !virtualMouseActive) {
-                    return super.dispatchKeyEvent(event)
-                }
+            if (virtualMouseActive) {
+                deactivateVirtualMouse()
+                return true
+            }
 
-                // Fora do menu, ativa o mouse virtual.
+            if (channelPanelVisible) {
+                closeChannelPanel()
+                return true
+            }
+
+            if (channelControlsVisible) {
+                hideChannelControls()
+                return true
+            }
+        }
+
+        // SETA PARA CIMA
+        KeyEvent.KEYCODE_DPAD_UP -> {
+
+            if (channelPanelVisible) {
+
+                selectedChannelIndex =
+                    (selectedChannelIndex - 1).coerceAtLeast(0)
+
+                updateChannelList()
+                focusSelectedChannel()
+
+                return true
+            }
+
+            if (virtualMouseActive) {
+                activateVirtualMouse(event.keyCode)
+                return true
+            }
+        }
+
+        // SETA PARA BAIXO
+        KeyEvent.KEYCODE_DPAD_DOWN -> {
+
+            if (channelPanelVisible) {
+
+                selectedChannelIndex =
+                    (selectedChannelIndex + 1)
+                        .coerceAtMost(tvChannels.lastIndex)
+
+                updateChannelList()
+                focusSelectedChannel()
+
+                return true
+            }
+
+            if (virtualMouseActive) {
+                activateVirtualMouse(event.keyCode)
+                return true
+            }
+        }
+
+        // SETAS ESQUERDA E DIREITA
+        KeyEvent.KEYCODE_DPAD_LEFT,
+        KeyEvent.KEYCODE_DPAD_RIGHT -> {
+
+            if (channelPanelVisible) {
+                return super.dispatchKeyEvent(event)
+            }
+
+            if (virtualMouseActive) {
                 activateVirtualMouse(event.keyCode)
                 return true
             }
 
-            // BOTÃO OK / ENTER
-            KeyEvent.KEYCODE_DPAD_CENTER,
-            KeyEvent.KEYCODE_ENTER -> {
-
-                // Mouse virtual ativo: executa o clique.
-                if (virtualMouseActive) {
-                    clickVirtualMouse()
-                    return true
-                }
-
-                // Se existem canais, abre diretamente o menu.
-                if (tvChannels.isNotEmpty()) {
-                    openChannelPanel()
-                    return true
-                }
+            if (channelControlsVisible) {
+                return super.dispatchKeyEvent(event)
             }
 
-            // BOTÃO VOLTAR
-            KeyEvent.KEYCODE_BACK,
-            KeyEvent.KEYCODE_ESCAPE -> {
+            // Ativa o mouse virtual fora dos controles.
+            activateVirtualMouse(event.keyCode)
+            return true
+        }
 
-                if (virtualMouseActive) {
-                    deactivateVirtualMouse()
-                    return true
-                }
+        // OK / ENTER
+        KeyEvent.KEYCODE_DPAD_CENTER,
+        KeyEvent.KEYCODE_ENTER,
+        KeyEvent.KEYCODE_NUMPAD_ENTER -> {
 
-                if (channelPanelVisible) {
-                    closeChannelPanel()
-                    return true
-                }
+            // Mouse ativo: executa clique.
+            if (virtualMouseActive) {
+                clickVirtualMouse()
+                return true
+            }
 
-                if (channelControlsVisible) {
-                    hideChannelControls()
-                    return true
-                }
+            // Dentro do menu: abre o canal selecionado.
+            if (channelPanelVisible) {
+                selectWebChannel(selectedChannelIndex)
+                return true
+            }
+
+            // Faixa inferior visível: abre o menu.
+            if (channelControlsVisible) {
+                openChannelPanel()
+                return true
+            }
+
+            // Primeiro OK: mostra a faixa inferior.
+            if (tvChannels.isNotEmpty()) {
+                showChannelControls()
+                return true
             }
         }
     }
 
     return super.dispatchKeyEvent(event)
 }
+
 
 
 
