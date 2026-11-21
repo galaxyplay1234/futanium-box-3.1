@@ -1184,7 +1184,54 @@ private fun deactivateVirtualMouse() {
     // =====================================================
 
     
-override fun dispatchKeyEvent(event: KeyEv
+
+override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+
+    if (event.action == KeyEvent.ACTION_DOWN) {
+
+        when (event.keyCode) {
+
+            KeyEvent.KEYCODE_DPAD_UP,
+            KeyEvent.KEYCODE_DPAD_DOWN,
+            KeyEvent.KEYCODE_DPAD_LEFT,
+            KeyEvent.KEYCODE_DPAD_RIGHT -> {
+
+                // Permite navegar normalmente pela lista de canais.
+                if (channelPanelVisible && !virtualMouseActive) {
+                    return super.dispatchKeyEvent(event)
+                }
+
+                if (channelControlsVisible) {
+                    hideChannelControls()
+                }
+
+                activateVirtualMouse(event.keyCode)
+                return true
+            }
+
+            KeyEvent.KEYCODE_DPAD_CENTER,
+            KeyEvent.KEYCODE_ENTER -> {
+
+                if (virtualMouseActive) {
+                    clickVirtualMouse()
+                    return true
+                }
+            }
+
+            KeyEvent.KEYCODE_BACK,
+            KeyEvent.KEYCODE_ESCAPE -> {
+
+                if (virtualMouseActive) {
+                    deactivateVirtualMouse()
+                    return true
+                }
+            }
+        }
+    }
+
+    return super.dispatchKeyEvent(event)
+}
+
 
 
     // =====================================================
