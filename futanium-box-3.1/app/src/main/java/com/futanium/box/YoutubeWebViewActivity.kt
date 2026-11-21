@@ -218,51 +218,79 @@ class YoutubeWebViewActivity : AppCompatActivity() {
 
     private fun setupVirtualMouse() {
 
-        val cursor = object : View(this) {
+    val cursor = object : View(this) {
 
-            private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.WHITE
-                style = Paint.Style.STROKE
-                strokeWidth = dp(3).toFloat()
-            }
+        private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
 
-            override fun onDraw(canvas: Canvas) {
-                super.onDraw(canvas)
+            color = Color.WHITE
 
-                val radius = width / 2f - dp(3)
+            style = Paint.Style.STROKE
 
-                canvas.drawCircle(
-                    width / 2f,
-                    height / 2f,
-                    radius,
-                    paint
-                )
-            }
+            strokeWidth = dp(3).toFloat()
+
         }
 
-        cursor.visibility = View.GONE
-        cursor.isClickable = false
-        cursor.isFocusable = false
-        cursor.elevation = dp(100).toFloat()
+        override fun onDraw(canvas: Canvas) {
 
-        virtualMouseView = cursor
+            super.onDraw(canvas)
 
-        // O cursor fica no contentRoot para aparecer
-        // também por cima do vídeo em tela cheia.
-        contentRoot.addView(
-            cursor,
-            FrameLayout.LayoutParams(
-                mouseDiameter,
-                mouseDiameter
+            val radius = width / 2f - dp(3)
+
+            canvas.drawCircle(
+
+                width / 2f,
+
+                height / 2f,
+
+                radius,
+
+                paint
+
             )
+
+        }
+
+    }
+
+    cursor.visibility = View.GONE
+
+    cursor.isClickable = false
+
+    cursor.isFocusable = false
+
+    cursor.setWillNotDraw(false)
+
+    // Mantém o cursor acima das outras camadas.
+
+    cursor.elevation = dp(1000).toFloat()
+
+    cursor.translationZ = dp(1000).toFloat()
+
+    virtualMouseView = cursor
+
+    contentRoot.addView(
+
+        cursor,
+
+        FrameLayout.LayoutParams(
+
+            mouseDiameter,
+
+            mouseDiameter
+
         )
 
-        contentRoot.post {
-            if (!mousePositionInitialized) {
-                initializeMousePosition()
-            }
-        }
-    }
+    )
+
+    contentRoot.post {
+
+        initializeMousePosition()
+
+        cursor.bringToFront()
+
+        cursor.invalidate()
+}
+}
 
     private fun initializeMousePosition() {
 
@@ -285,30 +313,47 @@ class YoutubeWebViewActivity : AppCompatActivity() {
 
     private fun activateVirtualMouse(keyCode: Int) {
 
-        val cursor = virtualMouseView ?: return
+    val cursor = virtualMouseView ?: return
 
-        if (!virtualMouseActive) {
+    if (contentRoot.width <= 0 || contentRoot.height <= 0 ||
 
-            if (web.width <= 0 || web.height <= 0) {
-                contentRoot.post {
-                    if (!virtualMouseActive) {
-                        activateVirtualMouse(keyCode)
-                    }
-                }
-                return
-            }
+        web.width <= 0 || web.height <= 0
 
-            virtualMouseActive = true
+    ) {
 
-            if (!mousePositionInitialized) {
-                initializeMousePosition()
-            }
+        contentRoot.post {
+
+            activateVirtualMouse(keyCode)
+
         }
 
-        cursor.visibility = View.VISIBLE
-        cursor.bringToFront()
+        return
 
-        moveVirtualMouse(keyCode)
+    }
+
+    if (!virtualMouseActive) {
+
+        virtualMouseActive = true
+
+        if (!mousePositionInitialized) {
+
+            initializeMousePosition()
+
+        }
+
+    }
+
+    cursor.visibility = View.VISIBLE
+
+    cursor.bringToFront()
+
+    cursor.elevation = dp(1000).toFloat()
+
+    cursor.translationZ = dp(1000).toFloat()
+
+    updateVirtualMousePosition()
+
+    moveVirtualMouse(keyCode)
     }
 
     private fun moveVirtualMouse(keyCode: Int) {
@@ -333,27 +378,45 @@ class YoutubeWebViewActivity : AppCompatActivity() {
 
     private fun updateVirtualMousePosition() {
 
-        val cursor = virtualMouseView ?: return
+    val cursor = virtualMouseView ?: return
 
-        val contentLocation = IntArray(2)
-        contentRoot.getLocationOnScreen(contentLocation)
+    if (contentRoot.width <= 0 || contentRoot.height <= 0) return
 
-        val half = mouseDiameter / 2f
+    val half = mouseDiameter / 2f
 
-        val minX = 0f
-        val minY = 0f
-        val maxX = contentRoot.width.toFloat()
-        val maxY = contentRoot.height.toFloat()
+    val maxX = contentRoot.width.toFloat()
 
-        mouseX = mouseX.coerceIn(minX + half, maxX - half)
-        mouseY = mouseY.coerceIn(minY + half, maxY - half)
+    val maxY = contentRoot.height.toFloat()
 
-        cursor.x = mouseX - half
-        cursor.y = mouseY - half
+    mouseX = mouseX.coerceIn(
 
-        cursor.bringToFront()
-        cursor.invalidate()
-    }
+        half,
+
+        maxX - half
+
+    )
+
+    mouseY = mouseY.coerceIn(
+
+        half,
+
+        maxY - half
+
+    )
+
+    cursor.x = mouseX - half
+
+    cursor.y = mouseY - half
+
+    cursor.visibility = View.VISIBLE
+
+    cursor.bringToFront()
+
+    cursor.invalidate()
+
+    contentRoot.invalidate()
+
+}
 
     private fun snapVirtualMouseToElement() {
 
