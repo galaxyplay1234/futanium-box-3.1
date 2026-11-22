@@ -50,6 +50,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserFactory
+import org.json.JSONObject
 import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.TimeUnit
@@ -338,6 +339,41 @@ class PlayerActivity : AppCompatActivity() {
             }
         }
     }
+
+
+// =========================================================
+// CONFIGURAÇÃO DE CANAIS JSON
+// =========================================================
+
+private data class StreamConfig(
+    val url: String,
+    val type: String,
+    val clearKey: String
+)
+
+private fun parseStreamConfig(value: String): StreamConfig? {
+    return try {
+        val json = JSONObject(value)
+
+        val mediaUrl = json.optString("url", "").trim()
+        val type = json.optString("type", "").trim()
+        val clearKey = json.optString("clearkey", "").trim()
+
+        if (mediaUrl.isBlank()) {
+            null
+        } else {
+            StreamConfig(
+                url = mediaUrl,
+                type = type,
+                clearKey = clearKey
+            )
+        }
+    } catch (e: Exception) {
+        null
+    }
+}
+
+
 
     // =========================================================
     // CANAIS
@@ -1161,7 +1197,12 @@ bufferingIndicator?.let { pb ->
         // DADOS DO PLAYER
         // =====================================================
 
-        val url = intent.getStringExtra(EXTRA_URL).orEmpty()
+        val originalUrl = intent.getStringExtra(EXTRA_URL).orEmpty()
+
+val streamConfig = parseStreamConfig(originalUrl)
+
+val url = streamConfig?.url ?: originalUrl
+val clearKey = streamConfig?.clearKey.orEmpty()
         val title = intent.getStringExtra(EXTRA_TITLE).orEmpty()
         val referer = intent.getStringExtra(EXTRA_REFERER)
         val ua = intent.getStringExtra(EXTRA_USER_AGENT)
@@ -1251,18 +1292,19 @@ bufferingIndicator?.let { pb ->
         }
 
         // =====================================================
-        // LINK DIRETO M3U8 / MPD
-        // =====================================================
+// LINK DIRETO M3U8 / MPD / JSON
+// =====================================================
 
-        initPlayer(
-            url,
-            title,
-            referer,
-            ua,
-            cookie,
-            subtitleUrl,
-            origin
-        )
+initPlayer(
+    url,
+    title,
+    referer,
+    ua,
+    cookie,
+    subtitleUrl,
+    origin,
+    clearKey
+)
     }
 
     // =========================================================
@@ -1270,17 +1312,24 @@ bufferingIndicator?.let { pb ->
     // =========================================================
 
     private fun isSupported(u: String): Boolean {
-        val url = u.lowercase(Locale.ROOT)
+    val config = parseStreamConfig(u)
+    val mediaUrl = (config?.url ?: u).lowercase(Locale.ROOT)
 
-        return url.contains(".m3u8") ||
-            url.contains(".mpd") ||
-            url.contains(".ts") ||
-            url.contains(".txt")
-    }
+    return mediaUrl.contains(".m3u8") ||
+        mediaUrl.contains(".mpd") ||
+        mediaUrl.contains(".ts") ||
+        mediaUrl.contains(".txt") ||
+        config?.type.equals("dash", ignoreCase = true) ||
+        config?.type.equals("hls", ignoreCase = true)
+}
 
-    private fun isMpd(u: String): Boolean {
-        return u.contains(".mpd", ignoreCase = true)
-    }
+private fun isMpd(u: String): Boolean {
+    val config = parseStreamConfig(u)
+    val mediaUrl = config?.url ?: u
+
+    return mediaUrl.contains(".mpd", ignoreCase = true) ||
+        config?.type.equals("dash", ignoreCase = true)
+}
 
     private fun hideStatusBar() {
         insets.hide(WindowInsetsCompat.Type.statusBars())
@@ -1777,21 +1826,18 @@ Log.i(TAG, "LINK ESCOLHIDO PARA REPRODUÇÃO: $url")
                 .setUri(Uri.parse(url))
 
             when {
+    isMpd(url) -> {
+        itemBuilder.setMimeType(MimeTypes.APPLICATION_MPD)
+    }
 
-                normalizedUrl.contains(".mpd") -> {
-                    itemBuilder.setMimeType(MimeTypes.APPLICATION_MPD)
-                }
+    normalizedUrl.contains(".m3u8") ||
+        normalizedUrl.contains(".txt") -> {
 
-                normalizedUrl.contains(".m3u8") ||
-                    normalizedUrl.contains(".txt") -> {
+        itemBuilder.setMimeType(MimeTypes.APPLICATION_M3U8)
 
-                    itemBuilder.setMimeType(MimeTypes.APPLICATION_M3U8)
-
-                    Log.i(
-                        TAG,
-                        "Playlist HLS/M3U8 identificada na URL"
-                    )
-                }
+        Log.i(TAG, "Playlist HLS/M3U8 identificada na URL")
+    }
+}
             }
 
             if (!title.isNullOrBlank()) {
