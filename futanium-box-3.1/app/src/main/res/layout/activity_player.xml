@@ -5,7 +5,6 @@
     android:layout_height="match_parent"
     android:background="@android:color/black">
 
-    <!-- WebView invisível usado somente para localizar o manifesto -->
     <WebView
         android:id="@+id/captureWebView"
         android:layout_width="match_parent"
@@ -14,7 +13,6 @@
         android:clickable="false"
         android:focusable="false" />
 
-    <!-- Player sempre na frente -->
     <androidx.media3.ui.PlayerView
         android:id="@+id/playerView"
         android:layout_width="match_parent"
@@ -22,19 +20,8 @@
         android:keepScreenOn="true"
         app:use_controller="false"
         app:controller_layout_id="@layout/exo_player_controller_minimal"
-        app:show_buffering="when_playing"
+        app:show_buffering="always"
         app:resize_mode="fit"
         app:surface_type="texture_view" />
-
-    <!-- Carregamento inicial e busca do manifesto -->
-    <ProgressBar
-    android:id="@+id/captureLoading"
-    style="?android:attr/progressBarStyleLarge"
-    android:layout_width="56dp"
-    android:layout_height="56dp"
-    android:layout_gravity="center"
-    android:indeterminate="true"
-    android:indeterminateTint="@android:color/white"
-    android:visibility="gone" />
 
 </FrameLayout>
