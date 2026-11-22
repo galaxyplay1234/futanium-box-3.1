@@ -1665,7 +1665,8 @@ captureLoading.visibility = View.GONE
     when (state) {
 
         Player.STATE_BUFFERING -> {
-            captureLoading.visibility = View.VISIBLE
+            // O indicador original do ExoPlayer assume.
+            captureLoading.visibility = View.GONE
 
             bufferingStartAt = System.currentTimeMillis()
 
@@ -1675,13 +1676,11 @@ captureLoading.visibility = View.GONE
 
         Player.STATE_READY -> {
             captureLoading.visibility = View.GONE
-
             main.removeCallbacks(bufferingWatchdog)
         }
 
         Player.STATE_ENDED -> {
             captureLoading.visibility = View.GONE
-
             main.removeCallbacks(bufferingWatchdog)
         }
 
