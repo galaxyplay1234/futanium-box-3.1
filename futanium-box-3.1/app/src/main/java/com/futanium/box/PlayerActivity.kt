@@ -1643,14 +1643,15 @@ private fun isMpd(u: String): Boolean {
     // =========================================================
 
     private fun initPlayer(
-        url: String,
-        title: String?,
-        referer: String?,
-        ua: String?,
-        cookie: String?,
-        subtitleUrl: String?,
-        origin: String?
-    ) {
+    url: String,
+    title: String?,
+    referer: String?,
+    ua: String?,
+    cookie: String?,
+    subtitleUrl: String?,
+    origin: String?,
+    clearKey: String = ""
+) {
 
 showCapturedUrlDebug(url)
 
@@ -1838,7 +1839,7 @@ Log.i(TAG, "LINK ESCOLHIDO PARA REPRODUÇÃO: $url")
         Log.i(TAG, "Playlist HLS/M3U8 identificada na URL")
     }
 }
-            }
+         
 
             if (!title.isNullOrBlank()) {
                 itemBuilder.setMediaMetadata(
