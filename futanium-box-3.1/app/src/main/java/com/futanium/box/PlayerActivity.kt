@@ -1951,19 +1951,20 @@ Log.i(TAG, "LINK ESCOLHIDO PARA REPRODUÇÃO: $url")
             elevation = dp(50).toFloat()
         }
 
-        root.addView(
-            debugView,
-            FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                Gravity.TOP
-            ).apply {
-    leftMargin = dp(12)
-    topMargin = dp(12)
-    rightMargin = dp(12)
-    bottomMargin = 0
-}
+                val params = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            Gravity.TOP
         )
+
+        params.setMargins(
+            dp(12),
+            dp(12),
+            dp(12),
+            0
+        )
+
+        root.addView(debugView, params)
     }
 
 
