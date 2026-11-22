@@ -1118,9 +1118,10 @@ class GameAdapter(
     // ABRIR CANAL
     // =====================================================
 
-    private var lastClickTime = 0L
+    
+private var lastClickTime = 0L
 
-    private fun openLink(
+private fun openLink(
     view: View,
     title: String?,
     link: String,
@@ -1128,177 +1129,190 @@ class GameAdapter(
     tvChannels: List<TvChannel>? = null,
     gameTitle: String? = null
 ) {
+    val ctx = view.context
+    val u = link.trim()
 
-        val ctx = view.context
-        val u = link.trim()
+    try {
+        val now = System.currentTimeMillis()
 
-        try {
+        if (now - lastClickTime < 3000) {
+            Toast.makeText(
+                ctx,
+                "Aguarde um momento...",
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
 
-            val now = System.currentTimeMillis()
+        lastClickTime = now
 
-            if (now - lastClickTime < 3000) {
+        if (u.startsWith("http", ignoreCase = true)) {
 
-                Toast.makeText(
+            val mediaUrl = u.substringBefore("?")
+                .substringBefore("#")
+                .lowercase()
+
+            val isDirectMedia =
+                mediaUrl.endsWith(".m3u8") ||
+                mediaUrl.endsWith(".mpd") ||
+                mediaUrl.endsWith(".ts") ||
+                mediaUrl.endsWith(".mp4")
+
+            // Link direto OU captura habilitada:
+            // abre PlayerActivity sem passar pelo WebViewActivity.
+            val openNativePlayer = isDirectMedia || captureM3u8
+
+            val it = if (openNativePlayer) {
+
+                Intent(
                     ctx,
-                    "Aguarde um momento...",
-                    Toast.LENGTH_SHORT
-                ).show()
+                    com.futanium.box.PlayerActivity::class.java
+                ).apply {
 
-                return
-            }
-
-            lastClickTime = now
-
-            if (u.startsWith("http", ignoreCase = true)) {
-
-                val mediaUrl = u.substringBefore("?")
-                    .substringBefore("#")
-                    .lowercase()
-
-                val isDirectMedia =
-                    mediaUrl.endsWith(".m3u8") ||
-                    mediaUrl.endsWith(".mpd") ||
-                    mediaUrl.endsWith(".ts") ||
-                    mediaUrl.endsWith(".mp4")
-
-                if (isDirectMedia && !captureM3u8) {
-
-                    val it = Intent(
-                        ctx,
-                        com.futanium.box.PlayerActivity::class.java
-                    )
-
-                    it.putExtra(
+                    putExtra(
                         com.futanium.box.PlayerActivity.EXTRA_URL,
                         u
                     )
 
-                    it.putExtra(
+                    putExtra(
                         com.futanium.box.PlayerActivity.EXTRA_TITLE,
                         title ?: ""
                     )
 
-                     it.putExtra("game_title", gameTitle ?: "")
-
-                    if (!tvChannels.isNullOrEmpty()) {
-                        addTvChannelsToIntent(it, tvChannels)
-                    }
-
-                    MainActivity.navigatingInsideApp = true
-
-                    ctx.startActivity(it)
-
-                } else {
-
-                    val it = Intent(
-                        ctx,
-                        com.futanium.box.WebViewActivity::class.java
-                    )
-
-                    it.putExtra(
-                        com.futanium.box.WebViewActivity.EXTRA_URL,
-                        u
-                    )
-
-                    it.putExtra(
+                    putExtra(
                         "captureM3u8",
-                        captureM3u8
+                        captureM3u8 && !isDirectMedia
                     )
 
-								    it.putExtra("game_title", gameTitle ?: "")
+                    putExtra(
+                        "game_title",
+                        gameTitle ?: ""
+                    )
 
                     if (!tvChannels.isNullOrEmpty()) {
-                        addTvChannelsToIntent(it, tvChannels)
+                        addTvChannelsToIntent(this, tvChannels)
                     }
-
-                    MainActivity.navigatingInsideApp = true
-
-                    ctx.startActivity(it)
                 }
 
             } else {
 
-                val it = Intent(
-                    Intent.ACTION_VIEW,
-                    Uri.parse(u)
-                )
+                Intent(
+                    ctx,
+                    com.futanium.box.WebViewActivity::class.java
+                ).apply {
 
-                ctx.startActivity(it)
+                    putExtra(
+                        com.futanium.box.WebViewActivity.EXTRA_URL,
+                        u
+                    )
+
+                    putExtra(
+                        "captureM3u8",
+                        false
+                    )
+
+                    putExtra(
+                        "game_title",
+                        gameTitle ?: ""
+                    )
+
+                    if (!tvChannels.isNullOrEmpty()) {
+                        addTvChannelsToIntent(this, tvChannels)
+                    }
+                }
             }
 
-            if (
-                monetagEnabledRemote &&
-                monetagLinkRemote.isNotBlank()
-            ) {
+            MainActivity.navigatingInsideApp = true
+            ctx.startActivity(it)
 
-                view.postDelayed({
+        } else {
 
-                    try {
+            val it = Intent(
+                Intent.ACTION_VIEW,
+                Uri.parse(u)
+            )
 
-                        val customTabsIntent =
-                            CustomTabsIntent.Builder()
-                                .setShowTitle(true)
-                                .setUrlBarHidingEnabled(false)
-                                .setToolbarColor(
-                                    Color.parseColor("#202020")
-                                )
-                                .setColorScheme(
-                                    CustomTabsIntent.COLOR_SCHEME_DARK
-                                )
-                                .build()
+            ctx.startActivity(it)
+        }
 
-                        customTabsIntent.intent.addFlags(
-                            Intent.FLAG_ACTIVITY_NO_HISTORY
-                        )
+        // =================================================
+        // ANÚNCIO ORIGINAL - MANTIDO
+        // =================================================
 
-                        customTabsIntent.intent.addFlags(
-                            Intent.FLAG_ACTIVITY_CLEAR_TOP
-                        )
+        if (
+            monetagEnabledRemote &&
+            monetagLinkRemote.isNotBlank()
+        ) {
 
-                        customTabsIntent.intent.addFlags(
-                            Intent.FLAG_ACTIVITY_SINGLE_TOP
-                        )
+            view.postDelayed({
 
-                        customTabsIntent.launchUrl(
-                            ctx,
-                            Uri.parse(monetagLinkRemote)
-                        )
+                try {
 
-                        view.postDelayed({
+                    val customTabsIntent =
+                        CustomTabsIntent.Builder()
+                            .setShowTitle(true)
+                            .setUrlBarHidingEnabled(false)
+                            .setToolbarColor(
+                                Color.parseColor("#202020")
+                            )
+                            .setColorScheme(
+                                CustomTabsIntent.COLOR_SCHEME_DARK
+                            )
+                            .build()
 
-                            Toast.makeText(
-                                ctx,
-                                "Esta é uma página de anúncio.\nFeche no X ou use o botão Voltar.",
-                                Toast.LENGTH_LONG
-                            ).show()
+                    customTabsIntent.intent.addFlags(
+                        Intent.FLAG_ACTIVITY_NO_HISTORY
+                    )
 
-                        }, 300)
+                    customTabsIntent.intent.addFlags(
+                        Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    )
 
-                    } catch (e: Exception) {
+                    customTabsIntent.intent.addFlags(
+                        Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    )
 
-                        e.printStackTrace()
+                    customTabsIntent.launchUrl(
+                        ctx,
+                        Uri.parse(monetagLinkRemote)
+                    )
+
+                    view.postDelayed({
 
                         Toast.makeText(
                             ctx,
-                            "Não foi possível abrir o anúncio.",
-                            Toast.LENGTH_SHORT
+                            "Esta é uma página de anúncio.\nFeche no X ou use o botão Voltar.",
+                            Toast.LENGTH_LONG
                         ).show()
-                    }
 
-                }, 1000)
-            }
+                    }, 300)
 
-        } catch (e: Exception) {
+                } catch (e: Exception) {
 
-            e.printStackTrace()
+                    e.printStackTrace()
 
-            Toast.makeText(
-                ctx,
-                "Erro ao abrir o canal.",
-                Toast.LENGTH_SHORT
-            ).show()
+                    Toast.makeText(
+                        ctx,
+                        "Não foi possível abrir o anúncio.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+
+            }, 1000)
         }
+
+    } catch (e: Exception) {
+
+        e.printStackTrace()
+
+        Toast.makeText(
+            ctx,
+            "Erro ao abrir o canal.",
+            Toast.LENGTH_SHORT
+        ).show()
     }
+}
+
 }
 
 // =====================================================
