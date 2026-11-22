@@ -41,6 +41,7 @@ import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
+import androidx.media3.datasource.HttpDataSource
 import com.google.firebase.database.FirebaseDatabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -1642,14 +1643,18 @@ bufferingIndicator?.let { pb ->
         }
 
         val dsFactory = DefaultHttpDataSource.Factory().apply {
-            setAllowCrossProtocolRedirects(true)
 
-            if (!ua.isNullOrBlank()) {
-                setUserAgent(ua)
-            }
+    setAllowCrossProtocolRedirects(true)
 
-            setDefaultRequestProperties(requestHeaders)
-        }
+    setConnectTimeoutMs(15_000)
+    setReadTimeoutMs(20_000)
+
+    if (!ua.isNullOrBlank()) {
+        setUserAgent(ua)
+    }
+
+    setDefaultRequestProperties(requestHeaders)
+}
 
         val mediaSourceFactory = DefaultMediaSourceFactory(dsFactory)
 
@@ -1688,43 +1693,71 @@ bufferingIndicator?.let { pb ->
 
             override fun onPlayerError(error: PlaybackException) {
 
-                main.removeCallbacks(bufferingWatchdog)
-								bufferingIndicator?.visibility = View.GONE
+    main.removeCallbacks(bufferingWatchdog)
+    bufferingIndicator?.visibility = View.GONE
 
-                Log.e(
-                    TAG,
-                    "Erro de reprodução: ${error.errorCodeName}",
-                    error
-                )
+    Log.e(
+        TAG,
+        "Erro de reprodução: ${error.errorCodeName}",
+        error
+    )
 
-                val message = when (error.errorCode) {
+    // Procura o código HTTP real na cadeia de exceções.
+    var cause: Throwable? = error
+    var httpError: HttpDataSource.InvalidResponseCodeException? = null
 
-                    PlaybackException.ERROR_CODE_DRM_CONTENT_ERROR,
-                    PlaybackException.ERROR_CODE_DRM_LICENSE_ACQUISITION_FAILED,
-                    PlaybackException.ERROR_CODE_DRM_PROVISIONING_FAILED ->
-                        "Falha na proteção DRM ou na licença."
+    while (cause != null) {
 
-                    PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED,
-                    PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED ->
-                        "Manifesto ou conteúdo inválido."
+        if (cause is HttpDataSource.InvalidResponseCodeException) {
+            httpError = cause
+            break
+        }
 
-                    PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS ->
-                        "Erro HTTP ao acessar o conteúdo."
+        cause = cause.cause
+    }
 
-                    PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
-                    PlaybackException.ERROR_CODE_DECODING_FAILED ->
-                        "Codec de áudio ou vídeo incompatível."
+    if (httpError != null) {
 
-                    else ->
-                        "Falha na reprodução: ${error.errorCodeName}"
-                }
+        Log.e(TAG, "========== ERRO HTTP ==========")
+        Log.e(TAG, "Status HTTP: ${httpError.responseCode}")
+        Log.e(TAG, "Mensagem: ${httpError.responseMessage}")
+        Log.e(TAG, "URL: ${httpError.dataSpec.uri}")
+        Log.e(TAG, "Cabeçalhos: ${httpError.headerFields}")
+        Log.e(TAG, "================================")
 
-                Toast.makeText(
-                    this@PlayerActivity,
-                    message,
-                    Toast.LENGTH_LONG
-                ).show()
-            }
+    } else {
+
+        Log.e(TAG, "Nenhum código HTTP específico encontrado.")
+    }
+
+    val message = when {
+
+        httpError != null ->
+            "Erro HTTP ${httpError.responseCode} ao acessar o conteúdo."
+
+        error.errorCode == PlaybackException.ERROR_CODE_DRM_CONTENT_ERROR ||
+        error.errorCode == PlaybackException.ERROR_CODE_DRM_LICENSE_ACQUISITION_FAILED ||
+        error.errorCode == PlaybackException.ERROR_CODE_DRM_PROVISIONING_FAILED ->
+            "Falha na proteção DRM ou na licença."
+
+        error.errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED ||
+        error.errorCode == PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED ->
+            "Manifesto ou conteúdo inválido."
+
+        error.errorCode == PlaybackException.ERROR_CODE_DECODER_INIT_FAILED ||
+        error.errorCode == PlaybackException.ERROR_CODE_DECODING_FAILED ->
+            "Codec de áudio ou vídeo incompatível."
+
+        else ->
+            "Falha na reprodução: ${error.errorCodeName}"
+    }
+
+    Toast.makeText(
+        this@PlayerActivity,
+        message,
+        Toast.LENGTH_LONG
+    ).show()
+}
         })
 
         // =====================================================
