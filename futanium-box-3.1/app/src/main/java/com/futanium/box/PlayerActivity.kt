@@ -1943,7 +1943,7 @@ Log.i(TAG, "LINK ESCOLHIDO PARA REPRODUÇÃO: $url")
 
             setBackgroundColor(Color.rgb(25, 35, 48))
 
-            isTextSelectable = true
+            setTextIsSelectable(true)
 
             maxLines = 5
             ellipsize = android.text.TextUtils.TruncateAt.END
