@@ -54,8 +54,19 @@ import org.json.JSONObject
 import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.TimeUnit
+import androidx.annotation.OptIn
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.drm.DefaultDrmSessionManager
+import androidx.media3.exoplayer.drm.DefaultDrmSessionManagerProvider
+import androidx.media3.exoplayer.drm.FrameworkMediaDrm
+import androidx.media3.exoplayer.drm.LocalMediaDrmCallback
+import android.util.Base64
+import org.json.JSONArray
 
+
+@UnstableApi
 class PlayerActivity : AppCompatActivity() {
+
 
     companion object {
         const val EXTRA_URL = "url"
@@ -373,6 +384,50 @@ private fun parseStreamConfig(value: String): StreamConfig? {
     }
 }
 
+
+private fun buildClearKeyResponse(clearKey: String): ByteArray? {
+    return try {
+        val parts = clearKey.trim().split(":", limit = 2)
+
+        if (parts.size != 2) return null
+
+        val kid = parts[0].trim()
+        val key = parts[1].trim()
+
+        val hexRegex = Regex("^[0-9a-fA-F]{32}$")
+
+        if (!hexRegex.matches(kid) || !hexRegex.matches(key)) {
+            Log.e(TAG, "Formato ClearKey inválido.")
+            return null
+        }
+
+        fun hexToBase64Url(hex: String): String {
+            val bytes = hex.chunked(2)
+                .map { it.toInt(16).toByte() }
+                .toByteArray()
+
+            return Base64.encodeToString(
+                bytes,
+                Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP
+            )
+        }
+
+        val response = JSONObject().apply {
+            put("keys", JSONArray().put(JSONObject().apply {
+                put("kty", "oct")
+                put("kid", hexToBase64Url(kid))
+                put("k", hexToBase64Url(key))
+            }))
+            put("type", "temporary")
+        }
+
+        response.toString().toByteArray(Charsets.UTF_8)
+
+    } catch (e: Exception) {
+        Log.e(TAG, "Erro ao preparar ClearKey.", e)
+        null
+    }
+}
 
 
     // =========================================================
@@ -1710,9 +1765,35 @@ Log.i(TAG, "LINK ESCOLHIDO PARA REPRODUÇÃO: $url")
     setDefaultRequestProperties(requestHeaders)
 }
 
-        val mediaSourceFactory = DefaultMediaSourceFactory(dsFactory)
+        val clearKeyResponse = buildClearKeyResponse(clearKey)
 
-        val p = ExoPlayer.Builder(this)
+val defaultDrmProvider = DefaultDrmSessionManagerProvider(this)
+
+val localClearKeyManager = clearKeyResponse?.let { response ->
+
+    DefaultDrmSessionManager.Builder()
+        .setUuidAndExoMediaDrmProvider(
+            C.CLEARKEY_UUID,
+            FrameworkMediaDrm.DEFAULT_PROVIDER
+        )
+        .setMultiSession(false)
+        .build(
+            LocalMediaDrmCallback(response)
+        )
+}
+
+val mediaSourceFactory = DefaultMediaSourceFactory(dsFactory)
+    .setDrmSessionManagerProvider { mediaItem ->
+
+        if (localClearKeyManager != null && isMpd(url)) {
+            Log.i(TAG, "Utilizando ClearKey local.")
+            localClearKeyManager
+        } else {
+            defaultDrmProvider.get(mediaItem)
+        }
+    }
+
+val p = ExoPlayer.Builder(this)
             .setMediaSourceFactory(mediaSourceFactory)
             .build()
             .also {
@@ -1881,67 +1962,56 @@ Log.i(TAG, "LINK ESCOLHIDO PARA REPRODUÇÃO: $url")
 
                     logMpdAnalysis(analysis)
 
-                    val externalLicense =
-                        intent.getStringExtra(EXTRA_DRM_LICENSE_URL)
+                    // ClearKey recebido no JSON: KID:KEY
+if (clearKeyResponse != null) {
 
-                    val license = externalLicense
-                        ?: analysis.licenseUrl
+    Log.i(TAG, "ClearKey local preparado com sucesso.")
 
-                    val drmUuid = when {
+    val drmConfiguration =
+        MediaItem.DrmConfiguration.Builder(C.CLEARKEY_UUID)
+            .build()
 
-                        analysis.drmSystems.contains("Widevine") ->
-                            C.WIDEVINE_UUID
+    itemBuilder.setDrmConfiguration(drmConfiguration)
 
-                        analysis.drmSystems.contains("ClearKey") ->
-                            C.CLEARKEY_UUID
+} else {
 
-                        else -> null
-                    }
+    // Mantém o funcionamento anterior para licenças externas.
+    val externalLicense =
+        intent.getStringExtra(EXTRA_DRM_LICENSE_URL)
 
-                    if (drmUuid != null && !license.isNullOrBlank()) {
+    val license = externalLicense ?: analysis.licenseUrl
 
-                        val licenseHeaders =
-                            requestHeaders.toMutableMap()
+    val drmUuid = when {
+        analysis.drmSystems.contains("Widevine") ->
+            C.WIDEVINE_UUID
 
-                        Log.i(
-                            TAG,
-                            "DRM identificado: ${analysis.drmSystems}"
-                        )
+        analysis.drmSystems.contains("ClearKey") ->
+            C.CLEARKEY_UUID
 
-                        Log.i(
-                            TAG,
-                            "Configuração de licença disponível"
-                        )
+        else -> null
+    }
 
-                        val drmConfiguration =
-                            MediaItem.DrmConfiguration.Builder(drmUuid)
-                                .setLicenseUri(Uri.parse(license))
-                                .setLicenseRequestHeaders(licenseHeaders)
-                                .build()
+    if (drmUuid != null && !license.isNullOrBlank()) {
 
-                        itemBuilder.setDrmConfiguration(
-                            drmConfiguration
-                        )
+        val drmConfiguration =
+            MediaItem.DrmConfiguration.Builder(drmUuid)
+                .setLicenseUri(Uri.parse(license))
+                .setLicenseRequestHeaders(requestHeaders.toMutableMap())
+                .build()
 
-                    } else if (analysis.drmSystems.isNotEmpty()) {
+        itemBuilder.setDrmConfiguration(drmConfiguration)
 
-                        Log.w(
-                            TAG,
-                            "DRM identificado, mas não há URL de licença disponível."
-                        )
+        Log.i(TAG, "DRM com licença externa configurado.")
 
-                        Log.w(
-                            TAG,
-                            "É necessária a configuração autorizada do provedor."
-                        )
+    } else if (analysis.drmSystems.isNotEmpty()) {
 
-                    } else {
+        Log.w(TAG, "DRM identificado, mas sem chave local ou licença disponível.")
 
-                        Log.i(
-                            TAG,
-                            "Nenhum sistema DRM identificado no MPD."
-                        )
-                    }
+    } else {
+
+        Log.i(TAG, "Nenhum sistema DRM identificado no MPD.")
+    }
+}
 
                 } catch (e: Exception) {
 
