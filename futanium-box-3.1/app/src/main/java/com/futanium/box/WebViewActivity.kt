@@ -2378,8 +2378,13 @@ class WebViewActivity : AppCompatActivity() {
     }
 
     private fun isStreamManifestUrl(url: String): Boolean {
-        return isDirectNativeManifest(url)
-    }
+
+    val normalized = Uri.decode(url)
+        .lowercase(Locale.ROOT)
+
+    return normalized.contains(".m3u8") ||
+        normalized.contains(".mpd")
+}
 
     private fun isMediaUrl(u: String): Boolean {
 
