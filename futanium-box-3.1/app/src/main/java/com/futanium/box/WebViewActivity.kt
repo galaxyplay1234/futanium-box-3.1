@@ -1,4 +1,3 @@
-
 package com.futanium.box
 
 import android.annotation.SuppressLint
@@ -93,14 +92,12 @@ class WebViewActivity : AppCompatActivity() {
     private var virtualMouseView: View? = null
 
     private var mouseX = 0f
-private var mouseY = 0f
-private var mouseMoveToken = 0
-private var snappedElement = false
-private var mousePositionInitialized = false
+    private var mouseY = 0f
+    private var mouseMoveToken = 0
+    private var snappedElement = false
+    private var mousePositionInitialized = false
 
-    // Velocidade do cursor. Aumente para deixar mais rápido.
     private val mouseSpeed = 48f
-
     private val mouseDiameter by lazy { dp(28) }
 
     // =====================================================
@@ -169,8 +166,6 @@ private var mousePositionInitialized = false
 
                 val radius = width / 2f - dp(3)
 
-                // Bolinha transparente, somente com borda branca.
-                // Não existe ponto branco no centro.
                 canvas.drawCircle(
                     width / 2f,
                     height / 2f,
@@ -196,415 +191,326 @@ private var mousePositionInitialized = false
         )
     }
 
-    
+    private fun activateVirtualMouse(keyCode: Int) {
 
-private fun activateVirtualMouse(keyCode: Int) {
+        val cursor = virtualMouseView ?: return
+        val root = findViewById<FrameLayout>(android.R.id.content)
 
-    val cursor = virtualMouseView ?: return
-    val root = findViewById<FrameLayout>(android.R.id.content)
+        if (!virtualMouseActive) {
 
-    if (!virtualMouseActive) {
-
-        if (web.width <= 0 || web.height <= 0) {
-            root.post {
-                if (!virtualMouseActive) {
-                    activateVirtualMouse(keyCode)
+            if (web.width <= 0 || web.height <= 0) {
+                root.post {
+                    if (!virtualMouseActive) {
+                        activateVirtualMouse(keyCode)
+                    }
                 }
-            }
-            return
-        }
-
-        virtualMouseActive = true
-
-        // Só posiciona no centro na primeira utilização.
-        // Nas próximas vezes mantém a última posição.
-        if (!mousePositionInitialized) {
-
-            val webLocation = IntArray(2)
-            val rootLocation = IntArray(2)
-
-            web.getLocationOnScreen(webLocation)
-            root.getLocationOnScreen(rootLocation)
-
-            mouseX =
-                webLocation[0] - rootLocation[0] + web.width / 2f
-
-            mouseY =
-                webLocation[1] - rootLocation[1] + web.height / 2f
-
-            mousePositionInitialized = true
-        }
-    }
-
-    moveVirtualMouse(keyCode)
-}
-
-private fun moveVirtualMouse(keyCode: Int) {
-
-    // Cancela respostas antigas da atração.
-    mouseMoveToken++
-
-    when (keyCode) {
-        KeyEvent.KEYCODE_DPAD_UP -> mouseY -= mouseSpeed
-        KeyEvent.KEYCODE_DPAD_DOWN -> mouseY += mouseSpeed
-        KeyEvent.KEYCODE_DPAD_LEFT -> mouseX -= mouseSpeed
-        KeyEvent.KEYCODE_DPAD_RIGHT -> mouseX += mouseSpeed
-    }
-
-    virtualMouseView?.visibility = View.VISIBLE
-    virtualMouseView?.bringToFront()
-
-    updateVirtualMousePosition()
-
-    // Procura outro botão, sem prender no anterior.
-    snapVirtualMouseToElement()
-}
-
-    
-
-private fun updateVirtualMousePosition() {
-
-    val cursor = virtualMouseView ?: return
-    val root = findViewById<FrameLayout>(android.R.id.content)
-
-    if (web.width <= 0 || web.height <= 0) return
-
-    val webLocation = IntArray(2)
-    val rootLocation = IntArray(2)
-
-    web.getLocationOnScreen(webLocation)
-    root.getLocationOnScreen(rootLocation)
-
-    val minX =
-        (webLocation[0] - rootLocation[0]).toFloat()
-
-    val minY =
-        (webLocation[1] - rootLocation[1]).toFloat()
-
-    val maxX = minX + web.width.toFloat()
-    val maxY = minY + web.height.toFloat()
-
-    val half = mouseDiameter / 2f
-
-    // Mantém o cursor completamente dentro do WebView.
-    mouseX = mouseX.coerceIn(minX + half, maxX - half)
-    mouseY = mouseY.coerceIn(minY + half, maxY - half)
-
-    cursor.x = mouseX - half
-    cursor.y = mouseY - half
-
-    cursor.invalidate()
-}
-
-
-private fun snapVirtualMouseToElement() {
-
-    if (!virtualMouseActive || !web.isAttachedToWindow) return
-
-    val token = ++mouseMoveToken
-
-    val webLocation = IntArray(2)
-    val rootLocation = IntArray(2)
-
-    web.getLocationOnScreen(webLocation)
-
-    findViewById<FrameLayout>(android.R.id.content)
-        .getLocationOnScreen(rootLocation)
-
-    val localX =
-        mouseX - (webLocation[0] - rootLocation[0])
-
-    val localY =
-        mouseY - (webLocation[1] - rootLocation[1])
-
-    val scale = web.scale
-
-    val cssX = localX / scale
-    val cssY = localY / scale
-
-    val js = """
-        (function() {
-
-            const x = $cssX;
-            const y = $cssY;
-            const radius = 45;
-
-            const previous = window.__futaniumLastSnapElement;
-
-            let skipPrevious = false;
-
-            // Remove o destaque anterior.
-            if (previous) {
-
-                const old = previous.__futaniumOldStyle;
-
-                if (old) {
-                    previous.style.setProperty(
-                        'outline',
-                        old.outline,
-                        old.outlinePriority
-                    );
-
-                    previous.style.setProperty(
-                        'outline-offset',
-                        old.offset,
-                        old.offsetPriority
-                    );
-
-                    delete previous.__futaniumOldStyle;
-                }
-
-                const r = previous.getBoundingClientRect();
-
-                // Enquanto estiver perto do botão anterior,
-                // não permite que ele atraia o cursor novamente.
-                skipPrevious =
-                    x >= r.left - radius &&
-                    x <= r.right + radius &&
-                    y >= r.top - radius &&
-                    y <= r.bottom + radius;
-
-                if (!skipPrevious) {
-                    window.__futaniumLastSnapElement = null;
-                }
+                return
             }
 
-            const selectors = [
-                'button',
-                'a[href]',
-                'input',
-                'select',
-                'textarea',
-                '[role="button"]',
-                '[role="link"]',
-                '[onclick]',
-                '[tabindex]',
-                '[aria-label]',
-                '.vjs-control',
-                '.jw-icon',
-                '.plyr__control',
-                '.shaka-controls-button'
-            ];
+            virtualMouseActive = true
 
-            const elements = document.querySelectorAll(
-                selectors.join(',')
-            );
+            if (!mousePositionInitialized) {
 
-            let best = null;
-            let bestElement = null;
-            let bestDistance = radius;
+                val webLocation = IntArray(2)
+                val rootLocation = IntArray(2)
 
-            elements.forEach(function(el) {
+                web.getLocationOnScreen(webLocation)
+                root.getLocationOnScreen(rootLocation)
 
-                if (skipPrevious && el === previous) {
-                    return;
-                }
+                mouseX =
+                    webLocation[0] - rootLocation[0] + web.width / 2f
 
-                const rect = el.getBoundingClientRect();
-                const style = getComputedStyle(el);
+                mouseY =
+                    webLocation[1] - rootLocation[1] + web.height / 2f
 
-                if (
-                    rect.width <= 0 ||
-                    rect.height <= 0 ||
-                    style.display === 'none' ||
-                    style.visibility === 'hidden' ||
-                    style.pointerEvents === 'none'
-                ) {
-                    return;
-                }
-
-                const dx = Math.max(
-                    rect.left - x,
-                    0,
-                    x - rect.right
-                );
-
-                const dy = Math.max(
-                    rect.top - y,
-                    0,
-                    y - rect.bottom
-                );
-
-                const distance = Math.sqrt(dx * dx + dy * dy);
-
-                if (distance < bestDistance) {
-
-                    bestDistance = distance;
-                    bestElement = el;
-
-                    best = {
-                        x: rect.left + rect.width / 2,
-                        y: rect.top + rect.height / 2
-                    };
-                }
-            });
-
-            if (bestElement) {
-
-                // Guarda o estilo original para restaurar depois.
-                bestElement.__futaniumOldStyle = {
-                    outline: bestElement.style.getPropertyValue('outline'),
-                    outlinePriority: bestElement.style.getPropertyPriority('outline'),
-                    offset: bestElement.style.getPropertyValue('outline-offset'),
-                    offsetPriority: bestElement.style.getPropertyPriority('outline-offset')
-                };
-
-                // Borda azul de seleção.
-                bestElement.style.setProperty(
-                    'outline',
-                    '3px solid #1685FF',
-                    'important'
-                );
-
-                bestElement.style.setProperty(
-                    'outline-offset',
-                    '3px',
-                    'important'
-                );
-
-                window.__futaniumLastSnapElement = bestElement;
+                mousePositionInitialized = true
             }
-
-            return best;
-        })();
-    """.trimIndent()
-
-    web.evaluateJavascript(js) { result ->
-
-        if (
-            result == null ||
-            result == "null" ||
-            token != mouseMoveToken ||
-            !virtualMouseActive
-        ) {
-            return@evaluateJavascript
         }
 
-        try {
-
-            val point = org.json.JSONObject(result)
-
-            val root = findViewById<FrameLayout>(
-                android.R.id.content
-            )
-
-            val currentWebLocation = IntArray(2)
-            val currentRootLocation = IntArray(2)
-
-            web.getLocationOnScreen(currentWebLocation)
-            root.getLocationOnScreen(currentRootLocation)
-
-            val currentLeft =
-                currentWebLocation[0] - currentRootLocation[0]
-
-            val currentTop =
-                currentWebLocation[1] - currentRootLocation[1]
-
-            mouseX =
-                currentLeft +
-                point.getDouble("x").toFloat() * web.scale
-
-            mouseY =
-                currentTop +
-                point.getDouble("y").toFloat() * web.scale
-
-            updateVirtualMousePosition()
-
-        } catch (_: Exception) {
-            // Mantém o cursor livre se não encontrar um botão.
-        }
+        moveVirtualMouse(keyCode)
     }
-}
 
+    private fun moveVirtualMouse(keyCode: Int) {
 
+        mouseMoveToken++
 
+        when (keyCode) {
+            KeyEvent.KEYCODE_DPAD_UP -> mouseY -= mouseSpeed
+            KeyEvent.KEYCODE_DPAD_DOWN -> mouseY += mouseSpeed
+            KeyEvent.KEYCODE_DPAD_LEFT -> mouseX -= mouseSpeed
+            KeyEvent.KEYCODE_DPAD_RIGHT -> mouseX += mouseSpeed
+        }
 
-private fun clickVirtualMouse() {
+        virtualMouseView?.visibility = View.VISIBLE
+        virtualMouseView?.bringToFront()
 
-    val cursor = virtualMouseView ?: return
+        updateVirtualMousePosition()
+        snapVirtualMouseToElement()
+    }
 
-    val webLocation = IntArray(2)
-    val rootLocation = IntArray(2)
+    private fun updateVirtualMousePosition() {
 
-    web.getLocationOnScreen(webLocation)
+        val cursor = virtualMouseView ?: return
+        val root = findViewById<FrameLayout>(android.R.id.content)
 
-    findViewById<FrameLayout>(android.R.id.content)
-        .getLocationOnScreen(rootLocation)
+        if (web.width <= 0 || web.height <= 0) return
 
-    val webLeft = webLocation[0] - rootLocation[0]
-    val webTop = webLocation[1] - rootLocation[1]
+        val webLocation = IntArray(2)
+        val rootLocation = IntArray(2)
 
-    val localX = mouseX - webLeft
-    val localY = mouseY - webTop
+        web.getLocationOnScreen(webLocation)
+        root.getLocationOnScreen(rootLocation)
 
-    val downTime = SystemClock.uptimeMillis()
+        val minX =
+            (webLocation[0] - rootLocation[0]).toFloat()
 
-    val down = MotionEvent.obtain(
-        downTime, downTime,
-        MotionEvent.ACTION_DOWN,
-        localX, localY, 0
-    )
+        val minY =
+            (webLocation[1] - rootLocation[1]).toFloat()
 
-    val up = MotionEvent.obtain(
-        downTime, downTime + 70,
-        MotionEvent.ACTION_UP,
-        localX, localY, 0
-    )
+        val maxX = minX + web.width.toFloat()
+        val maxY = minY + web.height.toFloat()
 
-    down.source = android.view.InputDevice.SOURCE_TOUCHSCREEN
-    up.source = android.view.InputDevice.SOURCE_TOUCHSCREEN
+        val half = mouseDiameter / 2f
 
-    web.dispatchTouchEvent(down)
-    web.dispatchTouchEvent(up)
+        mouseX = mouseX.coerceIn(minX + half, maxX - half)
+        mouseY = mouseY.coerceIn(minY + half, maxY - half)
 
-    down.recycle()
-    up.recycle()
+        cursor.x = mouseX - half
+        cursor.y = mouseY - half
 
-    virtualMouseActive = false
-    mouseMoveToken++
+        cursor.invalidate()
+    }
 
-    cursor.visibility = View.GONE
-    web.requestFocus()
-}
+    private fun snapVirtualMouseToElement() {
 
-private fun deactivateVirtualMouse() {
+        if (!virtualMouseActive || !web.isAttachedToWindow) return
 
-    virtualMouseActive = false
-    mouseMoveToken++
+        val token = ++mouseMoveToken
 
-    // Só executa JavaScript se a WebView já foi inicializada.
-    if (::web.isInitialized) {
+        val webLocation = IntArray(2)
+        val rootLocation = IntArray(2)
 
-        web.evaluateJavascript("""
+        web.getLocationOnScreen(webLocation)
+
+        findViewById<FrameLayout>(android.R.id.content)
+            .getLocationOnScreen(rootLocation)
+
+        val localX =
+            mouseX - (webLocation[0] - rootLocation[0])
+
+        val localY =
+            mouseY - (webLocation[1] - rootLocation[1])
+
+        val scale = web.scale
+
+        val cssX = localX / scale
+        val cssY = localY / scale
+
+        val js = """
             (function() {
-                const el = window.__futaniumLastSnapElement;
+                const x = $cssX;
+                const y = $cssY;
+                const radius = 45;
+                const previous = window.__futaniumLastSnapElement;
 
-                if (el && el.__futaniumOldStyle) {
-                    const old = el.__futaniumOldStyle;
+                let skipPrevious = false;
 
-                    el.style.setProperty(
-                        'outline',
-                        old.outline,
-                        old.outlinePriority
-                    );
+                if (previous) {
+                    const old = previous.__futaniumOldStyle;
 
-                    el.style.setProperty(
-                        'outline-offset',
-                        old.offset,
-                        old.offsetPriority
-                    );
+                    if (old) {
+                        previous.style.setProperty('outline', old.outline, old.outlinePriority);
+                        previous.style.setProperty('outline-offset', old.offset, old.offsetPriority);
+                        delete previous.__futaniumOldStyle;
+                    }
 
-                    delete el.__futaniumOldStyle;
+                    const r = previous.getBoundingClientRect();
+
+                    skipPrevious =
+                        x >= r.left - radius &&
+                        x <= r.right + radius &&
+                        y >= r.top - radius &&
+                        y <= r.bottom + radius;
+
+                    if (!skipPrevious) {
+                        window.__futaniumLastSnapElement = null;
+                    }
                 }
 
-                window.__futaniumLastSnapElement = null;
+                const selectors = [
+                    'button', 'a[href]', 'input', 'select', 'textarea',
+                    '[role="button"]', '[role="link"]', '[onclick]',
+                    '[tabindex]', '[aria-label]', '.vjs-control',
+                    '.jw-icon', '.plyr__control', '.shaka-controls-button'
+                ];
+
+                const elements = document.querySelectorAll(selectors.join(','));
+
+                let best = null;
+                let bestElement = null;
+                let bestDistance = radius;
+
+                elements.forEach(function(el) {
+                    if (skipPrevious && el === previous) return;
+
+                    const rect = el.getBoundingClientRect();
+                    const style = getComputedStyle(el);
+
+                    if (
+                        rect.width <= 0 ||
+                        rect.height <= 0 ||
+                        style.display === 'none' ||
+                        style.visibility === 'hidden' ||
+                        style.pointerEvents === 'none'
+                    ) return;
+
+                    const dx = Math.max(rect.left - x, 0, x - rect.right);
+                    const dy = Math.max(rect.top - y, 0, y - rect.bottom);
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < bestDistance) {
+                        bestDistance = distance;
+                        bestElement = el;
+                        best = {
+                            x: rect.left + rect.width / 2,
+                            y: rect.top + rect.height / 2
+                        };
+                    }
+                });
+
+                if (bestElement) {
+                    bestElement.__futaniumOldStyle = {
+                        outline: bestElement.style.getPropertyValue('outline'),
+                        outlinePriority: bestElement.style.getPropertyPriority('outline'),
+                        offset: bestElement.style.getPropertyValue('outline-offset'),
+                        offsetPriority: bestElement.style.getPropertyPriority('outline-offset')
+                    };
+
+                    bestElement.style.setProperty('outline', '3px solid #1685FF', 'important');
+                    bestElement.style.setProperty('outline-offset', '3px', 'important');
+
+                    window.__futaniumLastSnapElement = bestElement;
+                }
+
+                return best;
             })();
-        """.trimIndent(), null)
+        """.trimIndent()
+
+        web.evaluateJavascript(js) { result ->
+
+            if (
+                result == null ||
+                result == "null" ||
+                token != mouseMoveToken ||
+                !virtualMouseActive
+            ) {
+                return@evaluateJavascript
+            }
+
+            try {
+                val point = org.json.JSONObject(result)
+
+                val root = findViewById<FrameLayout>(android.R.id.content)
+
+                val currentWebLocation = IntArray(2)
+                val currentRootLocation = IntArray(2)
+
+                web.getLocationOnScreen(currentWebLocation)
+                root.getLocationOnScreen(currentRootLocation)
+
+                val currentLeft =
+                    currentWebLocation[0] - currentRootLocation[0]
+
+                val currentTop =
+                    currentWebLocation[1] - currentRootLocation[1]
+
+                mouseX =
+                    currentLeft +
+                    point.getDouble("x").toFloat() * web.scale
+
+                mouseY =
+                    currentTop +
+                    point.getDouble("y").toFloat() * web.scale
+
+                updateVirtualMousePosition()
+
+            } catch (_: Exception) {
+            }
+        }
     }
 
-    virtualMouseView?.visibility = View.GONE
-}
+    private fun clickVirtualMouse() {
 
+        virtualMouseView ?: return
+
+        val webLocation = IntArray(2)
+        val rootLocation = IntArray(2)
+
+        web.getLocationOnScreen(webLocation)
+
+        findViewById<FrameLayout>(android.R.id.content)
+            .getLocationOnScreen(rootLocation)
+
+        val webLeft = webLocation[0] - rootLocation[0]
+        val webTop = webLocation[1] - rootLocation[1]
+
+        val localX = mouseX - webLeft
+        val localY = mouseY - webTop
+
+        val downTime = SystemClock.uptimeMillis()
+
+        val down = MotionEvent.obtain(
+            downTime, downTime,
+            MotionEvent.ACTION_DOWN,
+            localX, localY, 0
+        )
+
+        val up = MotionEvent.obtain(
+            downTime, downTime + 70,
+            MotionEvent.ACTION_UP,
+            localX, localY, 0
+        )
+
+        down.source = android.view.InputDevice.SOURCE_TOUCHSCREEN
+        up.source = android.view.InputDevice.SOURCE_TOUCHSCREEN
+
+        web.dispatchTouchEvent(down)
+        web.dispatchTouchEvent(up)
+
+        down.recycle()
+        up.recycle()
+
+        virtualMouseActive = false
+        mouseMoveToken++
+
+        virtualMouseView?.visibility = View.GONE
+        web.requestFocus()
+    }
+
+    private fun deactivateVirtualMouse() {
+
+        virtualMouseActive = false
+        mouseMoveToken++
+
+        if (::web.isInitialized) {
+            web.evaluateJavascript("""
+                (function() {
+                    const el = window.__futaniumLastSnapElement;
+
+                    if (el && el.__futaniumOldStyle) {
+                        const old = el.__futaniumOldStyle;
+                        el.style.setProperty('outline', old.outline, old.outlinePriority);
+                        el.style.setProperty('outline-offset', old.offset, old.offsetPriority);
+                        delete el.__futaniumOldStyle;
+                    }
+
+                    window.__futaniumLastSnapElement = null;
+                })();
+            """.trimIndent(), null)
+        }
+
+        virtualMouseView?.visibility = View.GONE
+    }
 
     // =====================================================
     // CONTROLES DOS CANAIS
@@ -1020,6 +926,88 @@ private fun deactivateVirtualMouse() {
     }
 
     // =====================================================
+    // ABRIR PLAYER COM CAPTURA INVISÍVEL
+    // =====================================================
+
+    private fun openCapturePlayer(
+        url: String,
+        title: String,
+        referer: String? = null
+    ) {
+        val cookies = CookieManager.getInstance()
+            .getCookie(url)
+            .orEmpty()
+
+        val pageReferer = referer
+            ?: lastMainUrl
+            ?: ""
+
+        val nativeIntent = Intent(
+            this,
+            PlayerActivity::class.java
+        ).apply {
+
+            putExtra(PlayerActivity.EXTRA_URL, url)
+            putExtra(PlayerActivity.EXTRA_TITLE, title)
+            putExtra("captureM3u8", true)
+
+            putExtra(
+                "game_title",
+                intent.getStringExtra("game_title").orEmpty()
+            )
+
+            putExtra(
+                PlayerActivity.EXTRA_REFERER,
+                pageReferer
+            )
+
+            putExtra(
+                PlayerActivity.EXTRA_USER_AGENT,
+                webUserAgent
+            )
+
+            putExtra(
+                PlayerActivity.EXTRA_COOKIE,
+                cookies
+            )
+
+            putExtra(
+                PlayerActivity.EXTRA_ORIGIN,
+                ""
+            )
+
+            putStringArrayListExtra(
+                "tv_channel_names",
+                ArrayList(tvChannels.map { it.name })
+            )
+
+            putStringArrayListExtra(
+                "tv_channel_urls",
+                ArrayList(tvChannels.map { it.url })
+            )
+
+            putExtra(
+                "tv_channel_capture",
+                BooleanArray(tvChannels.size) {
+                    tvChannels[it].captureM3u8
+                }
+            )
+
+            intent.getIntArrayExtra("tv_channel_orders")?.let {
+                putExtra("tv_channel_orders", it)
+            }
+
+            putExtra(
+                "selected_channel_index",
+                selectedChannelIndex
+            )
+        }
+
+        startActivity(nativeIntent)
+        finish()
+    }
+
+    // =====================================================
     // TROCA DE CANAL
     // =====================================================
 
@@ -1153,11 +1141,22 @@ private fun deactivateVirtualMouse() {
             return
         }
 
+        // CAPTURA M3U8 HABILITADA
+
+        if (channel.captureM3u8) {
+            openCapturePlayer(
+                url = channel.url,
+                title = channel.name,
+                referer = lastMainUrl ?: web.url
+            )
+            return
+        }
+
         // Página web: mantém o comportamento original.
 
         intent.putExtra("selected_channel_index", index)
 
-        captureM3u8 = channel.captureM3u8
+        captureM3u8 = false
         playerOpened = false
 
         val host = runCatching {
@@ -1196,142 +1195,122 @@ private fun deactivateVirtualMouse() {
     // CONTROLE REMOTO
     // =====================================================
 
-    
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
 
+        if (event.action != KeyEvent.ACTION_DOWN) {
+            return super.dispatchKeyEvent(event)
+        }
 
+        if (channelPanelVisible || channelControlsVisible) {
+            scheduleChannelAutoHide()
+        }
 
-override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        when (event.keyCode) {
 
-    if (event.action != KeyEvent.ACTION_DOWN) {
+            KeyEvent.KEYCODE_BACK,
+            KeyEvent.KEYCODE_ESCAPE -> {
+
+                if (virtualMouseActive) {
+                    deactivateVirtualMouse()
+                    return true
+                }
+
+                if (channelPanelVisible) {
+                    closeChannelPanel()
+                    return true
+                }
+
+                if (channelControlsVisible) {
+                    hideChannelControls()
+                    return true
+                }
+            }
+
+            KeyEvent.KEYCODE_DPAD_UP -> {
+
+                if (channelPanelVisible) {
+                    selectedChannelIndex =
+                        (selectedChannelIndex - 1).coerceAtLeast(0)
+
+                    updateChannelList()
+                    focusSelectedChannel()
+
+                    return true
+                }
+
+                if (virtualMouseActive) {
+                    activateVirtualMouse(event.keyCode)
+                    return true
+                }
+            }
+
+            KeyEvent.KEYCODE_DPAD_DOWN -> {
+
+                if (channelPanelVisible) {
+                    selectedChannelIndex =
+                        (selectedChannelIndex + 1)
+                            .coerceAtMost(tvChannels.lastIndex)
+
+                    updateChannelList()
+                    focusSelectedChannel()
+
+                    return true
+                }
+
+                if (virtualMouseActive) {
+                    activateVirtualMouse(event.keyCode)
+                    return true
+                }
+            }
+
+            KeyEvent.KEYCODE_DPAD_LEFT,
+            KeyEvent.KEYCODE_DPAD_RIGHT -> {
+
+                if (channelPanelVisible) {
+                    return super.dispatchKeyEvent(event)
+                }
+
+                if (virtualMouseActive) {
+                    activateVirtualMouse(event.keyCode)
+                    return true
+                }
+
+                if (channelControlsVisible) {
+                    return super.dispatchKeyEvent(event)
+                }
+
+                activateVirtualMouse(event.keyCode)
+                return true
+            }
+
+            KeyEvent.KEYCODE_DPAD_CENTER,
+            KeyEvent.KEYCODE_ENTER,
+            KeyEvent.KEYCODE_NUMPAD_ENTER -> {
+
+                if (virtualMouseActive) {
+                    clickVirtualMouse()
+                    return true
+                }
+
+                if (channelPanelVisible) {
+                    selectWebChannel(selectedChannelIndex)
+                    return true
+                }
+
+                if (channelControlsVisible) {
+                    openChannelPanel()
+                    return true
+                }
+
+                if (tvChannels.isNotEmpty()) {
+                    showChannelControls()
+                    return true
+                }
+            }
+        }
+
         return super.dispatchKeyEvent(event)
     }
-
-    if (channelPanelVisible || channelControlsVisible) {
-        scheduleChannelAutoHide()
-    }
-
-    when (event.keyCode) {
-
-        // VOLTAR
-        KeyEvent.KEYCODE_BACK,
-        KeyEvent.KEYCODE_ESCAPE -> {
-
-            if (virtualMouseActive) {
-                deactivateVirtualMouse()
-                return true
-            }
-
-            if (channelPanelVisible) {
-                closeChannelPanel()
-                return true
-            }
-
-            if (channelControlsVisible) {
-                hideChannelControls()
-                return true
-            }
-        }
-
-        // SETA PARA CIMA
-        KeyEvent.KEYCODE_DPAD_UP -> {
-
-            if (channelPanelVisible) {
-
-                selectedChannelIndex =
-                    (selectedChannelIndex - 1).coerceAtLeast(0)
-
-                updateChannelList()
-                focusSelectedChannel()
-
-                return true
-            }
-
-            if (virtualMouseActive) {
-                activateVirtualMouse(event.keyCode)
-                return true
-            }
-        }
-
-        // SETA PARA BAIXO
-        KeyEvent.KEYCODE_DPAD_DOWN -> {
-
-            if (channelPanelVisible) {
-
-                selectedChannelIndex =
-                    (selectedChannelIndex + 1)
-                        .coerceAtMost(tvChannels.lastIndex)
-
-                updateChannelList()
-                focusSelectedChannel()
-
-                return true
-            }
-
-            if (virtualMouseActive) {
-                activateVirtualMouse(event.keyCode)
-                return true
-            }
-        }
-
-        // SETAS ESQUERDA E DIREITA
-        KeyEvent.KEYCODE_DPAD_LEFT,
-        KeyEvent.KEYCODE_DPAD_RIGHT -> {
-
-            if (channelPanelVisible) {
-                return super.dispatchKeyEvent(event)
-            }
-
-            if (virtualMouseActive) {
-                activateVirtualMouse(event.keyCode)
-                return true
-            }
-
-            if (channelControlsVisible) {
-                return super.dispatchKeyEvent(event)
-            }
-
-            // Ativa o mouse virtual fora dos controles.
-            activateVirtualMouse(event.keyCode)
-            return true
-        }
-
-        // OK / ENTER
-        KeyEvent.KEYCODE_DPAD_CENTER,
-        KeyEvent.KEYCODE_ENTER,
-        KeyEvent.KEYCODE_NUMPAD_ENTER -> {
-
-            // Mouse ativo: executa clique.
-            if (virtualMouseActive) {
-                clickVirtualMouse()
-                return true
-            }
-
-            // Dentro do menu: abre o canal selecionado.
-            if (channelPanelVisible) {
-                selectWebChannel(selectedChannelIndex)
-                return true
-            }
-
-            // Faixa inferior visível: abre o menu.
-            if (channelControlsVisible) {
-                openChannelPanel()
-                return true
-            }
-
-            // Primeiro OK: mostra a faixa inferior.
-            if (tvChannels.isNotEmpty()) {
-                showChannelControls()
-                return true
-            }
-        }
-    }
-
-    return super.dispatchKeyEvent(event)
-}
-
-
-
-
 
     // =====================================================
     // UTILITÁRIO DE CABEÇALHOS
@@ -1444,7 +1423,9 @@ override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         captureM3u8 =
             intent.getBooleanExtra("captureM3u8", false)
 
-        // Manifesto direto: encaminha para o player nativo.
+        // =================================================
+        // MANIFESTO DIRETO
+        // =================================================
 
         if (isDirectNativeManifest(initialUrl)) {
 
@@ -1504,11 +1485,14 @@ override fun dispatchKeyEvent(event: KeyEvent): Boolean {
             return
         }
 
-        // Links do YouTube vão para a Activity exclusiva.
+        // =================================================
+        // YOUTUBE: MANTÉM A ACTIVITY EXCLUSIVA
+        // =================================================
 
         if (
             initialUrl.contains("youtube.com", true) ||
-            initialUrl.contains("youtu.be", true)
+            initialUrl.contains("youtu.be", true) ||
+            initialUrl.contains("youtube-nocookie.com", true)
         ) {
 
             startActivity(
@@ -1557,6 +1541,25 @@ override fun dispatchKeyEvent(event: KeyEvent): Boolean {
             return
         }
 
+        // =================================================
+        // CAPTURA M3U8 NA ABERTURA INICIAL
+        // SIM: abre o player nativo imediatamente.
+        // NÃO: continua para a WebView normal.
+        // =================================================
+
+        if (captureM3u8 && initialUrl.isNotBlank()) {
+
+            openCapturePlayer(
+                url = initialUrl,
+                title = intent.getStringExtra(
+                    PlayerActivity.EXTRA_TITLE
+                ).orEmpty(),
+                referer = null
+            )
+
+            return
+        }
+
         val initHost = runCatching {
             Uri.parse(initialUrl)
                 .host
@@ -1589,7 +1592,9 @@ override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         web.setOnLongClickListener { true }
         web.isHapticFeedbackEnabled = false
 
+        // =================================================
         // INSETS
+        // =================================================
 
         val contentRoot =
             findViewById<ViewGroup>(android.R.id.content)
@@ -1632,7 +1637,9 @@ override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         ViewCompat.requestApplyInsets(contentRoot)
         ViewCompat.requestApplyInsets(web)
 
+        // =================================================
         // BLACK SHIELD
+        // =================================================
 
         blackShield = View(this).apply {
 
@@ -1648,7 +1655,9 @@ override fun dispatchKeyEvent(event: KeyEvent): Boolean {
 
         (contentRoot as ViewGroup).addView(blackShield)
 
+        // =================================================
         // WEBVIEW SETTINGS
+        // =================================================
 
         with(web.settings) {
 
@@ -1679,11 +1688,11 @@ override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         webUserAgent = web.settings.userAgentString.orEmpty()
 
         setupChannelInterface()
-
-        // Mouse fica por cima do WebView e dos controles.
         setupVirtualMouse()
 
+        // =================================================
         // WEBVIEW CLIENT
+        // =================================================
 
         web.webViewClient = object : WebViewClient() {
 
@@ -1839,7 +1848,6 @@ override fun dispatchKeyEvent(event: KeyEvent): Boolean {
                         injectCoreShieldJS(emptyList())
                     }
 
-                    // Mantém a tentativa de autoplay original.
                     view.postDelayed({
                         if (!isFinishing && !isDestroyed) {
                             injectAutoPlayJS()
@@ -1865,7 +1873,6 @@ override fun dispatchKeyEvent(event: KeyEvent): Boolean {
                 val code = errorResponse?.statusCode ?: return
 
                 if (code == 403 || code == 451) {
-
                     runOnUiThread {
                         showOperatorBlockedDialog()
                     }
@@ -1883,7 +1890,6 @@ override fun dispatchKeyEvent(event: KeyEvent): Boolean {
                 if (!request.isForMainFrame) return
 
                 if (!isOnline()) {
-
                     showBlackShieldAndDialog(view)
                     return
                 }
@@ -1894,7 +1900,6 @@ override fun dispatchKeyEvent(event: KeyEvent): Boolean {
                     error.errorCode == WebViewClient.ERROR_TIMEOUT ||
                     error.errorCode == WebViewClient.ERROR_FAILED_SSL_HANDSHAKE
                 ) {
-
                     showOperatorBlockedDialog()
                 }
             }
@@ -1915,7 +1920,6 @@ override fun dispatchKeyEvent(event: KeyEvent): Boolean {
                 )
 
                 if (!isOnline()) {
-
                     showBlackShieldAndDialog(view)
                     return
                 }
@@ -1926,7 +1930,6 @@ override fun dispatchKeyEvent(event: KeyEvent): Boolean {
                     errorCode == WebViewClient.ERROR_TIMEOUT ||
                     errorCode == WebViewClient.ERROR_FAILED_SSL_HANDSHAKE
                 ) {
-
                     showOperatorBlockedDialog()
                 }
             }
@@ -1940,6 +1943,8 @@ override fun dispatchKeyEvent(event: KeyEvent): Boolean {
             }
 
             // CAPTURA AUTOMÁTICA MPD / M3U8
+            // Mantida como proteção para manifestos encontrados
+            // em uma WebView que já esteja aberta.
 
             override fun shouldInterceptRequest(
                 view: WebView,
@@ -1962,7 +1967,6 @@ override fun dispatchKeyEvent(event: KeyEvent): Boolean {
                     var shouldOpenPlayer = false
 
                     synchronized(this@WebViewActivity) {
-
                         if (!playerOpened) {
                             playerOpened = true
                             shouldOpenPlayer = true
@@ -2001,7 +2005,9 @@ override fun dispatchKeyEvent(event: KeyEvent): Boolean {
 
                             val channelName =
                                 tvChannels.getOrNull(selectedChannelIndex)?.name
-                                    ?: intent.getStringExtra(PlayerActivity.EXTRA_TITLE).orEmpty()
+                                    ?: intent.getStringExtra(
+                                        PlayerActivity.EXTRA_TITLE
+                                    ).orEmpty()
 
                             val i = Intent(
                                 this@WebViewActivity,
@@ -2118,7 +2124,6 @@ override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         web.webChromeClient = object : WebChromeClient() {}
 
         if (initialUrl.isNotBlank()) {
-
             lastMainUrl = initialUrl
             web.loadUrl(initialUrl)
         }
@@ -2165,16 +2170,15 @@ override fun dispatchKeyEvent(event: KeyEvent): Boolean {
 
     override fun onDestroy() {
 
-    cancelChannelAutoHide()
+        cancelChannelAutoHide()
+        deactivateVirtualMouse()
 
-    deactivateVirtualMouse()
+        window.clearFlags(
+            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+        )
 
-    window.clearFlags(
-        WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-    )
-
-    super.onDestroy()
-}
+        super.onDestroy()
+    }
 
     override fun onPause() {
 
@@ -2237,7 +2241,6 @@ override fun dispatchKeyEvent(event: KeyEvent): Boolean {
             }
 
         } catch (_: Exception) {
-            // Mantém o comportamento original.
         }
     }
 
@@ -2722,7 +2725,6 @@ override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         operatorDialog?.setCanceledOnTouchOutside(false)
 
         operatorDialog?.setOnDismissListener {
-
             operatorDialogOpen = false
             operatorDialog = null
         }
