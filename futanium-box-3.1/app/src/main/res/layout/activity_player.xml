@@ -26,4 +26,14 @@
         app:resize_mode="fit"
         app:surface_type="texture_view" />
 
+    <!-- Carregamento inicial e busca do manifesto -->
+    <ProgressBar
+        android:id="@+id/captureLoading"
+        android:layout_width="52dp"
+        android:layout_height="52dp"
+        android:layout_gravity="center"
+        android:indeterminate="true"
+        android:indeterminateTint="@android:color/white"
+        android:visibility="gone" />
+
 </FrameLayout>
