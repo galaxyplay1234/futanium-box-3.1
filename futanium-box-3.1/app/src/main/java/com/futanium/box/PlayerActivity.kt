@@ -75,6 +75,7 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private lateinit var playerView: PlayerView
+		private lateinit var captureLoading: ProgressBar
     private var player: ExoPlayer? = null
     private lateinit var insets: WindowInsetsControllerCompat
 
@@ -1043,7 +1044,10 @@ class PlayerActivity : AppCompatActivity() {
         setContentView(R.layout.activity_player)
 
         playerView = findViewById(R.id.playerView)
-        captureWebView = findViewById(R.id.captureWebView)
+captureWebView = findViewById(R.id.captureWebView)
+captureLoading = findViewById(R.id.captureLoading)
+
+captureLoading.visibility = View.GONE
 
         readTvChannels()
 
@@ -1184,17 +1188,17 @@ class PlayerActivity : AppCompatActivity() {
 
         if (!isSupported(url) && captureEnabled) {
 
-            Log.i(TAG, "Captura M3U8 habilitada para este canal.")
+    captureLoading.visibility = View.VISIBLE
 
-            // Não cria um ExoPlayer vazio.
-            // O primeiro ExoPlayer será criado quando o manifesto chegar.
-            playerView.player = null
-            playerView.setBackgroundColor(Color.BLACK)
+    Log.i(TAG, "Captura M3U8 habilitada para este canal.")
 
-            startBackgroundCapture(url)
+    playerView.player = null
+    playerView.setBackgroundColor(Color.BLACK)
 
-            return
-        }
+    startBackgroundCapture(url)
+
+    return
+}
 
         // =====================================================
         // PÁGINA WEB SEM CAPTURA
@@ -1658,29 +1662,39 @@ class PlayerActivity : AppCompatActivity() {
 
             override fun onPlaybackStateChanged(state: Int) {
 
-                when (state) {
+    when (state) {
 
-                    Player.STATE_BUFFERING -> {
-                        bufferingStartAt = System.currentTimeMillis()
+        Player.STATE_BUFFERING -> {
+            captureLoading.visibility = View.VISIBLE
 
-                        main.removeCallbacks(bufferingWatchdog)
-                        main.postDelayed(bufferingWatchdog, 2000)
-                    }
+            bufferingStartAt = System.currentTimeMillis()
 
-                    Player.STATE_READY,
-                    Player.STATE_ENDED -> {
-                        main.removeCallbacks(bufferingWatchdog)
-                    }
+            main.removeCallbacks(bufferingWatchdog)
+            main.postDelayed(bufferingWatchdog, 2000)
+        }
 
-                    Player.STATE_IDLE -> {
-                        // Não repetir prepare automaticamente aqui.
-                    }
-                }
-            }
+        Player.STATE_READY -> {
+            captureLoading.visibility = View.GONE
+
+            main.removeCallbacks(bufferingWatchdog)
+        }
+
+        Player.STATE_ENDED -> {
+            captureLoading.visibility = View.GONE
+
+            main.removeCallbacks(bufferingWatchdog)
+        }
+
+        Player.STATE_IDLE -> {
+            // Mantém o comportamento atual.
+        }
+    }
+}
 
             override fun onPlayerError(error: PlaybackException) {
 
                 main.removeCallbacks(bufferingWatchdog)
+								captureLoading.visibility = View.GONE
 
                 Log.e(
                     TAG,
