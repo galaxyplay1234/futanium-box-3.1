@@ -75,7 +75,8 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private lateinit var playerView: PlayerView
-		private lateinit var captureLoading: ProgressBar
+    private var bufferingIndicator: ProgressBar? = null
+
     private var player: ExoPlayer? = null
     private lateinit var insets: WindowInsetsControllerCompat
 
@@ -1045,11 +1046,12 @@ class PlayerActivity : AppCompatActivity() {
 
         playerView = findViewById(R.id.playerView)
 captureWebView = findViewById(R.id.captureWebView)
-captureLoading = findViewById(R.id.captureLoading)
 
-captureLoading.visibility = View.GONE
+bufferingIndicator = playerView.findViewById(
+    androidx.media3.ui.R.id.exo_buffering
+)
 
-centerCaptureLoading()
+bufferingIndicator?.visibility = View.GONE
 
         readTvChannels()
 
@@ -1142,24 +1144,17 @@ centerCaptureLoading()
         // BUFFERING
         // =====================================================
 
-        findViewById<ProgressBar>(
-            androidx.media3.ui.R.id.exo_buffering
-        )?.let { pb ->
-            val white =
-                android.content.res.ColorStateList.valueOf(Color.WHITE)
+        // =====================================================
+// BUFFERING
+// =====================================================
 
-            pb.indeterminateTintList = white
-            pb.indeterminateTintMode =
-                android.graphics.PorterDuff.Mode.SRC_IN
-        }
+bufferingIndicator?.let { pb ->
+    val white = android.content.res.ColorStateList.valueOf(Color.WHITE)
 
-        listOf(
-            androidx.media3.ui.R.id.exo_prev,
-            androidx.media3.ui.R.id.exo_next,
-            androidx.media3.ui.R.id.exo_settings
-        ).forEach { id ->
-            playerView.findViewById<View?>(id)?.visibility = View.GONE
-        }
+    pb.indeterminateTintList = white
+    pb.indeterminateTintMode =
+        android.graphics.PorterDuff.Mode.SRC_IN
+}
 
         // =====================================================
         // DADOS DO PLAYER
@@ -1190,12 +1185,14 @@ centerCaptureLoading()
 
         if (!isSupported(url) && captureEnabled) {
 
-    captureLoading.visibility = View.VISIBLE
-
     Log.i(TAG, "Captura M3U8 habilitada para este canal.")
 
     playerView.player = null
     playerView.setBackgroundColor(Color.BLACK)
+
+    playerView.post {
+        bufferingIndicator?.visibility = View.VISIBLE
+    }
 
     startBackgroundCapture(url)
 
@@ -1290,23 +1287,7 @@ centerCaptureLoading()
     }
 
 
-private fun centerCaptureLoading() {
-    playerView.post {
-        val location = IntArray(2)
-        playerView.getLocationInWindow(location)
 
-        val params = captureLoading.layoutParams as FrameLayout.LayoutParams
-
-        params.gravity = Gravity.TOP or Gravity.START
-        captureLoading.layoutParams = params
-
-        captureLoading.x =
-            location[0] + (playerView.width - captureLoading.width) / 2f
-
-        captureLoading.y =
-            location[1] + (playerView.height - captureLoading.height) / 2f
-    }
-}
 
     // =========================================================
     // MODELO DO DIAGNÓSTICO MPD
@@ -1627,7 +1608,7 @@ private fun centerCaptureLoading() {
             return
         }
 					
-				captureLoading.visibility = View.GONE
+				
 
         val requestHeaders = mutableMapOf<String, String>()
 
@@ -1684,31 +1665,23 @@ private fun centerCaptureLoading() {
         p.addListener(object : Player.Listener {
 
             override fun onPlaybackStateChanged(state: Int) {
-
     when (state) {
 
         Player.STATE_BUFFERING -> {
-            // O ExoPlayer está carregando.
-            captureLoading.visibility = View.GONE
-
             bufferingStartAt = System.currentTimeMillis()
 
             main.removeCallbacks(bufferingWatchdog)
             main.postDelayed(bufferingWatchdog, 2000)
         }
 
-        Player.STATE_READY -> {
-            captureLoading.visibility = View.GONE
-            main.removeCallbacks(bufferingWatchdog)
-        }
-
+        Player.STATE_READY,
         Player.STATE_ENDED -> {
-            captureLoading.visibility = View.GONE
+            bufferingIndicator?.visibility = View.GONE
             main.removeCallbacks(bufferingWatchdog)
         }
 
         Player.STATE_IDLE -> {
-            // Mantém o comportamento atual.
+            bufferingIndicator?.visibility = View.GONE
         }
     }
 }
@@ -1716,7 +1689,7 @@ private fun centerCaptureLoading() {
             override fun onPlayerError(error: PlaybackException) {
 
                 main.removeCallbacks(bufferingWatchdog)
-								captureLoading.visibility = View.GONE
+								bufferingIndicator?.visibility = View.GONE
 
                 Log.e(
                     TAG,
