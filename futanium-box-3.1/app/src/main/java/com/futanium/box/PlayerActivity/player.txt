@@ -1,0 +1,30 @@
+
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/black">
+
+    <!-- WebView invisível usado somente para localizar o manifesto -->
+    <WebView
+        android:id="@+id/captureWebView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:alpha="0"
+        android:clickable="false"
+        android:focusable="false" />
+
+    <!-- Player sempre na frente -->
+    <androidx.media3.ui.PlayerView
+        android:id="@+id/playerView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:keepScreenOn="true"
+        app:use_controller="false"
+        app:controller_layout_id="@layout/exo_player_controller_minimal"
+        app:show_buffering="when_playing"
+        app:resize_mode="fit"
+        app:surface_type="texture_view" />
+
+</FrameLayout>
