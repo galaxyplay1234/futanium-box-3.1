@@ -26,6 +26,7 @@ import org.json.JSONObject
 import androidx.browser.customtabs.CustomTabsIntent
 import android.text.TextUtils
 import com.google.android.material.card.MaterialCardView
+import java.util.Locale
 
 class GameAdapter(
     private val items: MutableList<Game> = mutableListOf()
@@ -1119,6 +1120,7 @@ class GameAdapter(
     // =====================================================
 
     
+
 private var lastClickTime = 0L
 
 private fun openLink(
@@ -1146,29 +1148,56 @@ private fun openLink(
 
         lastClickTime = now
 
-        if (u.startsWith("http", ignoreCase = true)) {
+        // Verifica se o conteúdo é um JSON de stream
+        var isJsonStream = false
 
-            val mediaUrl = u.substringBefore("?")
-                .substringBefore("#")
-                .lowercase()
+        try {
+            val json = JSONObject(u)
+            val mediaUrl = json.optString("url", "").trim()
+            val type = json.optString("type", "").trim()
+
+            isJsonStream = mediaUrl.isNotBlank() &&
+                (
+                    type.equals("dash", true) ||
+                    type.equals("hls", true) ||
+                    mediaUrl.contains(".mpd", true) ||
+                    mediaUrl.contains(".m3u8", true)
+                )
+
+        } catch (_: Exception) {
+            isJsonStream = false
+        }
+
+        val isHttp = u.startsWith("http", ignoreCase = true)
+
+        if (isJsonStream || isHttp) {
+
+            val mediaUrl = if (isJsonStream) {
+                JSONObject(u).optString("url", "")
+            } else {
+                u.substringBefore("?")
+                    .substringBefore("#")
+                    .lowercase(Locale.ROOT)
+            }
 
             val isDirectMedia =
-                mediaUrl.endsWith(".m3u8") ||
-                mediaUrl.endsWith(".mpd") ||
+                isJsonStream ||
+                mediaUrl.contains(".m3u8") ||
+                mediaUrl.contains(".mpd") ||
                 mediaUrl.endsWith(".ts") ||
                 mediaUrl.endsWith(".mp4")
 
-            // Link direto OU captura habilitada:
-            // abre PlayerActivity sem passar pelo WebViewActivity.
-            val openNativePlayer = isDirectMedia || captureM3u8
+            val openNativePlayer =
+                isDirectMedia || captureM3u8
 
-            val it = if (openNativePlayer) {
+            val intent = if (openNativePlayer) {
 
                 Intent(
                     ctx,
                     com.futanium.box.PlayerActivity::class.java
                 ).apply {
 
+                    // IMPORTANTE: envia o JSON original completo
                     putExtra(
                         com.futanium.box.PlayerActivity.EXTRA_URL,
                         u
@@ -1206,15 +1235,8 @@ private fun openLink(
                         u
                     )
 
-                    putExtra(
-                        "captureM3u8",
-                        false
-                    )
-
-                    putExtra(
-                        "game_title",
-                        gameTitle ?: ""
-                    )
+                    putExtra("captureM3u8", false)
+                    putExtra("game_title", gameTitle ?: "")
 
                     if (!tvChannels.isNullOrEmpty()) {
                         addTvChannelsToIntent(this, tvChannels)
@@ -1223,22 +1245,19 @@ private fun openLink(
             }
 
             MainActivity.navigatingInsideApp = true
-            ctx.startActivity(it)
+            ctx.startActivity(intent)
 
         } else {
 
-            val it = Intent(
+            val intent = Intent(
                 Intent.ACTION_VIEW,
                 Uri.parse(u)
             )
 
-            ctx.startActivity(it)
+            ctx.startActivity(intent)
         }
 
-        // =================================================
         // ANÚNCIO ORIGINAL - MANTIDO
-        // =================================================
-
         if (
             monetagEnabledRemote &&
             monetagLinkRemote.isNotBlank()
@@ -1288,7 +1307,6 @@ private fun openLink(
                     }, 300)
 
                 } catch (e: Exception) {
-
                     e.printStackTrace()
 
                     Toast.makeText(
@@ -1303,15 +1321,20 @@ private fun openLink(
 
     } catch (e: Exception) {
 
-        e.printStackTrace()
+        android.util.Log.e(
+            "FutaniumPlayer",
+            "Erro ao abrir canal: ${e.message}",
+            e
+        )
 
         Toast.makeText(
             ctx,
-            "Erro ao abrir o canal.",
-            Toast.LENGTH_SHORT
+            "Erro ao abrir o canal: ${e.message}",
+            Toast.LENGTH_LONG
         ).show()
     }
 }
+
 
 }
 
