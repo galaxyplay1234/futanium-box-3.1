@@ -1695,60 +1695,7 @@ Log.i(TAG, "LINK ESCOLHIDO PARA REPRODUÇÃO: $url")
     }
 }
 
- // =========================================================
-// DIAGNÓSTICO: LINK CAPTURADO
-// =========================================================
-
-private fun showCapturedUrlDebug(url: String) {
-
-    val root = findViewById<FrameLayout>(android.R.id.content)
-        ?: return
-
-    root.findViewWithTag<View>("futanium_capture_debug")
-        ?.let { root.removeView(it) }
-
-    val debugView = TextView(this).apply {
-
-        tag = "futanium_capture_debug"
-
-        text = "LINK CAPTURADO:\n$url"
-
-        setTextColor(Color.WHITE)
-        textSize = 12f
-
-        setPadding(
-            dp(12),
-            dp(10),
-            dp(12),
-            dp(10)
-        )
-
-        setBackgroundColor(Color.rgb(25, 35, 48))
-
-        isTextSelectable = true
-
-        maxLines = 5
-        ellipsize = android.text.TextUtils.TruncateAt.END
-
-        elevation = dp(50).toFloat()
-    }
-
-    root.addView(
-        debugView,
-        FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.MATCH_PARENT,
-            FrameLayout.LayoutParams.WRAP_CONTENT,
-            Gravity.TOP
-        ).apply {
-            setMargins(
-                dp(12),
-                dp(12),
-                dp(12),
-                0
-            )
-        }
-    )
-}
+ 
             override fun onPlayerError(error: PlaybackException) {
 
     main.removeCallbacks(bufferingWatchdog)
@@ -1966,6 +1913,61 @@ private fun showCapturedUrlDebug(url: String) {
             p.playWhenReady = true
         }
     }
+
+    // =========================================================
+    // DIAGNÓSTICO: LINK CAPTURADO
+    // =========================================================
+
+    private fun showCapturedUrlDebug(url: String) {
+
+        val root = findViewById<FrameLayout>(android.R.id.content)
+
+        root.findViewWithTag<View>("futanium_capture_debug")
+            ?.let { root.removeView(it) }
+
+        val debugView = TextView(this@PlayerActivity).apply {
+
+            tag = "futanium_capture_debug"
+
+            this.text = "LINK CAPTURADO:\n$url"
+
+            setTextColor(Color.WHITE)
+            textSize = 12f
+
+            setPadding(
+                dp(12),
+                dp(10),
+                dp(12),
+                dp(10)
+            )
+
+            setBackgroundColor(Color.rgb(25, 35, 48))
+
+            isTextSelectable = true
+
+            maxLines = 5
+            ellipsize = android.text.TextUtils.TruncateAt.END
+
+            elevation = dp(50).toFloat()
+        }
+
+        root.addView(
+            debugView,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.TOP
+            ).apply {
+                setMargins(
+                    dp(12),
+                    dp(12),
+                    dp(12),
+                    0
+                )
+            }
+        )
+    }
+
 
     // =========================================================
     // CICLO DE VIDA
