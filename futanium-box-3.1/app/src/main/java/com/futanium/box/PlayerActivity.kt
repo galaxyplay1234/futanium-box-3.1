@@ -1767,7 +1767,7 @@ Log.i(TAG, "LINK ESCOLHIDO PARA REPRODUÇÃO: $url")
 
         val clearKeyResponse = buildClearKeyResponse(clearKey)
 
-val defaultDrmProvider = DefaultDrmSessionManagerProvider(this)
+val defaultDrmProvider = DefaultDrmSessionManagerProvider()
 
 val localClearKeyManager = clearKeyResponse?.let { response ->
 
