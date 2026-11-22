@@ -1046,6 +1046,15 @@ class PlayerActivity : AppCompatActivity() {
         playerView = findViewById(R.id.playerView)
 captureWebView = findViewById(R.id.captureWebView)
 captureLoading = findViewById(R.id.captureLoading)
+captureLoading.post {
+    val parent = captureLoading.parent as View
+
+    captureLoading.x =
+        (parent.width - captureLoading.width) / 2f
+
+    captureLoading.y =
+        (parent.height - captureLoading.height) / 2f
+}
 
 captureLoading.visibility = View.GONE
 
@@ -1605,6 +1614,8 @@ captureLoading.visibility = View.GONE
             Log.w(TAG, "Player já inicializado. Ignorando nova inicialização.")
             return
         }
+					
+				captureLoading.visibility = View.GONE
 
         val requestHeaders = mutableMapOf<String, String>()
 
@@ -1665,7 +1676,7 @@ captureLoading.visibility = View.GONE
     when (state) {
 
         Player.STATE_BUFFERING -> {
-            // O indicador original do ExoPlayer assume.
+            // O ExoPlayer está carregando.
             captureLoading.visibility = View.GONE
 
             bufferingStartAt = System.currentTimeMillis()
