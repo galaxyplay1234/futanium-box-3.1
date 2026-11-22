@@ -1,5 +1,6 @@
 package com.futanium.box
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
@@ -13,6 +14,11 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.webkit.CookieManager
+import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ProgressBar
@@ -43,6 +49,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserFactory
+import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
@@ -70,6 +77,15 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var playerView: PlayerView
     private var player: ExoPlayer? = null
     private lateinit var insets: WindowInsetsControllerCompat
+
+    // WebView invisível usado somente quando Buscar M3U8 = SIM.
+    private lateinit var captureWebView: WebView
+
+    @Volatile
+    private var captureStarted = false
+
+    @Volatile
+    private var manifestReceived = false
 
     private val main = Handler(Looper.getMainLooper())
 
@@ -101,7 +117,9 @@ class PlayerActivity : AppCompatActivity() {
     private val controllerHandler = Handler(Looper.getMainLooper())
 
     private val controllerAutoHide = Runnable {
-        playerView.hideController()
+        if (::playerView.isInitialized) {
+            playerView.hideController()
+        }
     }
 
     private val httpClient = OkHttpClient.Builder()
@@ -110,6 +128,213 @@ class PlayerActivity : AppCompatActivity() {
         .followRedirects(true)
         .followSslRedirects(true)
         .build()
+
+    // =========================================================
+    // CAPTURA INVISÍVEL DO MANIFESTO
+    // =========================================================
+
+    private fun isCaptureManifest(url: String): Boolean {
+        return try {
+            val uri = Uri.parse(url)
+            val path = uri.path?.lowercase(Locale.ROOT).orEmpty()
+
+            path.endsWith(".m3u8") || path.endsWith(".mpd")
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    @SuppressLint("SetJavaScriptEnabled")
+    private fun startBackgroundCapture(pageUrl: String) {
+
+        if (captureStarted || pageUrl.isBlank()) return
+
+        captureStarted = true
+
+        if (!::captureWebView.isInitialized) {
+            Log.e(TAG, "WebView de captura não foi inicializado.")
+            return
+        }
+
+        Log.i(TAG, "Iniciando captura invisível: $pageUrl")
+
+        captureWebView.apply {
+
+            visibility = View.VISIBLE
+            alpha = 0f
+
+            isClickable = false
+            isFocusable = false
+            isFocusableInTouchMode = false
+
+            settings.javaScriptEnabled = true
+            settings.domStorageEnabled = true
+            settings.mediaPlaybackRequiresUserGesture = false
+            settings.loadsImagesAutomatically = true
+            settings.javaScriptCanOpenWindowsAutomatically = true
+            settings.allowContentAccess = true
+            settings.allowFileAccess = false
+
+            settings.mixedContentMode =
+                android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+
+            currentUserAgent?.takeIf { it.isNotBlank() }?.let {
+                settings.userAgentString = it
+            }
+
+            webChromeClient = WebChromeClient()
+
+            webViewClient = object : WebViewClient() {
+
+                override fun shouldOverrideUrlLoading(
+                    view: WebView?,
+                    request: WebResourceRequest?
+                ): Boolean {
+                    return false
+                }
+
+                override fun onPageFinished(
+                    view: WebView?,
+                    url: String?
+                ) {
+                    super.onPageFinished(view, url)
+
+                    Log.i(TAG, "Página de captura carregada: $url")
+
+                    // Tenta iniciar players HTML5 que exigem reprodução automática.
+                    view?.evaluateJavascript(
+                        """
+                        (function() {
+                            try {
+                                var videos = document.querySelectorAll('video');
+                                videos.forEach(function(video) {
+                                    video.muted = true;
+                                    video.setAttribute('muted', '');
+                                    video.play().catch(function(){});
+                                });
+                            } catch(e) {}
+                        })();
+                        """.trimIndent(),
+                        null
+                    )
+                }
+
+                override fun shouldInterceptRequest(
+                    view: WebView?,
+                    request: WebResourceRequest?
+                ): android.webkit.WebResourceResponse? {
+
+                    if (request == null || manifestReceived) {
+                        return null
+                    }
+
+                    val requestUrl = request.url.toString()
+
+                    if (!isCaptureManifest(requestUrl)) {
+                        return null
+                    }
+
+                    if (!request.method.equals("GET", true)) {
+                        return null
+                    }
+
+                    val scheme = request.url.scheme.orEmpty()
+
+                    if (scheme != "http" && scheme != "https") {
+                        return null
+                    }
+
+                    val firstManifest = synchronized(this@PlayerActivity) {
+                        if (manifestReceived) {
+                            false
+                        } else {
+                            manifestReceived = true
+                            true
+                        }
+                    }
+
+                    if (!firstManifest) {
+                        return null
+                    }
+
+                    val headers = request.requestHeaders
+
+                    val capturedReferer =
+                        headers.entries.firstOrNull {
+                            it.key.equals("Referer", true)
+                        }?.value
+                            ?: currentReferer
+                            ?: pageUrl
+
+                    val capturedUserAgent =
+                        headers.entries.firstOrNull {
+                            it.key.equals("User-Agent", true)
+                        }?.value
+                            ?: currentUserAgent
+                            ?: settings.userAgentString
+
+                    val capturedOrigin =
+                        headers.entries.firstOrNull {
+                            it.key.equals("Origin", true)
+                        }?.value
+                            ?: currentOrigin
+
+                    val capturedCookie =
+                        headers.entries.firstOrNull {
+                            it.key.equals("Cookie", true)
+                        }?.value
+                            ?: CookieManager.getInstance()
+                                .getCookie(requestUrl)
+                            ?: currentCookie
+
+                    Log.i(TAG, "Manifesto encontrado: $requestUrl")
+
+                    runOnUiThread {
+                        if (!isFinishing && !isDestroyed) {
+                            Log.i(TAG, "Entregando manifesto ao ExoPlayer.")
+
+                            initPlayer(
+                                requestUrl,
+                                intent.getStringExtra(EXTRA_TITLE),
+                                capturedReferer,
+                                capturedUserAgent,
+                                capturedCookie,
+                                currentSubtitle,
+                                capturedOrigin
+                            )
+                        }
+                    }
+
+                    // Não interrompe o carregamento original do WebView.
+                    return null
+                }
+            }
+
+            val pageHeaders = HashMap<String, String>()
+
+            currentReferer?.takeIf { it.isNotBlank() }?.let {
+                pageHeaders["Referer"] = it
+            }
+
+            currentUserAgent?.takeIf { it.isNotBlank() }?.let {
+                pageHeaders["User-Agent"] = it
+            }
+
+            currentCookie?.takeIf { it.isNotBlank() }?.let {
+                pageHeaders["Cookie"] = it
+            }
+
+            currentOrigin?.takeIf { it.isNotBlank() }?.let {
+                pageHeaders["Origin"] = it
+            }
+
+            if (pageHeaders.isEmpty()) {
+                loadUrl(pageUrl)
+            } else {
+                loadUrl(pageUrl, pageHeaders)
+            }
+        }
+    }
 
     // =========================================================
     // CANAIS
@@ -300,10 +525,6 @@ class PlayerActivity : AppCompatActivity() {
 
         channelRoot = playerView.parent as? FrameLayout ?: return
 
-        // -----------------------------------------------------
-        // GRADIENTE INFERIOR
-        // -----------------------------------------------------
-
         channelGradient = View(this).apply {
             background = GradientDrawable(
                 GradientDrawable.Orientation.TOP_BOTTOM,
@@ -327,21 +548,14 @@ class PlayerActivity : AppCompatActivity() {
             )
         )
 
-        // -----------------------------------------------------
-        // RODAPÉ DOS CANAIS
-        // -----------------------------------------------------
-
         channelBottom = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(0, dp(8), 0, dp(8))
-
             setBackgroundColor(Color.TRANSPARENT)
-
             visibility = View.GONE
             elevation = dp(15).toFloat()
         }
 
-        // TÍTULO DO JOGO
         gameTitleText = createChannelText(
             intent.getStringExtra("game_title").orEmpty(),
             21f,
@@ -352,7 +566,6 @@ class PlayerActivity : AppCompatActivity() {
             ellipsize = android.text.TextUtils.TruncateAt.END
         }
 
-        // NOME DO CANAL
         channelNameText = createChannelText(
             "",
             17f,
@@ -419,10 +632,6 @@ class PlayerActivity : AppCompatActivity() {
                 bottomMargin = dp(35)
             }
         )
-
-        // -----------------------------------------------------
-        // PAINEL LATERAL
-        // -----------------------------------------------------
 
         channelPanel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -623,15 +832,12 @@ class PlayerActivity : AppCompatActivity() {
         channelPanel?.visibility = View.GONE
 
         if (channelControlsVisible) {
-
             channelGradient?.visibility = View.VISIBLE
             channelBottom?.visibility = View.VISIBLE
 
             channelButton?.requestFocus()
 
-            // Nova contagem após voltar do menu.
             scheduleChannelAutoHide()
-
         } else {
             hideChannelControls()
         }
@@ -654,6 +860,7 @@ class PlayerActivity : AppCompatActivity() {
         playerView.requestFocus()
     }
 
+
     // =========================================================
     // TROCAR CANAL
     // =========================================================
@@ -667,11 +874,12 @@ class PlayerActivity : AppCompatActivity() {
 
         val channel = tvChannels[index]
 
-        // Se já for um link direto de mídia, abre no player nativo.
-        // Se for uma página web, mantém o fluxo pelo WebView.
+        // Link direto ou captura habilitada: abre o PlayerActivity.
+        // Captura desabilitada: mantém o WebView normal.
         val directNative = isSupported(channel.url)
+        val useCapture = channel.captureM3u8 && !directNative
 
-        val destination = if (directNative) {
+        val destination = if (directNative || useCapture) {
             PlayerActivity::class.java
         } else {
             WebViewActivity::class.java
@@ -681,17 +889,13 @@ class PlayerActivity : AppCompatActivity() {
 
             putExtra(EXTRA_URL, channel.url)
             putExtra(EXTRA_TITLE, channel.name)
+            putExtra("captureM3u8", channel.captureM3u8)
 
-            // PRESERVA O TÍTULO DO JOGO
             putExtra(
                 "game_title",
                 intent.getStringExtra("game_title").orEmpty()
             )
 
-            // O WebView precisa saber se deve capturar o M3U8.
-            putExtra("captureM3u8", channel.captureM3u8)
-
-            // Preserva os dados dos canais para o próximo menu.
             putStringArrayListExtra(
                 EXTRA_TV_CHANNEL_NAMES,
                 ArrayList(tvChannels.map { it.name })
@@ -715,7 +919,6 @@ class PlayerActivity : AppCompatActivity() {
 
             putExtra(EXTRA_SELECTED_CHANNEL, index)
 
-            // Preserva cabeçalhos quando o destino for o player nativo.
             if (directNative) {
                 putExtra(EXTRA_REFERER, currentReferer)
                 putExtra(EXTRA_USER_AGENT, currentUserAgent)
@@ -738,7 +941,6 @@ class PlayerActivity : AppCompatActivity() {
             return super.dispatchKeyEvent(event)
         }
 
-        // Qualquer tecla reinicia a contagem de inatividade.
         if (channelPanelVisible || channelControlsVisible) {
             scheduleChannelAutoHide()
         }
@@ -841,6 +1043,7 @@ class PlayerActivity : AppCompatActivity() {
         setContentView(R.layout.activity_player)
 
         playerView = findViewById(R.id.playerView)
+        captureWebView = findViewById(R.id.captureWebView)
 
         readTvChannels()
 
@@ -964,6 +1167,9 @@ class PlayerActivity : AppCompatActivity() {
         val cookie = intent.getStringExtra(EXTRA_COOKIE)
         val origin = intent.getStringExtra(EXTRA_ORIGIN)
 
+        val captureEnabled =
+            intent.getBooleanExtra("captureM3u8", false)
+
         currentReferer = referer
         currentUserAgent = ua
         currentCookie = cookie
@@ -972,16 +1178,43 @@ class PlayerActivity : AppCompatActivity() {
 
         setupChannelInterface()
 
+        // =====================================================
+        // PÁGINA WEB COM CAPTURA HABILITADA
+        // =====================================================
+
+        if (!isSupported(url) && captureEnabled) {
+
+            Log.i(TAG, "Captura M3U8 habilitada para este canal.")
+
+            // Não cria um ExoPlayer vazio.
+            // O primeiro ExoPlayer será criado quando o manifesto chegar.
+            playerView.player = null
+            playerView.setBackgroundColor(Color.BLACK)
+
+            startBackgroundCapture(url)
+
+            return
+        }
+
+        // =====================================================
+        // PÁGINA WEB SEM CAPTURA
+        // =====================================================
+
         if (!isSupported(url)) {
+
+            Log.i(TAG, "Captura desabilitada. Abrindo WebView normal.")
+
             startActivity(
                 Intent(this, WebViewActivity::class.java).apply {
+
                     putExtra(WebViewActivity.EXTRA_URL, url)
 
-                    // PRESERVA O TÍTULO DO JOGO NO WEBVIEW
                     putExtra(
                         "game_title",
                         intent.getStringExtra("game_title").orEmpty()
                     )
+
+                    putExtra("captureM3u8", false)
 
                     putStringArrayListExtra(
                         EXTRA_TV_CHANNEL_NAMES,
@@ -993,8 +1226,16 @@ class PlayerActivity : AppCompatActivity() {
                         intent.getStringArrayListExtra(EXTRA_TV_CHANNEL_URLS)
                     )
 
-                    intent.getBooleanArrayExtra(EXTRA_TV_CHANNEL_CAPTURE)?.let {
+                    intent.getBooleanArrayExtra(
+                        EXTRA_TV_CHANNEL_CAPTURE
+                    )?.let {
                         putExtra(EXTRA_TV_CHANNEL_CAPTURE, it)
+                    }
+
+                    intent.getIntArrayExtra(
+                        EXTRA_TV_CHANNEL_ORDERS
+                    )?.let {
+                        putExtra(EXTRA_TV_CHANNEL_ORDERS, it)
                     }
 
                     putExtra(EXTRA_SELECTED_CHANNEL, selectedChannelIndex)
@@ -1004,6 +1245,10 @@ class PlayerActivity : AppCompatActivity() {
             finish()
             return
         }
+
+        // =====================================================
+        // LINK DIRETO M3U8 / MPD
+        // =====================================================
 
         initPlayer(
             url,
@@ -1021,17 +1266,17 @@ class PlayerActivity : AppCompatActivity() {
     // =========================================================
 
     private fun isSupported(u: String): Boolean {
-    val url = u.lowercase()
+        val url = u.lowercase(Locale.ROOT)
 
-    return url.contains(".m3u8") ||
-        url.contains(".mpd") ||
-        url.contains(".ts") ||
-        url.contains(".txt")
-}
+        return url.contains(".m3u8") ||
+            url.contains(".mpd") ||
+            url.contains(".ts") ||
+            url.contains(".txt")
+    }
 
     private fun isMpd(u: String): Boolean {
-    return u.contains(".mpd", ignoreCase = true)
-}
+        return u.contains(".mpd", ignoreCase = true)
+    }
 
     private fun hideStatusBar() {
         insets.hide(WindowInsetsCompat.Type.statusBars())
@@ -1138,7 +1383,7 @@ class PlayerActivity : AppCompatActivity() {
 
                 if (event == XmlPullParser.START_TAG) {
 
-                    val tag = parser.name.lowercase()
+                    val tag = parser.name.lowercase(Locale.ROOT)
 
                     when (tag) {
 
@@ -1154,7 +1399,7 @@ class PlayerActivity : AppCompatActivity() {
                             val scheme = parser.getAttributeValue(
                                 null,
                                 "schemeIdUri"
-                            )?.lowercase().orEmpty()
+                            )?.lowercase(Locale.ROOT).orEmpty()
 
                             val value = parser.getAttributeValue(
                                 null,
@@ -1351,6 +1596,12 @@ class PlayerActivity : AppCompatActivity() {
         origin: String?
     ) {
 
+        // Evita criar dois ExoPlayers caso a captura seja chamada mais de uma vez.
+        if (player != null) {
+            Log.w(TAG, "Player já inicializado. Ignorando nova inicialização.")
+            return
+        }
+
         val requestHeaders = mutableMapOf<String, String>()
 
         if (!referer.isNullOrBlank()) {
@@ -1473,28 +1724,28 @@ class PlayerActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
 
-            val normalizedUrl = url.lowercase()
+            val normalizedUrl = url.lowercase(Locale.ROOT)
 
-val itemBuilder = MediaItem.Builder()
-    .setUri(Uri.parse(url))
+            val itemBuilder = MediaItem.Builder()
+                .setUri(Uri.parse(url))
 
-when {
+            when {
 
-    normalizedUrl.contains(".mpd") -> {
-        itemBuilder.setMimeType(MimeTypes.APPLICATION_MPD)
-    }
+                normalizedUrl.contains(".mpd") -> {
+                    itemBuilder.setMimeType(MimeTypes.APPLICATION_MPD)
+                }
 
-    normalizedUrl.contains(".m3u8") ||
-    normalizedUrl.contains(".txt") -> {
+                normalizedUrl.contains(".m3u8") ||
+                    normalizedUrl.contains(".txt") -> {
 
-        itemBuilder.setMimeType(MimeTypes.APPLICATION_M3U8)
+                    itemBuilder.setMimeType(MimeTypes.APPLICATION_M3U8)
 
-        Log.i(
-            TAG,
-            "Playlist HLS/M3U8 identificada na URL"
-        )
-    }
-}
+                    Log.i(
+                        TAG,
+                        "Playlist HLS/M3U8 identificada na URL"
+                    )
+                }
+            }
 
             if (!title.isNullOrBlank()) {
                 itemBuilder.setMediaMetadata(
@@ -1623,7 +1874,7 @@ when {
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
 
-        if (hasFocus) {
+        if (hasFocus && ::insets.isInitialized) {
             hideStatusBar()
         }
     }
@@ -1650,6 +1901,12 @@ when {
         controllerHandler.removeCallbacks(controllerAutoHide)
 
         cancelChannelAutoHide()
+
+        if (::captureWebView.isInitialized) {
+            captureWebView.stopLoading()
+            captureWebView.removeAllViews()
+            captureWebView.destroy()
+        }
 
         if (::playerView.isInitialized) {
             playerView.player = null
