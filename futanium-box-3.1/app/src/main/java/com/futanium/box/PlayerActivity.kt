@@ -1958,13 +1958,11 @@ Log.i(TAG, "LINK ESCOLHIDO PARA REPRODUÇÃO: $url")
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 Gravity.TOP
             ).apply {
-                setMargins(
-                    dp(12),
-                    dp(12),
-                    dp(12),
-                    0
-                )
-            }
+    leftMargin = dp(12)
+    topMargin = dp(12)
+    rightMargin = dp(12)
+    bottomMargin = 0
+}
         )
     }
 
