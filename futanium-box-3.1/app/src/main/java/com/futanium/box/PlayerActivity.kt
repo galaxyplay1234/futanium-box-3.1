@@ -1046,17 +1046,10 @@ class PlayerActivity : AppCompatActivity() {
         playerView = findViewById(R.id.playerView)
 captureWebView = findViewById(R.id.captureWebView)
 captureLoading = findViewById(R.id.captureLoading)
-captureLoading.post {
-    val parent = captureLoading.parent as View
-
-    captureLoading.x =
-        (parent.width - captureLoading.width) / 2f
-
-    captureLoading.y =
-        (parent.height - captureLoading.height) / 2f
-}
 
 captureLoading.visibility = View.GONE
+
+centerCaptureLoading()
 
         readTvChannels()
 
@@ -1295,6 +1288,25 @@ captureLoading.visibility = View.GONE
         insets.hide(WindowInsetsCompat.Type.statusBars())
         insets.isAppearanceLightNavigationBars = false
     }
+
+
+private fun centerCaptureLoading() {
+    playerView.post {
+        val location = IntArray(2)
+        playerView.getLocationInWindow(location)
+
+        val params = captureLoading.layoutParams as FrameLayout.LayoutParams
+
+        params.gravity = Gravity.TOP or Gravity.START
+        captureLoading.layoutParams = params
+
+        captureLoading.x =
+            location[0] + (playerView.width - captureLoading.width) / 2f
+
+        captureLoading.y =
+            location[1] + (playerView.height - captureLoading.height) / 2f
+    }
+}
 
     // =========================================================
     // MODELO DO DIAGNÓSTICO MPD
