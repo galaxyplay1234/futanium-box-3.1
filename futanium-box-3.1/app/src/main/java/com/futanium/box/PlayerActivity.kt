@@ -2073,6 +2073,8 @@ val p = ExoPlayer.Builder(this)
         Toast.LENGTH_LONG
     ).show()
 }
+            } // Fecha onPlayerError()
+        }) // Fecha o addListener()
 
         // =====================================================
         // IDENTIFICAÇÃO AUTOMÁTICA + MPD
