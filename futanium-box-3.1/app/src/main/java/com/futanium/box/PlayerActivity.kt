@@ -13,6 +13,7 @@ import android.view.Gravity
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
 import android.webkit.CookieManager
 import android.webkit.WebChromeClient
@@ -62,6 +63,7 @@ import androidx.media3.exoplayer.drm.FrameworkMediaDrm
 import androidx.media3.exoplayer.drm.LocalMediaDrmCallback
 import android.util.Base64
 import org.json.JSONArray
+
 
 
 @UnstableApi
@@ -790,7 +792,7 @@ private fun buildClearKeyResponse(clearKey: String): ByteArray? {
         val scroll = ScrollView(this).apply {
             isFillViewport = true
             overScrollMode = View.OVER_SCROLL_NEVER
-            descendantFocusability = ViewGroupFocusability.AFTER_DESCENDANTS
+            descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
         }
 
         channelListContainer = LinearLayout(this).apply {
@@ -2293,60 +2295,55 @@ p.playWhenReady = true
 
     override fun onDestroy() {
 
-			reconnectRunnable?.let {
-    main.removeCallbacks(it)
+    reconnectRunnable?.let {
+        main.removeCallbacks(it)
+    }
+
+    reconnectRunnable = null
+
+    main.removeCallbacks(bufferingWatchdog)
+    controllerHandler.removeCallbacks(controllerAutoHide)
+
+    reconnectText = null
+    currentMediaItem = null
+
+    cancelChannelAutoHide()
+
+    if (::captureWebView.isInitialized) {
+        captureWebView.stopLoading()
+        captureWebView.removeAllViews()
+        captureWebView.destroy()
+    }
+
+    if (::playerView.isInitialized) {
+        playerView.player = null
+    }
+
+    player?.release()
+    player = null
+
+    window.clearFlags(
+        WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+    )
+
+    super.onDestroy()
 }
 
-reconnectRunnable = null
+override fun onPause() {
+    super.onPause()
+    setM3u8Status(false)
+}
 
-main.removeCallbacks(bufferingWatchdog)
+override fun onResume() {
+    super.onResume()
 
-reconnectText = null
-currentMediaItem = null
-
-        main.removeCallbacks(bufferingWatchdog)
-        controllerHandler.removeCallbacks(controllerAutoHide)
-
-        cancelChannelAutoHide()
-
-        if (::captureWebView.isInitialized) {
-            captureWebView.stopLoading()
-            captureWebView.removeAllViews()
-            captureWebView.destroy()
-        }
-
-        if (::playerView.isInitialized) {
-            playerView.player = null
-        }
-
-        player?.release()
-        player = null
-
-        window.clearFlags(
-            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-        )
-
-        super.onDestroy()
+    if (!isM3u8Active) {
+        setM3u8Status(true)
     }
+}
 
-    override fun onPause() {
-        super.onPause()
-        setM3u8Status(false)
-    }
+private fun dp(v: Int): Int {
+    return (v * resources.displayMetrics.density).toInt()
+}
 
-    override fun onResume() {
-        super.onResume()
-
-        if (!isM3u8Active) {
-            setM3u8Status(true)
-        }
-    }
-
-    private fun dp(v: Int): Int {
-        return (v * resources.displayMetrics.density).toInt()
-    }
-
-    private object ViewGroupFocusability {
-        const val AFTER_DESCENDANTS = 0x40000
-    }
 }
