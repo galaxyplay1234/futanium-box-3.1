@@ -106,25 +106,39 @@ class PlayerActivity : AppCompatActivity() {
 
     private var bufferingStartAt: Long = 0L
 
+// =========================================================
+// RECONEXÃO AUTOMÁTICA M3U8
+// =========================================================
+
+private var currentMediaItem: MediaItem? = null
+private var isHlsStream = false
+private var reconnectAttempts = 0
+private var reconnectText: TextView? = null
+private var reconnectRunnable: Runnable? = null
+
     private val bufferingWatchdog = object : Runnable {
-        override fun run() {
-            val p = player ?: return
+    override fun run() {
 
-            if (p.playbackState == Player.STATE_BUFFERING) {
-                val elapsed = System.currentTimeMillis() - bufferingStartAt
+        val p = player ?: return
 
-                if (elapsed > 10_000) {
-                    val pos = p.currentPosition
-                    p.seekTo(pos.coerceAtLeast(0))
-                    p.prepare()
-                    p.playWhenReady = true
-                    bufferingStartAt = System.currentTimeMillis()
-                }
+        if (p.playbackState == Player.STATE_BUFFERING) {
+
+            val elapsed =
+                System.currentTimeMillis() - bufferingStartAt
+
+            if (elapsed >= 15_000) {
+
+                Log.w(TAG, "M3U8 travado. Iniciando reconexão.")
+
+                scheduleReconnect()
+
+            } else {
 
                 main.postDelayed(this, 2000)
             }
         }
     }
+}
 
     private var m3u8RefId: String? = null
     private var isM3u8Active = false
@@ -1137,6 +1151,7 @@ private fun buildClearKeyResponse(clearKey: String): ByteArray? {
         setContentView(R.layout.activity_player)
 
         playerView = findViewById(R.id.playerView)
+setupReconnectMessage()
 captureWebView = findViewById(R.id.captureWebView)
 
 bufferingIndicator = playerView.findViewById(
@@ -1693,9 +1708,129 @@ private fun isMpd(u: String): Boolean {
         Log.i(TAG, "================================")
     }
 
+
+		// =========================================================
+// MENSAGEM DE RECONEXÃO
+// =========================================================
+
+private fun setupReconnectMessage() {
+
+    reconnectText = TextView(this).apply {
+
+        text = "Reconectando…"
+        textSize = 18f
+        setTextColor(Color.WHITE)
+
+        setPadding(
+            dp(22),
+            dp(12),
+            dp(22),
+            dp(12)
+        )
+
+        gravity = Gravity.CENTER
+
+        background = GradientDrawable().apply {
+            setColor(Color.argb(210, 20, 20, 20))
+            cornerRadius = dp(10).toFloat()
+        }
+
+        visibility = View.GONE
+        elevation = dp(40).toFloat()
+    }
+
+    playerView.addView(
+        reconnectText,
+        FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            Gravity.CENTER
+        )
+    )
+}
+
+// =========================================================
+// ESCONDER MENSAGEM
+// =========================================================
+
+private fun hideReconnectMessage() {
+    reconnectText?.visibility = View.GONE
+}
+
+// =========================================================
+// AGENDAR RECONEXÃO
+// =========================================================
+
+private fun scheduleReconnect() {
+
+    if (!isHlsStream || isFinishing || isDestroyed) return
+
+    // Evita várias tentativas simultâneas.
+    if (reconnectRunnable != null) return
+
+    reconnectText?.visibility = View.VISIBLE
+
+    reconnectAttempts++
+
+    val delay = if (reconnectAttempts == 1) {
+        3000L
+    } else {
+        5000L
+    }
+
+    Log.w(
+        TAG,
+        "Reconexão M3U8 #$reconnectAttempts em ${delay}ms"
+    )
+
+    val task = Runnable {
+
+        reconnectRunnable = null
+
+        if (isFinishing || isDestroyed) return@Runnable
+
+        val p = player ?: return@Runnable
+        val item = currentMediaItem ?: return@Runnable
+
+        try {
+
+            main.removeCallbacks(bufferingWatchdog)
+
+            p.stop()
+            p.clearMediaItems()
+
+            p.setMediaItem(item)
+            p.prepare()
+            p.playWhenReady = true
+
+            bufferingStartAt = System.currentTimeMillis()
+
+            main.postDelayed(
+                bufferingWatchdog,
+                2000
+            )
+
+            Log.i(TAG, "Nova tentativa de reprodução iniciada.")
+
+        } catch (e: Exception) {
+
+            Log.e(TAG, "Erro ao tentar reconectar M3U8.", e)
+
+            scheduleReconnect()
+        }
+    }
+
+    reconnectRunnable = task
+    main.postDelayed(task, delay)
+}
+
+
     // =========================================================
     // CRIAÇÃO DO PLAYER
     // =========================================================
+
+		
+
 
     private fun initPlayer(
     url: String,
@@ -1709,6 +1844,18 @@ private fun isMpd(u: String): Boolean {
 ) {
 
 showCapturedUrlDebug(url)
+
+val normalizedStreamUrl = url.lowercase(Locale.ROOT)
+
+isHlsStream =
+    !isMpd(url) &&
+    (
+        normalizedStreamUrl.contains(".m3u8") ||
+        normalizedStreamUrl.contains(".txt") ||
+        parseStreamConfig(url)?.type.equals("hls", true)
+    )
+
+reconnectAttempts = 0
 
 Log.i(TAG, "LINK ESCOLHIDO PARA REPRODUÇÃO: $url")
 
@@ -1805,22 +1952,44 @@ val p = ExoPlayer.Builder(this)
         p.addListener(object : Player.Listener {
 
             override fun onPlaybackStateChanged(state: Int) {
+
     when (state) {
 
         Player.STATE_BUFFERING -> {
+
             bufferingStartAt = System.currentTimeMillis()
 
             main.removeCallbacks(bufferingWatchdog)
             main.postDelayed(bufferingWatchdog, 2000)
         }
 
-        Player.STATE_READY,
+        Player.STATE_READY -> {
+
+            bufferingIndicator?.visibility = View.GONE
+
+            main.removeCallbacks(bufferingWatchdog)
+
+            // Transmissão recuperada.
+            main.removeCallbacks(
+                reconnectRunnable ?: Runnable {}
+            )
+
+            reconnectRunnable = null
+            reconnectAttempts = 0
+
+            hideReconnectMessage()
+
+            Log.i(TAG, "Transmissão recuperada.")
+        }
+
         Player.STATE_ENDED -> {
+
             bufferingIndicator?.visibility = View.GONE
             main.removeCallbacks(bufferingWatchdog)
         }
 
         Player.STATE_IDLE -> {
+
             bufferingIndicator?.visibility = View.GONE
         }
     }
@@ -1888,13 +2057,20 @@ val p = ExoPlayer.Builder(this)
             "Falha na reprodução: ${error.errorCodeName}"
     }
 
+    if (isHlsStream) {
+
+    Log.w(TAG, "Erro no Player. Tentando reconectar.")
+
+    scheduleReconnect()
+
+} else {
+
     Toast.makeText(
         this@PlayerActivity,
         message,
         Toast.LENGTH_LONG
     ).show()
 }
-        })
 
         // =====================================================
         // IDENTIFICAÇÃO AUTOMÁTICA + MPD
@@ -2025,9 +2201,11 @@ if (clearKeyResponse != null) {
 
             if (isFinishing || isDestroyed) return@launch
 
-            p.setMediaItem(itemBuilder.build())
-            p.prepare()
-            p.playWhenReady = true
+            currentMediaItem = itemBuilder.build()
+
+p.setMediaItem(currentMediaItem!!)
+p.prepare()
+p.playWhenReady = true
         }
     }
 
@@ -2114,6 +2292,17 @@ if (clearKeyResponse != null) {
     }
 
     override fun onDestroy() {
+
+			reconnectRunnable?.let {
+    main.removeCallbacks(it)
+}
+
+reconnectRunnable = null
+
+main.removeCallbacks(bufferingWatchdog)
+
+reconnectText = null
+currentMediaItem = null
 
         main.removeCallbacks(bufferingWatchdog)
         controllerHandler.removeCallbacks(controllerAutoHide)
