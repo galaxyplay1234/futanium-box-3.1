@@ -1732,10 +1732,7 @@ private fun setupReconnectMessage() {
 
         gravity = Gravity.CENTER
 
-        background = GradientDrawable().apply {
-            setColor(Color.argb(210, 20, 20, 20))
-            cornerRadius = dp(10).toFloat()
-        }
+        setBackgroundColor(Color.TRANSPARENT)
 
         visibility = View.GONE
         elevation = dp(40).toFloat()
