@@ -998,11 +998,6 @@ override fun onChildViewDetachedFromWindow(view: View) {
     ) {
 
 
-Toast.makeText(
-    this,
-    "VERIFICAÇÃO DE ATUALIZAÇÃO INICIADA",
-    Toast.LENGTH_LONG
-).show()
 
 
         Thread {
@@ -1033,13 +1028,7 @@ Toast.makeText(
 
                 val changelog = obj.optString("changelog", "")
 
-                runOnUiThread {
-    Toast.makeText(
-        this,
-        "TESTE: Instalado ${currentVersionCode()} | GitHub $remoteCode",
-        Toast.LENGTH_LONG
-    ).show()
-}
+                
 
 if (remoteCode > currentVersionCode()) {
 
