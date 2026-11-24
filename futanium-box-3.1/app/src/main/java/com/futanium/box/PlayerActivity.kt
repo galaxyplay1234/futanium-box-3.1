@@ -2234,30 +2234,25 @@ private fun closePlayerCompletely() {
     controllerHandler.removeCallbacks(controllerAutoHide)
     cancelChannelAutoHide()
 
-    // Para e libera o ExoPlayer imediatamente.
-    playerView.player = null
-
+    // Para o vídeo e o áudio imediatamente.
+    // Mantém a imagem durante a transição de saída.
     player?.apply {
         playWhenReady = false
-        stop()
-        clearMediaItems()
-        release()
+        pause()
     }
-
-    player = null
 
     // Interrompe a captura invisível.
     if (::captureWebView.isInitialized) {
-        captureWebView.stopLoading()
         captureWebView.onPause()
-        captureWebView.pauseTimers()
-        captureWebView.loadUrl("about:blank")
-        captureWebView.removeAllViews()
-        captureWebView.destroy()
+        captureWebView.stopLoading()
     }
 
     // Atualiza o contador no Firebase.
     setM3u8Status(false)
+
+    window.clearFlags(
+        WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+    )
 
     finish()
 }
