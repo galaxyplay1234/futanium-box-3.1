@@ -993,24 +993,29 @@ override fun onChildViewDetachedFromWindow(view: View) {
     // =====================================================
 
     
+
 private fun checkAppUpdateExternal(
     metaUrl: String,
     showNoUpdateToast: Boolean = false
 ) {
-    runOnUiThread {
-        Toast.makeText(
-            this,
-            "Conectando ao servidor de atualização...",
-            Toast.LENGTH_LONG
-        ).show()
-    }
 
     Thread {
+
         try {
+
             val updateClient = OkHttpClient.Builder()
-                .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-                .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-                .callTimeout(45, java.util.concurrent.TimeUnit.SECONDS)
+                .connectTimeout(
+                    30,
+                    java.util.concurrent.TimeUnit.SECONDS
+                )
+                .readTimeout(
+                    30,
+                    java.util.concurrent.TimeUnit.SECONDS
+                )
+                .callTimeout(
+                    45,
+                    java.util.concurrent.TimeUnit.SECONDS
+                )
                 .build()
 
             val req = Request.Builder()
@@ -1034,54 +1039,51 @@ private fun checkAppUpdateExternal(
 
                 val remoteCode = obj.optInt("versionCode", -1)
                 val apkUrl = obj.optString("apkUrl", "")
+
                 val title = obj.optString(
                     "title",
                     "Nova versão disponível"
                 )
+
                 val changelog = obj.optString("changelog", "")
 
-                val installedCode = currentVersionCode()
+                if (
+                    remoteCode > currentVersionCode() &&
+                    apkUrl.isNotBlank()
+                ) {
 
-                runOnUiThread {
-                    Toast.makeText(
-                        this,
-                        "GitHub conectado! Versão: $remoteCode | Instalada: $installedCode",
-                        Toast.LENGTH_LONG
-                    ).show()
-
-                    if (remoteCode > installedCode && apkUrl.isNotBlank()) {
+                    runOnUiThread {
                         showUpdateAvailableDialog(
                             title,
                             changelog,
                             apkUrl
                         )
-                    } else if (showNoUpdateToast) {
+                    }
+
+                } else if (showNoUpdateToast) {
+
+                    runOnUiThread {
                         Toast.makeText(
                             this,
-                            "Nenhuma atualização disponível.",
-                            Toast.LENGTH_LONG
+                            "Você já está na última versão.",
+                            Toast.LENGTH_SHORT
                         ).show()
                     }
                 }
             }
 
         } catch (e: Exception) {
+
             android.util.Log.e(
                 "APP_UPDATE",
-                "Erro ao consultar update.json",
+                "Falha ao verificar atualização",
                 e
             )
-
-            runOnUiThread {
-                Toast.makeText(
-                    this,
-                    "Erro ao conectar: ${e.message}",
-                    Toast.LENGTH_LONG
-                ).show()
-            }
         }
+
     }.start()
 }
+
 
 
     private fun showUpdateAvailableDialog(
