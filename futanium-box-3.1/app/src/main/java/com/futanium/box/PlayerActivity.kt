@@ -1845,7 +1845,7 @@ private fun scheduleReconnect() {
     clearKey: String = ""
 ) {
 
-showCapturedUrlDebug(url)
+
 
 val normalizedStreamUrl = url.lowercase(Locale.ROOT)
 
@@ -2213,58 +2213,7 @@ p.playWhenReady = true
         }
     }
 
-    // =========================================================
-    // DIAGNÓSTICO: LINK CAPTURADO
-    // =========================================================
-
-    private fun showCapturedUrlDebug(url: String) {
-
-        val root = findViewById<FrameLayout>(android.R.id.content)
-
-        root.findViewWithTag<View>("futanium_capture_debug")
-            ?.let { root.removeView(it) }
-
-        val debugView = TextView(this@PlayerActivity).apply {
-
-            tag = "futanium_capture_debug"
-
-            this.text = "LINK CAPTURADO:\n$url"
-
-            setTextColor(Color.WHITE)
-            textSize = 12f
-
-            setPadding(
-                dp(12),
-                dp(10),
-                dp(12),
-                dp(10)
-            )
-
-            setBackgroundColor(Color.rgb(25, 35, 48))
-
-            setTextIsSelectable(true)
-
-            maxLines = 5
-            ellipsize = android.text.TextUtils.TruncateAt.END
-
-            elevation = dp(50).toFloat()
-        }
-
-                val params = FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.MATCH_PARENT,
-            FrameLayout.LayoutParams.WRAP_CONTENT,
-            Gravity.TOP
-        )
-
-        params.setMargins(
-            dp(12),
-            dp(12),
-            dp(12),
-            0
-        )
-
-        root.addView(debugView, params)
-    }
+    
 
 
     // =========================================================
