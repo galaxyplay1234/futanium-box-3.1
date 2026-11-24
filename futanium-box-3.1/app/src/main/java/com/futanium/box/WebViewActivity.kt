@@ -47,6 +47,7 @@ import java.util.UUID
 class WebViewActivity : AppCompatActivity() {
 
     private lateinit var web: WebView
+		private var webReleased = false
     private lateinit var insets: WindowInsetsControllerCompat
     private lateinit var webLoader: android.widget.ProgressBar
     private lateinit var blackShield: View
@@ -1210,23 +1211,26 @@ class WebViewActivity : AppCompatActivity() {
         when (event.keyCode) {
 
             KeyEvent.KEYCODE_BACK,
-            KeyEvent.KEYCODE_ESCAPE -> {
+KeyEvent.KEYCODE_ESCAPE -> {
 
-                if (virtualMouseActive) {
-                    deactivateVirtualMouse()
-                    return true
-                }
+    if (virtualMouseActive) {
+        deactivateVirtualMouse()
+        return true
+    }
 
-                if (channelPanelVisible) {
-                    closeChannelPanel()
-                    return true
-                }
+    if (channelPanelVisible) {
+        closeChannelPanel()
+        return true
+    }
 
-                if (channelControlsVisible) {
-                    hideChannelControls()
-                    return true
-                }
-            }
+    if (channelControlsVisible) {
+        hideChannelControls()
+        return true
+    }
+
+    closeWebViewCompletely()
+    return true
+}
 
             KeyEvent.KEYCODE_DPAD_UP -> {
 
@@ -2144,6 +2148,69 @@ CookieManager.getInstance().setAcceptThirdPartyCookies(web, true)
         }
     }
 
+		
+private fun releaseWebView() {
+
+    if (webReleased) return
+
+    webReleased = true
+
+    cancelChannelAutoHide()
+    channelIdleHandler.removeCallbacksAndMessages(null)
+
+    deactivateVirtualMouse()
+
+    if (::web.isInitialized) {
+
+        try {
+            // Pausa a página e seus vídeos.
+            web.onPause()
+            
+
+            web.evaluateJavascript(
+                """
+                (function() {
+                    document.querySelectorAll('video, audio').forEach(function(media) {
+                        media.pause();
+                        media.removeAttribute('src');
+                        media.load();
+                    });
+                })();
+                """.trimIndent(),
+                null
+            )
+
+            // Interrompe carregamentos e navegação.
+            web.stopLoading()
+           
+            web.clearHistory()
+
+            // Remove e destrói o WebView.
+            (web.parent as? ViewGroup)?.removeView(web)
+            web.removeAllViews()
+            web.destroy()
+
+        } catch (e: Exception) {
+            Log.e("FUTANIUM_WEBVIEW", "Erro ao encerrar WebView", e)
+        }
+    }
+
+    setWebviewStatus(false)
+
+    window.clearFlags(
+        WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+    )
+}
+
+private fun closeWebViewCompletely() {
+
+    releaseWebView()
+    finish()
+}
+
+
+
+
     // =====================================================
     // STATUS BAR
     // =====================================================
@@ -2162,38 +2229,33 @@ CookieManager.getInstance().setAcceptThirdPartyCookies(web, true)
         if (hasFocus) hideStatusBar()
     }
 
-    @Deprecated("Deprecated in Android")
-    override fun onBackPressed() {
+    
+@Deprecated("Deprecated in Android")
+override fun onBackPressed() {
 
-        if (virtualMouseActive) {
-            deactivateVirtualMouse()
-            return
-        }
-
-        if (channelPanelVisible) {
-            closeChannelPanel()
-            return
-        }
-
-        if (channelControlsVisible) {
-            hideChannelControls()
-            return
-        }
-
-        finish()
+    if (virtualMouseActive) {
+        deactivateVirtualMouse()
+        return
     }
+
+    if (channelPanelVisible) {
+        closeChannelPanel()
+        return
+    }
+
+    if (channelControlsVisible) {
+        hideChannelControls()
+        return
+    }
+
+    closeWebViewCompletely()
+}
+
 
     override fun onDestroy() {
-
-        cancelChannelAutoHide()
-        deactivateVirtualMouse()
-
-        window.clearFlags(
-            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-        )
-
-        super.onDestroy()
-    }
+    releaseWebView()
+    super.onDestroy()
+}
 
     override fun onPause() {
 
