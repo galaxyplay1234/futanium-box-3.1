@@ -2204,21 +2204,64 @@ p.playWhenReady = true
         }
     }
 
-    @Deprecated("Deprecated in Android")
-    override fun onBackPressed() {
+    
+@Deprecated("Deprecated in Android")
+override fun onBackPressed() {
 
-        if (channelPanelVisible) {
-            closeChannelPanel()
-            return
-        }
-
-        if (channelControlsVisible) {
-            hideChannelControls()
-            return
-        }
-
-        finish()
+    if (channelPanelVisible) {
+        closeChannelPanel()
+        return
     }
+
+    if (channelControlsVisible) {
+        hideChannelControls()
+        return
+    }
+
+    closePlayerCompletely()
+}
+
+private fun closePlayerCompletely() {
+
+    // Cancela reconexões e tarefas pendentes.
+    reconnectRunnable?.let {
+        main.removeCallbacks(it)
+    }
+
+    reconnectRunnable = null
+
+    main.removeCallbacks(bufferingWatchdog)
+    controllerHandler.removeCallbacks(controllerAutoHide)
+    cancelChannelAutoHide()
+
+    // Para e libera o ExoPlayer imediatamente.
+    playerView.player = null
+
+    player?.apply {
+        playWhenReady = false
+        stop()
+        clearMediaItems()
+        release()
+    }
+
+    player = null
+
+    // Interrompe a captura invisível.
+    if (::captureWebView.isInitialized) {
+        captureWebView.stopLoading()
+        captureWebView.onPause()
+        captureWebView.pauseTimers()
+        captureWebView.loadUrl("about:blank")
+        captureWebView.removeAllViews()
+        captureWebView.destroy()
+    }
+
+    // Atualiza o contador no Firebase.
+    setM3u8Status(false)
+
+    finish()
+}
+
 
     override fun onDestroy() {
 
