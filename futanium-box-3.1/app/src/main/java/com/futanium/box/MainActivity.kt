@@ -1025,7 +1025,15 @@ override fun onChildViewDetachedFromWindow(view: View) {
 
                 val changelog = obj.optString("changelog", "")
 
-                if (remoteCode > currentVersionCode()) {
+                runOnUiThread {
+    Toast.makeText(
+        this,
+        "TESTE: Instalado ${currentVersionCode()} | GitHub $remoteCode",
+        Toast.LENGTH_LONG
+    ).show()
+}
+
+if (remoteCode > currentVersionCode()) {
 
                     runOnUiThread {
                         showUpdateAvailableDialog(
