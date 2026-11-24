@@ -2193,8 +2193,44 @@ private fun releaseWebView() {
 
 private fun closeWebViewCompletely() {
 
-    releaseWebView()
-    finish()
+    if (isFinishing || webReleased) return
+
+    cancelChannelAutoHide()
+    channelIdleHandler.removeCallbacksAndMessages(null)
+
+    virtualMouseActive = false
+    mouseMoveToken++
+
+    virtualMouseView?.visibility = View.GONE
+
+    setWebviewStatus(false)
+
+    window.clearFlags(
+        WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+    )
+
+    if (::web.isInitialized) {
+
+        web.onPause()
+        web.stopLoading()
+
+        web.evaluateJavascript(
+            """
+            (function() {
+                document.querySelectorAll('video, audio').forEach(function(media) {
+                    media.pause();
+                    media.removeAttribute('src');
+                    media.load();
+                });
+            })();
+            """.trimIndent()
+        ) {
+            finish()
+        }
+
+    } else {
+        finish()
+    }
 }
 
 
