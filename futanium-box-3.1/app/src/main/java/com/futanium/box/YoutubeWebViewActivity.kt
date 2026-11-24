@@ -45,6 +45,8 @@ class YoutubeWebViewActivity : AppCompatActivity() {
     private lateinit var root: FrameLayout
     private lateinit var contentRoot: FrameLayout
 
+		private var youtubeClosing = false
+
     private var customView: View? = null
     private var customViewCallback: WebChromeClient.CustomViewCallback? = null
 
@@ -1490,35 +1492,75 @@ private fun updateVirtualMousePosition() {
     // VOLTAR
     // =====================================================
 
-    @Deprecated("Deprecated in Android")
-    override fun onBackPressed() {
+private fun closeYoutubeCompletely() {
 
-        if (virtualMouseActive) {
-            deactivateVirtualMouse()
-            return
+    if (youtubeClosing || isFinishing) return
+
+    youtubeClosing = true
+
+    cancelAutoHide()
+    deactivateVirtualMouse()
+
+    channelControlsVisible = false
+    channelPanelVisible = false
+
+    if (::web.isInitialized) {
+
+        web.onPause()
+
+        web.evaluateJavascript(
+            """
+            (function() {
+                document.querySelectorAll('video, audio').forEach(function(media) {
+                    media.pause();
+                    media.removeAttribute('src');
+                    media.load();
+                });
+            })();
+            """.trimIndent()
+        ) {
+            web.stopLoading()
+            finish()
         }
 
-        if (channelPanelVisible) {
-            closeChannelPanel()
-            return
-        }
-
-        if (channelControlsVisible) {
-            hideChannelControls()
-            return
-        }
-
-        if (customView != null) {
-            super.onBackPressed()
-            return
-        }
-
-        if (web.canGoBack()) {
-            web.goBack()
-        } else {
-            super.onBackPressed()
-        }
+    } else {
+        finish()
     }
+}
+
+
+
+    @Deprecated("Deprecated in Android")
+override fun onBackPressed() {
+
+    if (youtubeClosing) return
+
+    if (virtualMouseActive) {
+        deactivateVirtualMouse()
+        return
+    }
+
+    if (channelPanelVisible) {
+        closeChannelPanel()
+        return
+    }
+
+    if (channelControlsVisible) {
+        hideChannelControls()
+        return
+    }
+
+    if (customView != null) {
+        super.onBackPressed()
+        return
+    }
+
+    if (web.canGoBack()) {
+        web.goBack()
+    } else {
+        closeYoutubeCompletely()
+    }
+}
 
     // =====================================================
     // DESTRUIÇÃO
@@ -1526,19 +1568,28 @@ private fun updateVirtualMousePosition() {
 
     override fun onDestroy() {
 
-        cancelAutoHide()
-        deactivateVirtualMouse()
+    cancelAutoHide()
 
-        customView?.let {
-            (it.parent as? ViewGroup)?.removeView(it)
-        }
+    virtualMouseActive = false
+    mouseMoveToken++
 
-        customView = null
-        customViewCallback = null
-
-        web.stopLoading()
-        web.destroy()
-
-        super.onDestroy()
+    customView?.let {
+        (it.parent as? ViewGroup)?.removeView(it)
     }
+
+    customViewCallback?.onCustomViewHidden()
+
+    customView = null
+    customViewCallback = null
+
+    if (::web.isInitialized) {
+        web.stopLoading()
+        web.onPause()
+
+        (web.parent as? ViewGroup)?.removeView(web)
+        web.removeAllViews()
+        web.destroy()
+    }
+
+    super.onDestroy()
 }
