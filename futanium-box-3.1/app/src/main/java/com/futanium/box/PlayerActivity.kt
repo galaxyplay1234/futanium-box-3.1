@@ -2037,29 +2037,8 @@ val p = ExoPlayer.Builder(this)
         Log.e(TAG, "Nenhum código HTTP específico encontrado.")
     }
 
-    val message = when {
-
-        httpError != null ->
-            "Erro HTTP ${httpError.responseCode} ao acessar o conteúdo."
-
-        error.errorCode == PlaybackException.ERROR_CODE_DRM_CONTENT_ERROR ||
-        error.errorCode == PlaybackException.ERROR_CODE_DRM_LICENSE_ACQUISITION_FAILED ||
-        error.errorCode == PlaybackException.ERROR_CODE_DRM_PROVISIONING_FAILED ->
-            "Falha na proteção DRM ou na licença."
-
-        error.errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED ||
-        error.errorCode == PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED ->
-            "Manifesto ou conteúdo inválido."
-
-        error.errorCode == PlaybackException.ERROR_CODE_DECODER_INIT_FAILED ||
-        error.errorCode == PlaybackException.ERROR_CODE_DECODING_FAILED ->
-            "Codec de áudio ou vídeo incompatível."
-
-        else ->
-            "Falha na reprodução: ${error.errorCodeName}"
-    }
-
-    if (isHlsStream) {
+    
+if (isHlsStream) {
 
     Log.w(TAG, "Erro no Player. Tentando reconectar.")
 
@@ -2067,12 +2046,9 @@ val p = ExoPlayer.Builder(this)
 
 } else {
 
-    Toast.makeText(
-        this@PlayerActivity,
-        message,
-        Toast.LENGTH_LONG
-    ).show()
+    Log.w(TAG, "Falha na reprodução. Código: ${error.errorCodeName}")
 }
+
             } // Fecha onPlayerError()
         }) // Fecha o addListener()
 
