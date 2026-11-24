@@ -1732,6 +1732,7 @@ private fun setupReconnectMessage() {
 
         gravity = Gravity.CENTER
 
+        // Sem fundo
         setBackgroundColor(Color.TRANSPARENT)
 
         visibility = View.GONE
@@ -1744,7 +1745,9 @@ private fun setupReconnectMessage() {
             FrameLayout.LayoutParams.WRAP_CONTENT,
             FrameLayout.LayoutParams.WRAP_CONTENT,
             Gravity.CENTER
-        )
+        ).apply {
+            topMargin = dp(110)
+        }
     )
 }
 
