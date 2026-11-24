@@ -997,6 +997,14 @@ override fun onChildViewDetachedFromWindow(view: View) {
         showNoUpdateToast: Boolean = false
     ) {
 
+
+Toast.makeText(
+    this,
+    "VERIFICAÇÃO DE ATUALIZAÇÃO INICIADA",
+    Toast.LENGTH_LONG
+).show()
+
+
         Thread {
 
             try {
