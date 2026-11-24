@@ -1588,9 +1588,7 @@ KeyEvent.KEYCODE_ESCAPE -> {
 
         web = findViewById(R.id.web)
 
-				CookieManager.getInstance().setAcceptCookie(true)
-
-CookieManager.getInstance().setAcceptThirdPartyCookies(web, true)
+				
 
         readTvChannels()
 
@@ -2131,16 +2129,7 @@ CookieManager.getInstance().setAcceptThirdPartyCookies(web, true)
             }
         }
 
-        web.webChromeClient = object : WebChromeClient() {
-
-    override fun onConsoleMessage(consoleMessage: ConsoleMessage): Boolean {
-        Log.d(
-            "HD5_DEBUG",
-            "JS: ${consoleMessage.message()} | Linha: ${consoleMessage.lineNumber()} | Origem: ${consoleMessage.sourceId()}"
-        )
-        return true
-    }
-}
+        web.webChromeClient = WebChromeClient()
 
         if (initialUrl.isNotBlank()) {
             lastMainUrl = initialUrl
