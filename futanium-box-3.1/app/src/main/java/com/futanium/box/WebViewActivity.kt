@@ -13,6 +13,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.util.Log
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.MotionEvent
@@ -41,6 +42,7 @@ import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
 import com.google.firebase.database.FirebaseDatabase
 import java.util.UUID
+
 
 class WebViewActivity : AppCompatActivity() {
 
@@ -1582,6 +1584,10 @@ class WebViewActivity : AppCompatActivity() {
 
         web = findViewById(R.id.web)
 
+				CookieManager.getInstance().setAcceptCookie(true)
+
+CookieManager.getInstance().setAcceptThirdPartyCookies(web, true)
+
         readTvChannels()
 
         web.setBackgroundColor(Color.BLACK)
@@ -2121,7 +2127,16 @@ class WebViewActivity : AppCompatActivity() {
             }
         }
 
-        web.webChromeClient = object : WebChromeClient() {}
+        web.webChromeClient = object : WebChromeClient() {
+
+    override fun onConsoleMessage(consoleMessage: ConsoleMessage): Boolean {
+        Log.d(
+            "HD5_DEBUG",
+            "JS: ${consoleMessage.message()} | Linha: ${consoleMessage.lineNumber()} | Origem: ${consoleMessage.sourceId()}"
+        )
+        return true
+    }
+}
 
         if (initialUrl.isNotBlank()) {
             lastMainUrl = initialUrl
