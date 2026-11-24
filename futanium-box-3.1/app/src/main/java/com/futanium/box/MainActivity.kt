@@ -992,80 +992,97 @@ override fun onChildViewDetachedFromWindow(view: View) {
     // VERIFICAR ATUALIZAÇÃO DO APP
     // =====================================================
 
-    private fun checkAppUpdateExternal(
-        metaUrl: String,
-        showNoUpdateToast: Boolean = false
-    ) {
+    
+private fun checkAppUpdateExternal(
+    metaUrl: String,
+    showNoUpdateToast: Boolean = false
+) {
+    runOnUiThread {
+        Toast.makeText(
+            this,
+            "Conectando ao servidor de atualização...",
+            Toast.LENGTH_LONG
+        ).show()
+    }
 
+    Thread {
+        try {
+            val updateClient = OkHttpClient.Builder()
+                .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .callTimeout(45, java.util.concurrent.TimeUnit.SECONDS)
+                .build()
 
+            val req = Request.Builder()
+                .url(metaUrl)
+                .header("Cache-Control", "no-cache")
+                .build()
 
+            updateClient.newCall(req).execute().use { res ->
 
-        Thread {
-
-            try {
-
-                val req = Request.Builder()
-                    .url(metaUrl)
-                    .build()
-
-                val res = OkHttpClient()
-                    .newCall(req)
-                    .execute()
+                if (!res.isSuccessful) {
+                    throw Exception("HTTP ${res.code}")
+                }
 
                 val body = res.body?.string().orEmpty()
 
-                if (body.isBlank()) return@Thread
+                if (body.isBlank()) {
+                    throw Exception("JSON vazio")
+                }
 
                 val obj = JSONObject(body)
 
                 val remoteCode = obj.optInt("versionCode", -1)
                 val apkUrl = obj.optString("apkUrl", "")
-
                 val title = obj.optString(
                     "title",
                     "Nova versão disponível"
                 )
-
                 val changelog = obj.optString("changelog", "")
 
-                
+                val installedCode = currentVersionCode()
 
-if (remoteCode > currentVersionCode()) {
+                runOnUiThread {
+                    Toast.makeText(
+                        this,
+                        "GitHub conectado! Versão: $remoteCode | Instalada: $installedCode",
+                        Toast.LENGTH_LONG
+                    ).show()
 
-                    runOnUiThread {
+                    if (remoteCode > installedCode && apkUrl.isNotBlank()) {
                         showUpdateAvailableDialog(
                             title,
                             changelog,
                             apkUrl
                         )
-                    }
-
-                } else if (showNoUpdateToast) {
-
-                    runOnUiThread {
+                    } else if (showNoUpdateToast) {
                         Toast.makeText(
                             this,
-                            "Você já está na última versão.",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
-                }
-
-            } catch (_: Exception) {
-
-                if (showNoUpdateToast) {
-                    runOnUiThread {
-                        Toast.makeText(
-                            this,
-                            "Falha ao checar atualização.",
-                            Toast.LENGTH_SHORT
+                            "Nenhuma atualização disponível.",
+                            Toast.LENGTH_LONG
                         ).show()
                     }
                 }
             }
 
-        }.start()
-    }
+        } catch (e: Exception) {
+            android.util.Log.e(
+                "APP_UPDATE",
+                "Erro ao consultar update.json",
+                e
+            )
+
+            runOnUiThread {
+                Toast.makeText(
+                    this,
+                    "Erro ao conectar: ${e.message}",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }.start()
+}
+
 
     private fun showUpdateAvailableDialog(
         title: String,
